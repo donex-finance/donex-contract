@@ -18,6 +18,8 @@ FALSE = 0
 
 TRANSACTION_VERSION = 0
 
+P = 2 ** 251 + 17 * (2 ** 192) + 1
+MAX_FELT_INT = 1809251394333065606848661391547535052811553607665798349986546028067936010240
 
 _root = Path(__file__).parent.parent
 
@@ -176,3 +178,9 @@ class TestSigner():
 
         (call_array, calldata, sig_r, sig_s) = self.signer.sign_transaction(hex(account.contract_address), build_calls, nonce, max_fee)
         return await account.__execute__(call_array, calldata, nonce).invoke(signature=[sig_r, sig_s])
+
+
+def get_right_num_from_cairo(num):
+    if num > MAX_FELT_INT:
+        return -1 * (P - num)
+    return num

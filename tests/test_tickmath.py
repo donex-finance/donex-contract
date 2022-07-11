@@ -9,7 +9,8 @@ from inspect import signature
 from starkware.starknet.testing.starknet import Starknet
 from utils import (
     MAX_UINT256, assert_revert, add_uint, sub_uint,
-    mul_uint, div_rem_uint, to_uint, contract_path
+    mul_uint, div_rem_uint, to_uint, contract_path,
+    get_right_num_from_cairo
 )
 
 # The path to the contract source code.
@@ -21,8 +22,7 @@ MAX_TICK = -MIN_TICK
 
 MIN_SQRT_RATIO = 4295128739
 # @dev The maximum value that can be returned from #get_sqrt_ratio_at_tick. Equivalent to get_sqrt_ratio_at_tick(MAX_TICK)
-# TODO: in ether, this value is 1461446703485210103287273052203988822378723970342
-MAX_SQRT_RATIO_LOW = 1461446703485210103287273052203988822378723970342
+MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342
 
 class CairoContractTest(TestCase):
     @classmethod
@@ -40,17 +40,6 @@ class CairoContractTest(TestCase):
 
         cls.contract = await cls.starknet.deploy(**kwargs)
 
-    #@pytest.mark.asyncio
-    #async def test_mock_contract(self):
-    #    a = to_uint(79224201403219477170569942574)
-    #    res = await self.contract.get_sqrt_ratio_at_tick(-1).call()
-    #    print(res.call_info.result, a)
-    #    self.assertEqual(
-    #        tuple(res.call_info.result),
-    #        a,
-    #        "test wrong"
-    #    )
-
     @pytest.mark.asyncio
     async def test_get_sqrt_ratio_at_tick(self):
         await assert_revert(
@@ -65,61 +54,81 @@ class CairoContractTest(TestCase):
 
         res = await self.contract.get_sqrt_ratio_at_tick(MIN_TICK).call()
         self.assertEqual(
-            tuple(res.call_info.result),
-            to_uint(4295128739),
+            res.call_info.result[0],
+            4295128739,
             "MIN_TICK error"
         )
 
         res = await self.contract.get_sqrt_ratio_at_tick(MIN_TICK + 1).call()
         self.assertEqual(
-            tuple(res.call_info.result),
-            to_uint(4295343490),
+            res.call_info.result[0],
+            4295343490,
             "MIN_TICK + 1 error"
         )
 
         res = await self.contract.get_sqrt_ratio_at_tick(MAX_TICK - 1).call()
         self.assertEqual(
-            tuple(res.call_info.result),
-            to_uint(1461373636630004318706518188784493106690254656249),
+            res.call_info.result[0],
+            1461373636630004318706518188784493106690254656249,
             "MAX_TICK - 1 error"
         )
 
         res = await self.contract.get_sqrt_ratio_at_tick(MAX_TICK - 1).call()
         self.assertEqual(
-            tuple(res.call_info.result),
-            to_uint(1461373636630004318706518188784493106690254656249),
+            res.call_info.result[0],
+            1461373636630004318706518188784493106690254656249,
             "MAX_TICK - 1 error"
         )
 
         res = await self.contract.get_sqrt_ratio_at_tick(MAX_TICK).call()
         self.assertEqual(
-            tuple(res.call_info.result),
-            to_uint(1461446703485210103287273052203988822378723970342),
+            res.call_info.result[0],
+            1461446703485210103287273052203988822378723970342,
             "MAX_TICK error"
         )
 
-        ticks = [
-            50,
-            100,
-            250,
-            500,
-            1_000,
-            2_500,
-            3_000,
-            4_000,
-            5_000,
-            50_000,
-            150_000,
-            250_000,
-            500_000,
-            738_203,
-        ]
-        for tick in ticks:
-            for t in [-tick, tick]:
-                res = await self.contract.get_sqrt_ratio_at_tick(t).call()
-                print(t, res.call_info.result)
+        #ticks = [
+        #    50,
+        #    100,
+        #    250,
+        #    500,
+        #    1_000,
+        #    2_500,
+        #    3_000,
+        #    4_000,
+        #    5_000,
+        #    50_000,
+        #    150_000,
+        #    250_000,
+        #    500_000,
+        #    738_203,
+        #]
+        #for tick in ticks:
+        #    for t in [-tick, tick]:
+        #        res = await self.contract.get_sqrt_ratio_at_tick(t).call()
+        #        print(t, res.call_info.result)
                 #self.assertEqual(
                 #    tuple(res.call_info.result),
                 #    to_uint(1461446703485210103287273052203988822378723970342),
                 #    "MAX_TICK error"
                 #)
+
+    @pytest.mark.asyncio
+    async def test_get_tick_at_sqrt_price(self):
+        await assert_revert(
+            self.contract.get_tick_at_sqrt_ratio(MIN_SQRT_RATIO - 1).call(),
+            "tick is too low"
+        )
+
+        await assert_revert(
+            self.contract.get_tick_at_sqrt_ratio(MAX_SQRT_RATIO).call(),
+            "tick is too high"
+        )
+
+        res = await self.contract.get_tick_at_sqrt_ratio(MIN_SQRT_RATIO).call()
+        return_res = get_right_num_from_cairo(res.call_info.result[0])
+        self.assertEqual(
+            return_res,
+            MIN_TICK,
+            "MIN_SQRT_RATIO error"
+        )
