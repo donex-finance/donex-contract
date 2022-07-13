@@ -1,15 +1,14 @@
 %lang starknet
 
-from starkware.cairo.common.uint256 import (Uint256, uint256_mul, uint256_shr, uint256_lt, uint256_le, uint256_add, uint256_unsigned_div_rem)
+from starkware.cairo.common.uint256 import (Uint256, uint256_mul, uint256_shr, uint256_shl, uint256_lt, uint256_le, uint256_add, uint256_unsigned_div_rem, uint256_signed_div_rem, uint256_or, uint256_sub, uint256_and, uint256_eq)
 from starkware.cairo.common.bitwise import (bitwise_and, bitwise_or)
 from starkware.cairo.common.math import abs_value
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
+from starkware.cairo.common.math_cmp import (is_nn, is_le)
 
 from contracts.math_utils import Utils
 
 namespace TickMath:
-
-    const MAX_INT = 1809251394333065606848661391547535052811553607665798349986546028067936010240
 
     # @dev The minimum tick that may be passed to #get_sqrt_ratio_at_tick computed from log base 1.0001 of 2**-128
     const MIN_TICK = -887272
@@ -19,7 +18,8 @@ namespace TickMath:
     # @dev The minimum value that can be returned from #get_sqrt_ratio_at_tick. Equivalent to get_sqrt_ratio_at_tick(MIN_TICK)
     const MIN_SQRT_RATIO = 4295128739
     # @dev The maximum value that can be returned from #get_sqrt_ratio_at_tick. Equivalent to get_sqrt_ratio_at_tick(MAX_TICK)
-    const MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342
+    const MAX_SQRT_RATIO_LOW = 0xefd1fc6a506488495d951d5263988d26
+    const MAX_SQRT_RATIO_HIGH = 0xfffd8963
 
     const TWO127 = 0x80000000000000000000000000000000
     const TWO128_1 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -98,7 +98,7 @@ namespace TickMath:
         }(ratio: Uint256, abs_tick: felt, bit: felt) -> (res: Uint256):
         alloc_locals
         # check if bit > 0x80000
-        let (is_valid) = Utils.is_nn(0x80000 - bit)
+        let (is_valid) = is_nn(0x80000 - bit)
         if is_valid == 0:
             return (ratio)
         end
@@ -135,20 +135,20 @@ namespace TickMath:
     func get_sqrt_ratio_at_tick{
             range_check_ptr,
             bitwise_ptr: BitwiseBuiltin*
-        }(tick: felt) -> (price: felt): 
+        }(tick: felt) -> (price: Uint256): 
 
         alloc_locals
 
         let (abs_tick) = abs_value(tick)
 
-        let (is_valid) = Utils.is_le(abs_tick, MAX_TICK)
+        let (is_valid) = is_le(abs_tick, MAX_TICK)
         with_attr error_message("TickMath: abs_tick is too large"):
             assert is_valid = 1
         end
 
-        let (local ratio: Uint256) = get_sqrt_ratio_at_tick_abs(abs_tick)
+        let (ratio: Uint256) = get_sqrt_ratio_at_tick_abs(abs_tick)
 
-        let (is_valid) = Utils.is_nn(tick)
+        let (is_valid) = is_nn(tick)
         if is_valid == 1:
             let (tmp: Uint256, _) = uint256_unsigned_div_rem(Uint256(0xffffffffffffffffffffffffffffffff, 0xffffffffffffffffffffffffffffffff), ratio)
             tempvar ratio2 = tmp
@@ -165,337 +165,216 @@ namespace TickMath:
         let (a, r) = uint256_unsigned_div_rem(ratio2, Uint256(2**32, 0))
         let (is_valid) = uint256_lt(Uint256(0, 0), r)
         if is_valid == 1:
-            let price = a.low + 1 + a.high  * (2 ** 128)
+            let (price: Uint256, _)= uint256_add(a, Uint256(1, 0))
             return (price)
         end
-        let price = a.low + a.high * (2 ** 128)
-        return (price)
+        return (a)
     end
 
-    #func mostSignificantBit{
-    #        range_check_ptr
-    #    }(num: felt) -> (r: felt):
-    #    alloc_locals
+    func most_significant_bit_2{
+        range_check_ptr
+    }(x: Uint256, r: felt, mask: Uint256, bit: felt) -> (new_x: Uint256, new_r: felt):
+        let (is_valid) = uint256_le(mask, x)
+        tempvar range_check_ptr = range_check_ptr
+        if is_valid == 1:
+            let (new_x: Uint256) = uint256_shr(x, Uint256(bit, 0))
+            let new_r = r + bit
+            return (new_x, new_r)
+        end
+        return (x, r)
+    end
 
-    #    let (is_valid) = Utils.is_gt(num, 0)
-    #    assert is_valid = 1
-
-    #    tempvar x = num
-    #    tempvar r = 0
-
-    #    let (is_valid) = Utils.is_ge(x, 0x100000000000000000000000000000000)
-    #    tempvar range_check_ptr = range_check_ptr
-    #    if is_valid == 1:
-    #        %{ ids.x = ids.x >> 128 %}
-    #        tempvar r = r + 128
-    #        tempvar range_check_ptr = range_check_ptr
-    #    end
-
-    #    tempvar r2 = r
-    #    let (is_valid) = Utils.is_ge(x, 0x10000000000000000)
-    #    #tempvar range_check_ptr = range_check_ptr
-    #    if is_valid == 1:
-    #        %{ ids.x = ids.x >> 64 %}
-    #        tempvar range_check_ptr = range_check_ptr
-    #        tempvar r2 = r + 64
-    #        #tempvar range_check_ptr = range_check_ptr
-    #    end
-
-    #    let (is_valid) = Utils.is_ge(x, 0x100000000)
-    #    tempvar range_check_ptr = range_check_ptr
-    #    if is_valid == 1:
-    #        %{ ids.x = ids.x >> 32 %}
-    #        tempvar r = r + 32
-    #        tempvar range_check_ptr = range_check_ptr
-    #    end
-
-    #    let (is_valid) = Utils.is_ge(x, 0x10000)
-    #    tempvar range_check_ptr = range_check_ptr
-    #    if is_valid == 1:
-    #        %{ ids.x = ids.x >> 16 %}
-    #        tempvar r = r + 16
-    #        tempvar range_check_ptr = range_check_ptr
-    #    end
-
-    #    let (is_valid) = Utils.is_ge(x, 0x100)
-    #    tempvar range_check_ptr = range_check_ptr
-    #    if is_valid == 1:
-    #        %{ ids.x = ids.x >> 8 %}
-    #        tempvar r = r + 8
-    #        tempvar range_check_ptr = range_check_ptr
-    #    end
-
-    #    let (is_valid) = Utils.is_ge(x, 0x10)
-    #    tempvar range_check_ptr = range_check_ptr
-    #    if is_valid == 1:
-    #        %{ ids.x = ids.x >> 4 %}
-    #        tempvar r = r + 4
-    #        tempvar range_check_ptr = range_check_ptr
-    #    end
-
-    #    let (is_valid) = Utils.is_ge(x, 0x4)
-    #    tempvar range_check_ptr = range_check_ptr
-    #    if is_valid == 1:
-    #        %{ ids.x = ids.x >> 2 %}
-    #        tempvar r = r + 2
-    #        tempvar range_check_ptr = range_check_ptr
-    #    end
-
-    #    let (is_valid) = Utils.is_ge(x, 0x2)
-    #    tempvar range_check_ptr = range_check_ptr
-    #    if is_valid == 1:
-    #        tempvar r = r + 1
-    #        tempvar range_check_ptr = range_check_ptr
-    #    end
-
-    #    return (r)
-    #end
-
-    func mostSignificantBit{
+    func most_significant_bit{
             range_check_ptr
-        }(num: felt) -> (r: felt):
+        }(num: Uint256) -> (r: felt):
         alloc_locals
 
-        let (is_valid) = Utils.is_gt(num, 0)
-        assert is_valid = 1
+        let (x: Uint256, r) = most_significant_bit_2(num, 0, Uint256(0, 1), 128)
 
-        local x
-        local r
+        let (x: Uint256, r) = most_significant_bit_2(x, r, Uint256(0x10000000000000000, 0), 64)
 
-        %{
-            tx = ids.num
-            tr = 0
-            if tx >= 0x100000000000000000000000000000000:
-                tx >>= 128
-                tr += 128
+        let (x: Uint256, r) = most_significant_bit_2(x, r, Uint256(0x100000000, 0), 32)
 
-            if tx >= 0x10000000000000000:
-                tx >>= 64
-                tr += 64
+        let (x: Uint256, r) = most_significant_bit_2(x, r, Uint256(0x10000, 0), 16)
 
-            if tx >= 0x100000000:
-                tx >>= 32
-                tr += 32
+        let (x: Uint256, r) = most_significant_bit_2(x, r, Uint256(0x100, 0), 8)
 
-            if tx >= 0x10000:
-                tx >>= 16
-                tr += 16
+        let (x: Uint256, r) = most_significant_bit_2(x, r, Uint256(0x10, 0), 4)
 
-            if tx >= 0x100:
-                tx >>= 8
-                tr += 8
+        let (x: Uint256, r) = most_significant_bit_2(x, r, Uint256(0x4, 0), 2)
 
-            if tx >= 0x10:
-                tx >>= 4
-                tr += 4
 
-            if tx >= 0x4:
-                tx >>= 2
-                tr += 2
-
-            if tx >= 0x2:
-                tr += 1
-
-            ids.x = tx
-            ids.r = tr
-        %}
+        let (is_valid) = uint256_le(Uint256(0x2, 0), x)
+        tempvar range_check_ptr = range_check_ptr
+        if is_valid == 1:
+            let r = r + 1
+            return (r)
+        end
 
         return (r)
+    end
+
+    func uint256_mul_div{
+        range_check_ptr
+        }(a: Uint256, b: Uint256, c: Uint256) -> (res: Uint256):
+        alloc_locals
+
+        let (low: Uint256, high: Uint256) = uint256_mul(a, b)
+
+        # check if high < c
+        #let (is_valid) = uint256_lt(high, c)
+        #with_attr error_message("a * b / c is over 2 ^ 256"):
+        #    assert is_valid = 1
+        #end
+
+        let (res1: Uint256, _) = uint256_signed_div_rem(low, c)
+
+        # if high == 0
+        let (is_valid) = uint256_eq(Uint256(0, 0), high)
+        if is_valid == 1:
+            return (res1)
+        end
+
+        #TODO:
+        # compute high * 2 ^ 256 / c
+        return (res1)
+    end
+
+    func uint256_mul_div2{
+        range_check_ptr
+        }(a: Uint256, b: Uint256, c: Uint256, add: Uint256) -> (res: Uint256):
+
+        #TODO: condsider the overflow
+        let (res: Uint256, res2: Uint256) = uint256_mul(a, b)
+        let (res3: Uint256, _) = uint256_add(res, add)
+        let (res4: Uint256, _) = uint256_signed_div_rem(res3, c)
+
+        return (res4)
     end
 
     func _log_2_recur{
         range_check_ptr,
         bitwise_ptr: BitwiseBuiltin*
-        }(bit: felt, x: felt, index: felt, result: felt) -> (res: felt):
+        }(mask: Uint256, x: Uint256, result: Uint256, index: felt) -> (res: Uint256):
         alloc_locals
+
+        local range_check_ptr = range_check_ptr
+        local bitwise_ptr: BitwiseBuiltin* = bitwise_ptr
 
         let (is_valid) = Utils.is_lt(index, 128)
         if is_valid == 0:
             return (result)
         end
 
-        tempvar nx = 0
-        %{ ids.nx = (x << 1) + ((x * x + ids.TWO127) >> 128) %}
-        let (is_valid) = Utils.is_gt(x, TWO128_1)
+        let (t1: Uint256) = uint256_shl(x, Uint256(1, 0))
+        let (t2: Uint256) = uint256_mul_div2(x, x, Uint256(0, 1), Uint256(TWO127, 0))
 
-        local new_res = result
+        let (x2: Uint256, _) = uint256_add(t1, t2)
+
+        let (mask2: Uint256) = uint256_shr(mask, Uint256(1, 0))
+
+        let (is_valid) = uint256_lt(Uint256(TWO128_1, 0), x2)
         if is_valid == 1:
-            let (new_res2) = bitwise_or(result, bit)
-            local new_res = new_res2
-            tempvar range_check_ptr = range_check_ptr
-            tempvar bitwise_ptr: BitwiseBuiltin* = bitwise_ptr
-            %{ ids.nx = (ids.nx >> 1) - TWO127 %}
-            let (is_valid) = Utils.is_gt(x, 0)
-            if is_valid == 1:
-                return (new_res)
-            end
-        end
-        tempvar new_bit = bit
-        %{ ids.new_bit = bit >> 1 %}
+            let (result2: Uint256) = uint256_or(result, mask)
+            let (t: Uint256, _) = uint256_signed_div_rem(x, Uint256(2, 0))
+            let (x3: Uint256) = uint256_sub(t, Uint256(TWO127, 0))
 
-        let (res) = _log_2_recur(new_bit, nx, index + 1, new_res)
-        return (res)
-    end
-
-    func get_right_num_from_hint{
-        range_check_ptr
-    }(is_minus: felt, num: felt) -> (res: felt):
-        if is_minus == 1:
-            let res = num * -1
+            let (res) = _log_2_recur(mask2, x3, result2, index + 1)
             return (res)
         end
-        return (num)
+
+        let (res) = _log_2_recur(mask2, x2, result, index + 1)
+        return (res)
     end
 
     # num is Q128.96
     func log_2{
         range_check_ptr,
         bitwise_ptr: BitwiseBuiltin*
-        }(num: felt) -> (res: felt, is_minus: felt):
+        }(num: Uint256) -> (res: Uint256):
         alloc_locals
 
-        let (is_valid) = Utils.is_gt(num, 0)
+        let (is_valid) = uint256_lt(Uint256(0, 0), num)
         assert is_valid = 1
 
-        let (local msb) = mostSignificantBit(num)
+        let (local msb) = most_significant_bit(num)
+        %{ print(f"{ids.msb=}")%}
 
-        local x
+        #local x: Uint256
 
         # check if msb > 128
         let (is_minus) = Utils.is_lt(msb, 128)
-        if is_valid == 0:
-            %{ 
-                ids.x = ids.num >> (ids.msb - 128) 
-            %}
+        if is_minus == 0:
+            let (x: Uint256) = uint256_shr(num, Uint256(msb - 128, 0))
             tempvar range_check_ptr = range_check_ptr
         else: 
-            %{ 
-                ids.x = ids.num << (128 - ids.msb) 
-            %}
+            let (x: Uint256) = uint256_shl(num, Uint256(128 - msb, 0))
             tempvar range_check_ptr = range_check_ptr
         end
 
-        let (local x2) = bitwise_and(x, TWO128_1)
+        let (x: Uint256) = uint256_and(x, Uint256(TWO128_1, 0))
 
-        local res2
-        %{ 
-            res = (ids.msb - 128) << 128 
-            if (res < 0):
-                P = 2 ** 251 + 17 * (2 ** 192) + 1
-                res = P - res
-            # TODO: if res < 0, ids.res2 only got the abs(res), why?
-            ids.res2 = res
-        %}
+        let (result: Uint256) = uint256_sub(Uint256(msb, 0), Uint256(128, 0))
+        let (result: Uint256) = uint256_shl(result, Uint256(128, 0))
 
-        let (res3) = get_right_num_from_hint(is_minus, res2)
 
-        #let (res4) = _log_2_recur(TWO127, x, res2)
-        local res4
-        %{        
-            bit = ids.TWO127
-            x = ids.x2
-            res = ids.res3
-            P = 2 ** 251 + 17 * (2 ** 192) + 1
-            if ids.is_minus == 1:
-                res = -1 * (P - res)
-            for i in range(128):
-                x = (x << 1) + ((x * x + ids.TWO127) >> 128)
-                if x > ids.TWO128_1:
-                    res |= bit
-                    x = (x >> 1) - ids.TWO127
-                bit = bit >> 1
-                #print('log_2:', i, x, bit, res)
-                if x <= 0:
-                    break
-            if res < 0:
-                res = P - res
-            ids.res4 = res
-        %}
+        %{ print(f"{ids.x.low=}, {ids.x.high=}, {ids.result.low=}, {ids.result.high=}") %}
+        let (result: Uint256) = _log_2_recur(Uint256(TWO127, 0), x, result, 0)
 
-        let (res5) = get_right_num_from_hint(is_minus, res4)
-        return (res5, is_minus)
+        return (result)
     end
 
     # sqrt_price_x96 is Q64.96
     func get_tick_at_sqrt_ratio{
         range_check_ptr,
         bitwise_ptr: BitwiseBuiltin*
-        }(sqrt_price_x96: felt) -> (res: felt):
+        }(sqrt_price_x96: Uint256) -> (res: felt):
         alloc_locals
 
-        let (is_valid) = Utils.is_le(MIN_SQRT_RATIO, sqrt_price_x96)
+        local range_check_ptr = range_check_ptr
+
+        let (is_valid) = uint256_le(Uint256(MIN_SQRT_RATIO, 0), sqrt_price_x96)
         with_attr error_message("tick is too low"):
             assert is_valid = 1
         end
 
-        let (is_valid) = Utils.is_gt(MAX_SQRT_RATIO, sqrt_price_x96)
+        let (is_valid) = uint256_lt(sqrt_price_x96, Uint256(MAX_SQRT_RATIO_LOW, MAX_SQRT_RATIO_HIGH))
         with_attr error_message("tick is too high"):
             assert is_valid = 1
         end
 
         # change uint160 to uint192, to raise precision        
-        let ratio = sqrt_price_x96 * (2 ** 32)
+        let (ratio: Uint256) = uint256_shl(sqrt_price_x96, Uint256(32, 0))
 
-        let (log2_ratio, is_minus) = log_2(ratio)
-        tempvar range_check_ptr = range_check_ptr
-        tempvar bitwise_ptr: BitwiseBuiltin* = bitwise_ptr
+        let (log2_ratio: Uint256) = log_2(ratio)
+        %{ print(f"{ids.log2_ratio.low=}, {ids.log2_ratio.high=}")%}
 
-        local log_sqrt10001
-        # TODO: precision in python
-        %{ 
-            log2_ratio = ids.log2_ratio
-            P = 2 ** 251 + 17 * (2 ** 192) + 1
-            if ids.is_minus == 1:
-                log2_ratio = -1 * (P - log2_ratio)
-            log_sqrt10001 = (log2_ratio * 255738958999603826347141 >> 64) 
-            if log_sqrt10001 < 0:
-                log_sqrt10001 = P - log_sqrt10001
-            ids.log_sqrt10001 = log_sqrt10001
-        %}
+        let (log_sqrt10001: Uint256) = uint256_mul_div(log2_ratio, Uint256(255738958999603826347141, 0), Uint256(2 ** 64, 0))
+        %{ print(f"{ids.log_sqrt10001.low=} {ids.log_sqrt10001.high=}")%}
 
-        let (log_sqrt10001_correction) = get_right_num_from_hint(is_minus, log_sqrt10001)
+        let (t1: Uint256) = uint256_sub(log_sqrt10001, Uint256(0x28f6481ab7f045a5af012a19d003aaa, 0))
 
-        local tick_low
-        local tick_high
-        %{ 
-            P = 2 ** 251 + 17 * (2 ** 192) + 1
-            log_sqrt10001_correction = ids.log_sqrt10001_correction
-            if ids.is_minus == 1:
-                log_sqrt10001_correction = -1 * (P - log_sqrt10001_correction)
+        let (tick_low: Uint256, _) = uint256_signed_div_rem(t1, Uint256(0, 1))
+        %{ print(f"{ids.tick_low.low=} {ids.tick_low.high=}")%}
 
-            tick_low = (log_sqrt10001_correction - 3402992956809132418596140100660247210) >> 128 
-            if tick_low < 0:
-                tick_low = P - tick_low
-            ids.tick_low = tick_low
+        let (t2: Uint256, _) = uint256_add(log_sqrt10001, Uint256(0xdb2df09e81959a81455e260799a0632f, 0))
+        let (tick_high: Uint256, _) = uint256_signed_div_rem(t2, Uint256(0, 1))
+        %{ print(f"{ids.tick_high.low=} {ids.tick_high.high=}")%}
 
-            tick_high = (log_sqrt10001_correction + 291339464771989622907027621153398088495) >> 128 
-            if tick_high < 0:
-                tick_high = P - tick_high
-            ids.tick_high = tick_high
-        %}
+        # TODO: consider the sign
+        let tl = tick_low.low
+        let th = tick_high.low
 
-        let (local tick_low_correction) = get_right_num_from_hint(is_minus, tick_low)
-        let (local tick_high_correction) = get_right_num_from_hint(is_minus, tick_high)
-
-
-        if tick_low_correction != tick_high_correction:
-            let (price) = get_sqrt_ratio_at_tick(tick_high_correction)
-            tempvar range_check_ptr = range_check_ptr
-            tempvar bitwise_ptr: BitwiseBuiltin* = bitwise_ptr
-            let (is_valid) = Utils.is_le(price, sqrt_price_x96)
-            tempvar range_check_ptr = range_check_ptr
-            tempvar bitwise_ptr: BitwiseBuiltin* = bitwise_ptr
+        let (is_valid) = uint256_eq(tick_low, tick_high)
+        if is_valid == 0:
+            let (res: Uint256) = get_sqrt_ratio_at_tick(tick_high.low)
+            let (is_valid) = uint256_le(res, sqrt_price_x96)
             if is_valid == 1:
-                return (tick_high_correction)
-            else:
-                tempvar range_check_ptr = range_check_ptr
-                tempvar bitwise_ptr: BitwiseBuiltin* = bitwise_ptr
+                return (th)
             end
-        else:
-            tempvar range_check_ptr = range_check_ptr
-            tempvar bitwise_ptr: BitwiseBuiltin* = bitwise_ptr
+            return (tl)
         end
 
-        return (tick_low_correction)
+        return (tl)
     end
 end
