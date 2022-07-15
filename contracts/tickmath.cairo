@@ -1,6 +1,6 @@
 %lang starknet
 
-from starkware.cairo.common.uint256 import (Uint256, uint256_mul, uint256_shr, uint256_shl, uint256_lt, uint256_le, uint256_add, uint256_unsigned_div_rem, uint256_signed_div_rem, uint256_or, uint256_sub, uint256_and, uint256_eq)
+from starkware.cairo.common.uint256 import (Uint256, uint256_mul, uint256_shr, uint256_shl, uint256_lt, uint256_le, uint256_add, uint256_unsigned_div_rem, uint256_signed_div_rem, uint256_or, uint256_sub, uint256_and, uint256_eq, uint256_signed_lt, uint256_neg, uint256_signed_nn)
 from starkware.cairo.common.bitwise import (bitwise_and, bitwise_or)
 from starkware.cairo.common.math import abs_value
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
@@ -214,117 +214,51 @@ namespace TickMath:
         return (r)
     end
 
-    func uint256_mul_div{
-        range_check_ptr
-        }(a: Uint256, b: Uint256, c: Uint256) -> (res: Uint256):
+    # r is always > 0
+    func log_step{
+        range_check_ptr,
+        bitwise_ptr: BitwiseBuiltin *
+        } (r_in: Uint256, log_2_in: Uint256, shf_bit: felt) -> (r: Uint256, log_2: Uint256):
+
         alloc_locals
 
-        let (low: Uint256, high: Uint256) = uint256_mul(a, b)
-
-        # check if high < c
-        #let (is_valid) = uint256_lt(high, c)
-        #with_attr error_message("a * b / c is over 2 ^ 256"):
-        #    assert is_valid = 1
-        #end
-
-        let (res1: Uint256, _) = uint256_signed_div_rem(low, c)
-
-        # if high == 0
-        let (is_valid) = uint256_eq(Uint256(0, 0), high)
+        let (is_valid) = Utils.is_lt(shf_bit, 50)
         if is_valid == 1:
-            return (res1)
+            return (r_in, log_2_in)
         end
 
-        #TODO:
-        # compute high * 2 ^ 256 / c
-        return (res1)
-    end
+        let (low: Uint256, high: Uint256) = uint256_mul(r_in, r_in)
 
-    func uint256_mul_div2{
-        range_check_ptr
-        }(a: Uint256, b: Uint256, c: Uint256, add: Uint256) -> (res: Uint256):
+        let (r1: Uint256) = uint256_shr(low, Uint256(127, 0))
 
-        #TODO: condsider the overflow
-        let (res: Uint256, res2: Uint256) = uint256_mul(a, b)
-        let (res3: Uint256, _) = uint256_add(res, add)
-        let (res4: Uint256, _) = uint256_signed_div_rem(res3, c)
-
-        return (res4)
-    end
-
-    func _log_2_recur{
-        range_check_ptr,
-        bitwise_ptr: BitwiseBuiltin*
-        }(mask: Uint256, x: Uint256, result: Uint256, index: felt) -> (res: Uint256):
-        alloc_locals
-
-        local range_check_ptr = range_check_ptr
-        local bitwise_ptr: BitwiseBuiltin* = bitwise_ptr
-
-        let (is_valid) = Utils.is_lt(index, 128)
+        local r: Uint256
+        let (is_valid) = uint256_eq(high, Uint256(0, 0))
         if is_valid == 0:
-            return (result)
-        end
+            let (is_valid) = uint256_lt(high, Uint256(2 ** 127, 0))
+            with_attr error_message("log_step overflow"):
+                assert is_valid = 1
+            end
 
-        let (t1: Uint256) = uint256_shl(x, Uint256(1, 0))
-        let (t2: Uint256) = uint256_mul_div2(x, x, Uint256(0, 1), Uint256(TWO127, 0))
-
-        let (x2: Uint256, _) = uint256_add(t1, t2)
-
-        let (mask2: Uint256) = uint256_shr(mask, Uint256(1, 0))
-
-        let (is_valid) = uint256_lt(Uint256(TWO128_1, 0), x2)
-        if is_valid == 1:
-            let (result2: Uint256) = uint256_or(result, mask)
-            let (t: Uint256, _) = uint256_signed_div_rem(x, Uint256(2, 0))
-            let (x3: Uint256) = uint256_sub(t, Uint256(TWO127, 0))
-
-            let (res) = _log_2_recur(mask2, x3, result2, index + 1)
-            return (res)
-        end
-
-        let (res) = _log_2_recur(mask2, x2, result, index + 1)
-        return (res)
-    end
-
-    # num is Q128.96
-    func log_2{
-        range_check_ptr,
-        bitwise_ptr: BitwiseBuiltin*
-        }(num: Uint256) -> (res: Uint256):
-        alloc_locals
-
-        let (is_valid) = uint256_lt(Uint256(0, 0), num)
-        assert is_valid = 1
-
-        let (local msb) = most_significant_bit(num)
-        %{ print(f"{ids.msb=}")%}
-
-        #local x: Uint256
-
-        # check if msb > 128
-        let (is_minus) = Utils.is_lt(msb, 128)
-        if is_minus == 0:
-            let (x: Uint256) = uint256_shr(num, Uint256(msb - 128, 0))
+            let (tmp: Uint256) = uint256_shl(high, Uint256(129, 0))
+            let (tmp: Uint256, _) = uint256_add(r1, tmp)
+            r.low = tmp.low
+            r.high = tmp.high
             tempvar range_check_ptr = range_check_ptr
-        else: 
-            let (x: Uint256) = uint256_shl(num, Uint256(128 - msb, 0))
+        else:
+            r.low = r1.low
+            r.high = r1.high
             tempvar range_check_ptr = range_check_ptr
         end
 
-        let (x: Uint256) = uint256_and(x, Uint256(TWO128_1, 0))
+        let (f: Uint256) = uint256_shr(r, Uint256(128, 0))
+        let (tmp: Uint256) = uint256_shl(f, Uint256(shf_bit, 0))
+        let (log_2: Uint256) = uint256_or(log_2_in, tmp)
+        let (r: Uint256) = uint256_shr(r, f)
 
-        let (result: Uint256) = uint256_sub(Uint256(msb, 0), Uint256(128, 0))
-        let (result: Uint256) = uint256_shl(result, Uint256(128, 0))
-
-
-        %{ print(f"{ids.x.low=}, {ids.x.high=}, {ids.result.low=}, {ids.result.high=}") %}
-        let (result: Uint256) = _log_2_recur(Uint256(TWO127, 0), x, result, 0)
-
-        return (result)
+        let (new_r: Uint256, new_log_2: Uint256) = log_step(r, log_2, shf_bit - 1)
+        return (new_r, new_log_2)
     end
 
-    # sqrt_price_x96 is Q64.96
     func get_tick_at_sqrt_ratio{
         range_check_ptr,
         bitwise_ptr: BitwiseBuiltin*
@@ -346,28 +280,57 @@ namespace TickMath:
         # change uint160 to uint192, to raise precision        
         let (ratio: Uint256) = uint256_shl(sqrt_price_x96, Uint256(32, 0))
 
-        let (log2_ratio: Uint256) = log_2(ratio)
-        %{ print(f"{ids.log2_ratio.low=}, {ids.log2_ratio.high=}")%}
+        let (msb) = most_significant_bit(ratio)
+        let (is_minus) = Utils.is_lt(msb, 128)
+        if is_minus == 0:
+            let (r: Uint256) = uint256_shr(ratio, Uint256(msb - 127, 0))
+            tempvar range_check_ptr = range_check_ptr
+        else: 
+            let (r: Uint256) = uint256_shl(ratio, Uint256(127 - msb, 0))
+            tempvar range_check_ptr = range_check_ptr
+        end
 
-        let (log_sqrt10001: Uint256) = uint256_mul_div(log2_ratio, Uint256(255738958999603826347141, 0), Uint256(2 ** 64, 0))
-        %{ print(f"{ids.log_sqrt10001.low=} {ids.log_sqrt10001.high=}")%}
+        let (tmp: Uint256) = uint256_sub(Uint256(msb, 0), Uint256(128, 0))
+        let (log_2: Uint256, _) = uint256_mul(tmp, Uint256(2 ** 64, 0))
+
+        let (r: Uint256, log_2: Uint256) = log_step(r, log_2, 63)
+
+        let (log_sqrt10001: Uint256, _) = uint256_mul(log_2, Uint256(255738958999603826347141, 0))
 
         let (t1: Uint256) = uint256_sub(log_sqrt10001, Uint256(0x28f6481ab7f045a5af012a19d003aaa, 0))
 
         let (tick_low: Uint256, _) = uint256_signed_div_rem(t1, Uint256(0, 1))
-        %{ print(f"{ids.tick_low.low=} {ids.tick_low.high=}")%}
 
         let (t2: Uint256, _) = uint256_add(log_sqrt10001, Uint256(0xdb2df09e81959a81455e260799a0632f, 0))
         let (tick_high: Uint256, _) = uint256_signed_div_rem(t2, Uint256(0, 1))
-        %{ print(f"{ids.tick_high.low=} {ids.tick_high.high=}")%}
 
-        # TODO: consider the sign
-        let tl = tick_low.low
-        let th = tick_high.low
+        local tl
+        let (not_negtive) = uint256_signed_nn(tick_low)
+        if not_negtive == 0:
+            let (res: Uint256) = uint256_neg(tick_low)
+            tempvar res2 = -1 * res.low
+            tl = res2
+            tempvar range_check_ptr = range_check_ptr
+        else:
+            tl = tick_low.low
+            tempvar range_check_ptr = range_check_ptr
+        end
+
+        local th
+        let (not_negtive) = uint256_signed_nn(tick_high)
+        if not_negtive == 0:
+            let (res: Uint256) = uint256_neg(tick_high)
+            tempvar res2 = -1 * res.low
+            th = res2
+            tempvar range_check_ptr = range_check_ptr
+        else:
+            th = tick_high.low
+            tempvar range_check_ptr = range_check_ptr
+        end
 
         let (is_valid) = uint256_eq(tick_low, tick_high)
         if is_valid == 0:
-            let (res: Uint256) = get_sqrt_ratio_at_tick(tick_high.low)
+            let (res: Uint256) = get_sqrt_ratio_at_tick(th)
             let (is_valid) = uint256_le(res, sqrt_price_x96)
             if is_valid == 1:
                 return (th)
@@ -376,5 +339,88 @@ namespace TickMath:
         end
 
         return (tl)
+
     end
+
+    # sqrt_price_x96 is Q64.96
+    #func get_tick_at_sqrt_ratio{
+    #    range_check_ptr,
+    #    bitwise_ptr: BitwiseBuiltin*
+    #    }(sqrt_price_x96: Uint256) -> (res: felt):
+    #    alloc_locals
+
+    #    local range_check_ptr = range_check_ptr
+
+    #    let (is_valid) = uint256_le(Uint256(MIN_SQRT_RATIO, 0), sqrt_price_x96)
+    #    with_attr error_message("tick is too low"):
+    #        assert is_valid = 1
+    #    end
+
+    #    let (is_valid) = uint256_lt(sqrt_price_x96, Uint256(MAX_SQRT_RATIO_LOW, MAX_SQRT_RATIO_HIGH))
+    #    with_attr error_message("tick is too high"):
+    #        assert is_valid = 1
+    #    end
+
+    #    # change uint160 to uint192, to raise precision        
+    #    let (ratio: Uint256) = uint256_shl(sqrt_price_x96, Uint256(32, 0))
+
+    #    let (log2_ratio: Uint256) = log_2(ratio)
+    #    %{ print(f"{ids.log2_ratio.low=}, {ids.log2_ratio.high=}")%}
+
+    #    let (log_sqrt10001: Uint256) = uint256_mul_div(log2_ratio, Uint256(255738958999603826347141, 0), Uint256(2 ** 64, 0))
+    #    %{ print(f"{ids.log_sqrt10001.low=} {ids.log_sqrt10001.high=}")%}
+
+    #    let (t1: Uint256) = uint256_sub(log_sqrt10001, Uint256(0x28f6481ab7f045a5af012a19d003aaa, 0))
+
+    #    let (tick_low: Uint256, _) = uint256_signed_div_rem(t1, Uint256(0, 1))
+    #    %{ print(f"{ids.tick_low.low=} {ids.tick_low.high=}")%}
+
+    #    let (t2: Uint256, _) = uint256_add(log_sqrt10001, Uint256(0xdb2df09e81959a81455e260799a0632f, 0))
+    #    let (tick_high: Uint256, _) = uint256_signed_div_rem(t2, Uint256(0, 1))
+    #    %{ print(f"{ids.tick_high.low=} {ids.tick_high.high=}")%}
+
+    #    local tl
+    #    let (not_negtive) = uint256_signed_nn(tick_low)
+    #    if not_negtive == 0:
+    #        let (res: Uint256) = uint256_neg(tick_low)
+    #        tempvar res2 = -1 * res.low
+    #        tl = res2
+    #        %{ 
+    #            print(f"{ids.res.low=}, {ids.res.high=}")
+    #            breakpoint() 
+    #        %}
+    #        tempvar range_check_ptr = range_check_ptr
+    #    else:
+    #        tl = tick_low.low
+    #        tempvar range_check_ptr = range_check_ptr
+    #    end
+
+    #    local th
+    #    let (not_negtive) = uint256_signed_nn(tick_high)
+    #    if not_negtive == 0:
+    #        let (res: Uint256) = uint256_neg(tick_high)
+    #        tempvar res2 = -1 * res.low
+    #        th = res2
+    #        %{ 
+    #            print(f"{ids.res.low=}, {ids.res.high=}")
+    #            breakpoint() 
+    #        %}
+    #        tempvar range_check_ptr = range_check_ptr
+    #    else:
+    #        th = tick_high.low
+    #        tempvar range_check_ptr = range_check_ptr
+    #    end
+
+    #    let (is_valid) = uint256_eq(tick_low, tick_high)
+    #    if is_valid == 0:
+    #        let (res: Uint256) = get_sqrt_ratio_at_tick(tick_high.low)
+    #        let (is_valid) = uint256_le(res, sqrt_price_x96)
+    #        if is_valid == 1:
+    #            return (th)
+    #        end
+    #        return (tl)
+    #    end
+
+    #    return (tl)
+    #end
 end

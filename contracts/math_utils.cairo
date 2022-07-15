@@ -27,8 +27,8 @@ namespace Utils:
     func is_lt{
         range_check_ptr
         }(a: felt, b: felt) -> (res: felt):
-        let (is_valid) = is_nn(b - a)
-        if is_valid == 1:
+        let (is_valid) = is_nn(a - b)
+        if is_valid == 0:
             return (1)
         end
         return (0)

@@ -87,6 +87,10 @@ def div_rem_uint(a, b):
     m = a % b
     return (to_uint(c), to_uint(m))
 
+def felt_to_int(a):
+    if a > MAX_FELT_INT:
+        return a - P
+    return a
 
 async def assert_revert(fun, reverted_with=None):
     try:
