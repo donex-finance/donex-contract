@@ -6,7 +6,7 @@ from starkware.cairo.common.bool import (FALSE, TRUE)
 
 from contracts.tick_mgr import TickMgr 
 from contracts.tick_bitmap import TickBitmap
-#from contracts.position_mgr import PositionMgr
+from contracts.position_mgr import PositionMgr
 
 struct SlotState:
     member sqrt_price_x96: Uint256

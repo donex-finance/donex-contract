@@ -6,6 +6,8 @@ from starkware.cairo.common.math import abs_value
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
 from starkware.cairo.common.math_cmp import (is_nn, is_le)
 
+from contracts.math_utils import Utils
+
 namespace FullMath:
 # a * b / c
     func uint256_mul_div{
