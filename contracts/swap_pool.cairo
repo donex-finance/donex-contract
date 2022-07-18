@@ -5,7 +5,7 @@ from starkware.cairo.common.uint256 import (Uint256, uint256_lt)
 from starkware.cairo.common.bool import (FALSE, TRUE)
 
 from contracts.tick_mgr import TickMgr 
-#from contracts.tick_bitmap import TickBitMap
+from contracts.tick_bitmap import TickBitmap
 #from contracts.position_mgr import PositionMgr
 
 struct SlotState:
