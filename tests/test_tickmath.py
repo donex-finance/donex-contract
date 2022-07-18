@@ -28,6 +28,16 @@ MIN_SQRT_RATIO = 4295128739
 # @dev The maximum value that can be returned from #get_sqrt_ratio_at_tick. Equivalent to get_sqrt_ratio_at_tick(MAX_TICK)
 MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342
 
+def encodePriceSqrt(reserve1, reserve2):
+    """
+    Encode the price sqrt as a uint256.
+    """
+    a = Context(prec=100).create_decimal(reserve1)
+    b = Context(prec=100).create_decimal(reserve2)
+    c = Context(prec=100).create_decimal(2 ** 96)
+    a = (a / b).sqrt() * c
+    return int(a)
+
 class CairoContractTest(TestCase):
     @classmethod
     async def setUp(cls):
@@ -114,16 +124,13 @@ class CairoContractTest(TestCase):
                 cairo_res = from_uint(res.call_info.result)
 
                 d = Context(prec=100).create_decimal(1.0001)
-                pyres = (d ** tick).sqrt() * (2 ** 96)
+                pyres = (d ** t).sqrt() * (2 ** 96)
                 
-                #TODO: minus tick have problems
                 diff = Context(prec=100).create_decimal(cairo_res) - pyres
                 abs_diff = abs(diff / pyres)
-                if diff > Decimal(0.00001):
-                    print(f"{t=} {cairo_res=}, {pyres=}, {diff=}, {abs_diff=}")
-
-
-                #assert abs_diff < 0.000001
+                if abs_diff > Decimal(0.00001):
+                    print(f"{t} {cairo_res}, {pyres}, {diff}, {abs_diff}")
+                assert abs_diff < Decimal(0.00001)
 
     @pytest.mark.asyncio
     async def test_get_tick_at_sqrt_price(self):
@@ -168,7 +175,34 @@ class CairoContractTest(TestCase):
             MAX_TICK - 1,
             "ratio closest to max tick"
         )
+        price_array = [
+            MIN_SQRT_RATIO,
+            encodePriceSqrt(10 ** 12, 1),
+            encodePriceSqrt(10 ** 6, 1),
+            encodePriceSqrt(1, 64),
+            encodePriceSqrt(1, 8),
+            encodePriceSqrt(1, 2),
+            encodePriceSqrt(1, 1),
+            encodePriceSqrt(2, 1),
+            encodePriceSqrt(8, 1),
+            encodePriceSqrt(64, 1),
+            encodePriceSqrt(1, 10 ** 6),
+            encodePriceSqrt(1, 10 ** 12),
+            MAX_SQRT_RATIO - 1,
+        ]
+        for ratio in price_array:
+            res = await self.contract.get_tick_at_sqrt_ratio(to_uint(ratio)).call()
 
+            d = Context(prec=100).create_decimal(ratio)
+            d = d / (2 ** 96)
+            d = (d * d)
+            t = Context(prec=100).create_decimal(1.0001)
+            pyres = int(d.log10() / t.log10())
+
+            cairo_tick_res = felt_to_int(res.call_info.result[0])
+            abs_diff = abs(cairo_tick_res - pyres)
+            #print(f"{ratio} {cairo_tick_res}, {pyres}, {abs_diff}")
+            assert abs_diff <= 1
 
     @pytest.mark.asyncio
     async def test_both(self):
