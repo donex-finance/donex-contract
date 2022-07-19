@@ -28,7 +28,7 @@ namespace TickMgr:
         let (min_tick) = signed_div_rem(TickMath.MIN_TICK, tick_spaceing)[0] * tick_spaceing
         let (max_tick) = signed_div_rem(TickMath.MAX_TICK, tick_spaceing)[0] * tick_spaceing
         let (n_ticks) = signed_div_rem(max_tick - min_tick, tick_spaceing)[0] + 1
-        let (max_liquidity, _) = signed_div_rem(0xffffffffffffffffffffffffffffffff, n_ticks) 
+        let (max_liquidity, _) = signed_div_rem(Utils.MAX_UINT128, n_ticks) 
 
         return (max_liquidity)
     end

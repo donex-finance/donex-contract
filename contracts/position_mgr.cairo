@@ -39,8 +39,8 @@ namespace PositionMgr:
             tempvar liquidity_next = tmp
         end
 
-        let (tokens_owed0: Uint256) = FullMath.uint256_mul_div(uint256_sub(fee_growth_inside0_x128, position.fee_growth_inside0_x128)[0], position.liquidity, Uint256(0, 1))
-        let (tokens_owed1: Uint256) = FullMath.uint256_mul_div(uint256_sub(fee_growth_inside1_x128, position.fee_growth_inside1_x128)[0], position.liquidity, Uint256(0, 1))
+        let (tokens_owed0: Uint256, _) = FullMath.uint256_mul_div(uint256_sub(fee_growth_inside0_x128, position.fee_growth_inside0_x128)[0], position.liquidity, Uint256(0, 1))
+        let (tokens_owed1: Uint256, _) = FullMath.uint256_mul_div(uint256_sub(fee_growth_inside1_x128, position.fee_growth_inside1_x128)[0], position.liquidity, Uint256(0, 1))
 
         if liquidity_delta != 0:
             position.liquidity = liquidity_next

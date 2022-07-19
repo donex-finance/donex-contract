@@ -21,10 +21,6 @@ namespace TickMath:
     const MAX_SQRT_RATIO_LOW = 0xefd1fc6a506488495d951d5263988d26
     const MAX_SQRT_RATIO_HIGH = 0xfffd8963
 
-    const TWO127 = 0x80000000000000000000000000000000
-    const TWO128_1 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-
-
     func get_sqrt_arg{
             range_check_ptr,
         } (bit: felt) -> (res: felt):
@@ -150,7 +146,7 @@ namespace TickMath:
 
         let (is_valid) = is_nn(tick)
         if is_valid == 1:
-            let (tmp: Uint256, _) = uint256_unsigned_div_rem(Uint256(0xffffffffffffffffffffffffffffffff, 0xffffffffffffffffffffffffffffffff), ratio)
+            let (tmp: Uint256, _) = uint256_unsigned_div_rem(Uint256(Utils.MAX_UINT128, Utils.MAX_UINT128), ratio)
             tempvar ratio2 = tmp
             tempvar range_check_ptr = range_check_ptr
         else:
@@ -342,85 +338,4 @@ namespace TickMath:
 
     end
 
-    # sqrt_price_x96 is Q64.96
-    #func get_tick_at_sqrt_ratio{
-    #    range_check_ptr,
-    #    bitwise_ptr: BitwiseBuiltin*
-    #    }(sqrt_price_x96: Uint256) -> (res: felt):
-    #    alloc_locals
-
-    #    local range_check_ptr = range_check_ptr
-
-    #    let (is_valid) = uint256_le(Uint256(MIN_SQRT_RATIO, 0), sqrt_price_x96)
-    #    with_attr error_message("tick is too low"):
-    #        assert is_valid = 1
-    #    end
-
-    #    let (is_valid) = uint256_lt(sqrt_price_x96, Uint256(MAX_SQRT_RATIO_LOW, MAX_SQRT_RATIO_HIGH))
-    #    with_attr error_message("tick is too high"):
-    #        assert is_valid = 1
-    #    end
-
-    #    # change uint160 to uint192, to raise precision        
-    #    let (ratio: Uint256) = uint256_shl(sqrt_price_x96, Uint256(32, 0))
-
-    #    let (log2_ratio: Uint256) = log_2(ratio)
-    #    %{ print(f"{ids.log2_ratio.low=}, {ids.log2_ratio.high=}")%}
-
-    #    let (log_sqrt10001: Uint256) = uint256_mul_div(log2_ratio, Uint256(255738958999603826347141, 0), Uint256(2 ** 64, 0))
-    #    %{ print(f"{ids.log_sqrt10001.low=} {ids.log_sqrt10001.high=}")%}
-
-    #    let (t1: Uint256) = uint256_sub(log_sqrt10001, Uint256(0x28f6481ab7f045a5af012a19d003aaa, 0))
-
-    #    let (tick_low: Uint256, _) = uint256_signed_div_rem(t1, Uint256(0, 1))
-    #    %{ print(f"{ids.tick_low.low=} {ids.tick_low.high=}")%}
-
-    #    let (t2: Uint256, _) = uint256_add(log_sqrt10001, Uint256(0xdb2df09e81959a81455e260799a0632f, 0))
-    #    let (tick_high: Uint256, _) = uint256_signed_div_rem(t2, Uint256(0, 1))
-    #    %{ print(f"{ids.tick_high.low=} {ids.tick_high.high=}")%}
-
-    #    local tl
-    #    let (not_negtive) = uint256_signed_nn(tick_low)
-    #    if not_negtive == 0:
-    #        let (res: Uint256) = uint256_neg(tick_low)
-    #        tempvar res2 = -1 * res.low
-    #        tl = res2
-    #        %{ 
-    #            print(f"{ids.res.low=}, {ids.res.high=}")
-    #            breakpoint() 
-    #        %}
-    #        tempvar range_check_ptr = range_check_ptr
-    #    else:
-    #        tl = tick_low.low
-    #        tempvar range_check_ptr = range_check_ptr
-    #    end
-
-    #    local th
-    #    let (not_negtive) = uint256_signed_nn(tick_high)
-    #    if not_negtive == 0:
-    #        let (res: Uint256) = uint256_neg(tick_high)
-    #        tempvar res2 = -1 * res.low
-    #        th = res2
-    #        %{ 
-    #            print(f"{ids.res.low=}, {ids.res.high=}")
-    #            breakpoint() 
-    #        %}
-    #        tempvar range_check_ptr = range_check_ptr
-    #    else:
-    #        th = tick_high.low
-    #        tempvar range_check_ptr = range_check_ptr
-    #    end
-
-    #    let (is_valid) = uint256_eq(tick_low, tick_high)
-    #    if is_valid == 0:
-    #        let (res: Uint256) = get_sqrt_ratio_at_tick(tick_high.low)
-    #        let (is_valid) = uint256_le(res, sqrt_price_x96)
-    #        if is_valid == 1:
-    #            return (th)
-    #        end
-    #        return (tl)
-    #    end
-
-    #    return (tl)
-    #end
 end

@@ -13,7 +13,7 @@ namespace FullMath:
     func uint256_mul_div{
         range_check_ptr,
         bitwise_ptr: BitwiseBuiltin*
-        }(a: Uint256, b: Uint256, c: Uint256) -> (res: Uint256):
+        }(a: Uint256, b: Uint256, c: Uint256) -> (res: Uint256, rem_final):
         alloc_locals
 
         local bitwise_ptr: BitwiseBuiltin* = bitwise_ptr
@@ -40,7 +40,7 @@ namespace FullMath:
 
 
         # get the 2 ^ 256 - 1 % c
-        let (_, rem_256_1: Uint256) = uint256_unsigned_div_rem(Uint256(0xffffffffffffffffffffffffffffffff, 0xffffffffffffffffffffffffffffffff), c)
+        let (_, rem_256_1: Uint256) = uint256_unsigned_div_rem(Uint256(Utils.MAX_UINT128, Utils.MAX_UINT128), c)
 
         # get 2 ^ 256 % c
         let (tmp: Uint256, _) = uint256_add(rem_256_1, Uint256(1, 0))
@@ -117,6 +117,33 @@ namespace FullMath:
         let (inv: Uint256, _) = uint256_mul(inv, tmp)
 
         let (result: Uint256, _) = uint256_mul(prod0, inv)
-        return (result)
+        return (result, rem_final)
+    end
+
+    func uint256_mul_div_roundingup{
+        range_check_ptr
+        }(a: Uint256, b: Uint256, c: Uint256) -> (res: Uint256):
+
+        let (res: Uint256, rem: Uint256) = uint256_mul_div(a, b, c)
+        let (is_valid) = uint256_lt(Uint256(0, 0), rem)
+        if is_valid == 1:
+            let (is_valid) = uint256_lt(rem, Uint256(Utils.MAX_UINT128, Utils.MAX_UINT128))
+            assert is_valid = 1
+            let (tmp: Uint256) = uint256_add(res, Uint256(1, 0))
+            return (tmp)
+        end
+        return (res)
+    end
+
+    func uint256_div_roundingup{
+        range_check_ptr
+        }(a: Uint256, b: Uint256) -> (res: Uint256):
+        let (res: Uint256, rem: Uint256) = uint256_unsigned_div_rem(a, b)
+        let (is_valid) = uint256_lt(Uint256(0, 0), rem)
+        if is_valid == 1:
+            let (tmp: Uint256, _) = uint256_add(res, Uint256(1, 0))
+            return (tmp)
+        end
+        return (res)
     end
 end

@@ -6,6 +6,8 @@ namespace Utils:
     # P = 2 ** 251 + 17 * (2 ** 192) + 1
     # const MAX_FELT_INT = 1809251394333065606848661391547535052811553607665798349986546028067936010240 # p // 2
 
+    const MAX_UINT128 = 0xffffffffffffffffffffffffffffffff
+
     func is_eq(a: felt, b: felt) -> (res: felt):
         if a == b:
             return (1)
@@ -52,7 +54,7 @@ namespace Utils:
             assert is_valid = 1
         end
 
-        let (is_valid) = is_le(res, 0xffffffffffffffffffffffffffffffff)
+        let (is_valid) = is_le(res, Utils.MAX_UINT128)
         with_attr error_message("safe_add: overflow"):
             assert is_valid = 1
         end
