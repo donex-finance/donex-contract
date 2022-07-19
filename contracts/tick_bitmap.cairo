@@ -1,5 +1,6 @@
 %lang starknet
 
+from starkware.cairo.common.cairo_builtins import (HashBuiltin, BitwiseBuiltin)
 from starkware.cairo.common.math import unsigned_div_rem
 from starkware.cairo.common.uint256 import (Uint256, uint256_shl, uint256_add, uint256_and, uint256_sub, uint256_eq, uint256_not)
 
@@ -21,7 +22,9 @@ namespace TickBitmap:
     end
 
     func flip_tick{
-        range_check_ptr
+            syscall_ptr: felt*,
+            pedersen_ptr: HashBuiltin*,
+            range_check_ptr
         }(tick: felt, tick_spaceing: felt):
         let (_, rem) = unsigned_div_rem(tick, 256)
         assert rem = 0
@@ -37,23 +40,32 @@ namespace TickBitmap:
     end
 
     func next_valid_tick_within_one_word{
-        range_check_ptr
+            syscall_ptr: felt*,
+            pedersen_ptr: HashBuiltin*,
+            range_check_ptr,
+            bitwise_ptr: BitwiseBuiltin*
         }(tick: felt, tick_spaceing: felt, lte: felt) -> (tick_next: felt, initialized: felt):
+        alloc_locals
 
-        let (compressed, rem) = unsigned_div_rem(tick, tick_spaceing)
+        let (compressed_0, rem) = unsigned_div_rem(tick, tick_spaceing)
 
         let (is_valid) = Utils.is_lt(tick, 0)
 
+        local compressed
         if is_valid == 1:
             if rem != 0:
-                tempvar compressed = compressed - 1
+                compressed = compressed_0 - 1
+            else:
+                compressed = compressed_0
             end
+        else:
+            compressed = compressed_0
         end
 
         if lte == 1:
             let (word_pos, bit_pos) = position(compressed)
 
-            let (tmp: Uint256) = uint256_shl(Uint256(1, 0), Uint256(bit_pos))
+            let (tmp: Uint256) = uint256_shl(Uint256(1, 0), Uint256(bit_pos, 0))
             let (tmp2: Uint256) = uint256_sub(tmp, Uint256(1, 0))
             let (mask: Uint256, _) =  uint256_add(tmp, tmp2)
 
@@ -62,21 +74,16 @@ namespace TickBitmap:
 
             let (is_valid) = uint256_eq(state, Uint256(0, 0))
             if is_valid == 0:
-                let initialized = 1
-            else:
-                let initialized = 0
+                let (msb)= BitMath.most_significant_bit(state)
+                let next = (compressed - (bit_pos - msb)) * tick_spaceing
+                return (next, 1)
             end
 
-            if initialized == 1:
-                let next = (compressed - (bit_pos - BitMath.most_significant_bit(state)[0])) * tick_spaceing
-            else:
-                let next = (compressed - bit_pos) * tick_spaceing
-            end
-
-            return (next, initialized)
+            let next = (compressed - bit_pos) * tick_spaceing
+            return (next, 0)
         else:
             let (word_pos, bit_pos) = position(compressed + 1)
-            let (tmp: Uint256) = uint256_shl(Uint256(1, 0), Uint256(bit_pos))
+            let (tmp: Uint256) = uint256_shl(Uint256(1, 0), Uint256(bit_pos, 0))
             let (tmp2: Uint256) = uint256_sub(tmp, Uint256(1, 0))
             let (mask: Uint256) = uint256_not(tmp2)
 
@@ -85,18 +92,13 @@ namespace TickBitmap:
 
             let (is_valid) = uint256_eq(state, Uint256(0, 0))
             if is_valid == 0:
-                let initialized = 1
-            else:
-                let initialized = 0
+                let (lsb) = BitMath.least_significant_bit(state)
+                let next = (compressed + 1 + (lsb - bit_pos)) * tick_spaceing
+                return (next, 1)
             end
 
-            if initialized == 1:
-                let next = (compressed + 1 + (BitMath.least_significant_bit(state)[0] - bit_pos)) * tick_spaceing
-            else:
-                let next = (compressed + 1 + 255 - bit_pos) * tick_spaceing
-            end
-
-            return (next, initialized)
+            let next = (compressed + 1 + 255 - bit_pos) * tick_spaceing
+            return (next, 0)
         end
     end
 end

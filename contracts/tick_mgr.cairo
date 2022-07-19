@@ -1,5 +1,6 @@
 %lang starknet
 
+from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.math import signed_div_rem
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.bool import (TRUE, FALSE)
@@ -23,8 +24,10 @@ end
 namespace TickMgr:
 
     func get_max_liquidity_per_tick{
-        range_check_ptr
-        }(tick_spaceing: felt) -> (max_liquidity: felt):
+            range_check_ptr
+        }(
+            tick_spaceing: felt
+        ) -> (max_liquidity: felt):
         let (min_tick) = signed_div_rem(TickMath.MIN_TICK, tick_spaceing)[0] * tick_spaceing
         let (max_tick) = signed_div_rem(TickMath.MAX_TICK, tick_spaceing)[0] * tick_spaceing
         let (n_ticks) = signed_div_rem(max_tick - min_tick, tick_spaceing)[0] + 1
@@ -34,15 +37,22 @@ namespace TickMgr:
     end
 
     func cross{
-        range_check_ptr
+            syscall_ptr: felt*,
+            pedersen_ptr: HashBuiltin*,
+            range_check_ptr
         }(
-        tick: felt, 
-        fee_growth_global0_x128: Uint256, 
-        fee_growth_global1_x128: Uint256) -> (liquidity_net: felt):
+            tick: felt, 
+            fee_growth_global0_x128: Uint256, 
+            fee_growth_global1_x128: Uint256
+        ) -> (liquidity_net: felt):
         
         let (info: TickInfo) = TickMgr_data.read(tick)
-        info.fee_growth_global0_x128 = fee_growth_global0_x128 - info.fee_growth_global_0x128
-        info.fee_growth_global1_x128 = fee_growth_global1_x128 - info.fee_growth_global_1x128
+        let (tmp: Uint256) = uint256_sub(fee_growth_global0_x128, info.fee_growth_outside0_x128)
+        info.fee_growth_outside0_x128.low = tmp.low
+        info.fee_growth_outside0_x128.high = tmp.high
+        let (tmp: Uint256) = uint256_sub(fee_growth_global1_x128, info.fee_growth_outside1_x128)
+        info.fee_growth_outside1_x128.low = tmp.low
+        info.fee_growth_outside1_x128.high = tmp.high
 
         #TODO: if need write to the storage
         TickMgr_data.write(tick, info)
@@ -51,15 +61,18 @@ namespace TickMgr:
     end
 
     func update{
-        range_check_ptr
+            syscall_ptr: felt*,
+            pedersen_ptr: HashBuiltin*,
+            range_check_ptr
         }(
-        tick: felt, 
-        tick_current: felt, 
-        liquidity_delta: felt, 
-        fee_growth_global0_x128: Uint256, 
-        fee_growth_global1_x128: Uint256, 
-        upper: felt, 
-        max_liquidity: felt) -> (flipped: felt):
+            tick: felt, 
+            tick_current: felt, 
+            liquidity_delta: felt, 
+            fee_growth_global0_x128: Uint256, 
+            fee_growth_global1_x128: Uint256, 
+            upper: felt, 
+            max_liquidity: felt
+        ) -> (flipped: felt):
 
         let (info: TickInfo) = TickMgr_data.read(tick)
 
@@ -99,13 +112,16 @@ namespace TickMgr:
     end
 
     func get_fee_groth_inside{
-        range_check_ptr
+            syscall_ptr: felt*,
+            pedersen_ptr: HashBuiltin*,
+            range_check_ptr
         }(
-        tick_lower: felt,
-        tick_upper: felt,
-        tick_current: felt,
-        fee_growth_global0_x128: Uint256,
-        fee_growth_global1_x128: Uint256) -> (fee_growth_inside0_x128: Uint256, fee_growth_inside1_x128: Uint256):
+            tick_lower: felt,
+            tick_upper: felt,
+            tick_current: felt,
+            fee_growth_global0_x128: Uint256,
+            fee_growth_global1_x128: Uint256
+        ) -> (fee_growth_inside0_x128: Uint256, fee_growth_inside1_x128: Uint256):
 
         alloc_locals
         
