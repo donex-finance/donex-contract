@@ -148,4 +148,67 @@ namespace SqrtPriceMath:
         return (res)
     end
 
+    func get_next_sqrt_price_from_amount1_roundingdown{
+            range_check_ptr
+        }(
+            sqrt_price_x96: Uint256,
+            liquidity: felt,
+            amount: Uint256,
+            add: felt
+        ) -> (res: Uint256):
+
+        if add == 1:
+            let (tmp: Uint256, _) = FullMath.uint256_mul_div(amount, Uint256(2 ** 96, 0), liquidity)
+            let (res: Uint256) = uint256_add(sqrt_price_x96, tmp)
+            return (res)
+        end
+
+        let (tmp: Uint256, _) = FullMath.uint256_mul_div_roundingup(amount, Uint256(2 ** 96, 0), liquidity)
+        let (is_valid) = uint256_lt(tmp, sqrt_price_x96)
+        assert is_valid = 1
+
+        let (res: Uint256) = uint256_sub(sqrt_price_x96, tmp)
+        return (res)
+    end
+
+    func get_next_sqrt_price_from_input{
+            range_check_ptr
+        }(
+            sqrt_price_x96: Uint256,
+            liquidity: felt,
+            amount_in: Uint256,
+            zero_for_one: felt
+        ) -> (res: Uint256):
+        assert uint256_lt(0, sqrt_price_x96)[0] = 1
+        assert Utils.is_gt(liquidity, 0)[0] = 1
+
+        if zero_for_one == 1:
+            let (res: Uint256) = get_next_sqrt_price_from_amount0_roundingup(sqrt_price_x96, liquidity, amount_in, 1)
+            return (res)
+        end
+
+        let (res: Uint256) = get_next_sqrt_price_from_amount1_roundingdown(sqrt_price_x96, liquidity, amount_in, 1)
+        return (res)
+    end
+
+    func get_next_sqrt_price_from_output{
+            range_check_ptr
+        }(
+            sqrt_price_x96: Uint256,
+            liquidity: felt,
+            amount_out: Uint256,
+            zero_for_one: felt
+        ) -> (res: Uint256):
+        assert uint256_lt(0, sqrt_price_x96)[0] = 1
+        assert Utils.is_gt(liquidity, 0)[0] = 1
+
+        if zero_for_one == 1:
+            let (res: Uint256) = get_next_sqrt_price_from_amount1_roundingdown(sqrt_price_x96, liquidity, amount_out, 0)
+            return (res)
+        end
+
+        let (res: Uint256) = get_next_sqrt_price_from_amount0_roundingup(sqrt_price_x96, liquidity, amount_out, 0)
+        return (res)
+    end
+
 end
