@@ -91,3 +91,59 @@ class FullMathTest(TestCase):
             tuple(res.call_info.result),
             expected
         )
+
+    @pytest.mark.asyncio
+    async def test_mul_div_roundingup(self):
+        await assert_revert(
+            self.contract.uint256_mul_div_roundingup(Q128, to_uint(5), to_uint(0)).call(),
+            "denominator is zero"
+        )
+
+        await assert_revert(
+            self.contract.uint256_mul_div_roundingup(Q128, Q128, to_uint(1)).call(),
+            "overflows uint256"
+        )
+
+        await assert_revert(
+            self.contract.uint256_mul_div_roundingup(
+                to_uint(535006138814359), 
+                to_uint(432862656469423142931042426214547535783388063929571229938474969), 
+                to_uint(1)).call(),
+            "overflows uint256"
+        )
+        
+        await assert_revert(
+            self.contract.uint256_mul_div_roundingup(
+                to_uint(115792089237316195423570985008687907853269984659341747863450311749907997002549), 
+                to_uint(115792089237316195423570985008687907853269984659341747863450311749907997002550), 
+                to_uint(115792089237316195423570985008687907853269984653042931687443039491902864365164)).call(),
+            "overflows uint256"
+        )
+
+        res = await self.contract.uint256_mul_div_roundingup(MAX_UINT256, MAX_UINT256, MAX_UINT256).call()
+        self.assertEqual(
+            tuple(res.call_info.result),
+            MAX_UINT256
+        )
+
+        res = await self.contract.uint256_mul_div_roundingup(Q128, to_uint(50 * 2 ** 128), to_uint(150 * 2 ** 128)).call()
+        expected = to_uint(2 ** 128 // 3 + 1)
+        self.assertEqual(
+            tuple(res.call_info.result),
+            expected
+        )
+
+        res = await self.contract.uint256_mul_div_roundingup(Q128, to_uint(35 * 2 ** 128), to_uint(8 * 2 ** 128)).call()
+        expected = to_uint(4375 * 2 ** 128 // 1000)
+        print(res.call_info.result, expected)
+        self.assertEqual(
+            tuple(res.call_info.result),
+            expected
+        )
+
+        res = await self.contract.uint256_mul_div(Q128, to_uint(1000 * 2 ** 128), to_uint(3000 * 2 ** 128)).call()
+        expected = to_uint(2 ** 128 // 3 + 1)
+        self.assertEqual(
+            tuple(res.call_info.result),
+            expected
+        )

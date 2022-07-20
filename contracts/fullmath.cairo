@@ -180,7 +180,9 @@ namespace FullMath:
         let (is_valid) = uint256_lt(Uint256(0, 0), rem)
         if is_valid == 1:
             let (is_valid) = uint256_lt(rem, Uint256(Utils.MAX_UINT128, Utils.MAX_UINT128))
-            assert is_valid = 1
+            with_attr error_message("overflow uint256"):
+                assert is_valid = 1
+            end
             let (tmp: Uint256, _) = uint256_add(res, Uint256(1, 0))
             return (tmp)
         end
