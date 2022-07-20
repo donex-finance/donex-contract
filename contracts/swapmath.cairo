@@ -24,6 +24,7 @@ namespace SwapMath:
 
         let (zero_for_one) = uint256_le(sqrt_ratio_target, sqrt_ratio_current)
         let (exact_in) = uint256_signed_nn(amount_remaining)
+        tempvar bitwise_ptr = bitwise_ptr
 
         local amount_in: Uint256
         local amount_out: Uint256
@@ -43,11 +44,13 @@ namespace SwapMath:
                 tempvar range_check_ptr = range_check_ptr
                 tempvar bitwise_ptr = bitwise_ptr
             end
+            tempvar bitwise_ptr = bitwise_ptr
 
             amount_in.low = amount_in_tmp.low
             amount_in.high = amount_in_tmp.high
 
             let (is_valid) = uint256_lt(amount_in, amount_remaining_less_fee)
+            tempvar bitwise_ptr = bitwise_ptr
             if is_valid == 1:
                 sqrt_ratio_next.low = sqrt_ratio_target.low
                 sqrt_ratio_next.high = sqrt_ratio_target.high
@@ -73,6 +76,8 @@ namespace SwapMath:
                 tempvar range_check_ptr = range_check_ptr
                 tempvar bitwise_ptr = bitwise_ptr
             end
+            tempvar bitwise_ptr = bitwise_ptr
+
             amount_out.low = tmp.low
             amount_out.high = tmp.high
 
@@ -91,10 +96,15 @@ namespace SwapMath:
                 tempvar bitwise_ptr = bitwise_ptr
             end
         end
+        tempvar bitwise_ptr = bitwise_ptr
 
         let (max) = uint256_eq(sqrt_ratio_target, sqrt_ratio_next)
+        tempvar range_check_ptr = range_check_ptr
+        tempvar bitwise_ptr = bitwise_ptr
 
         local amount_in2: Uint256
+        local amount_out2: Uint256
+
         if zero_for_one == 1:
             if max + exact_in == 2:
                 amount_in2.low = amount_in.low
@@ -111,13 +121,16 @@ namespace SwapMath:
 
             let (flag1) = Utils.is_eq(max, 1)
             let (flag2) = Utils.is_eq(exact_in, 0)
+
             if flag1 + flag2 == 2:
-                tempvar amount_out = amount_out
+                amount_out2.low = amount_out.low
+                amount_out2.high = amount_out.high
                 tempvar range_check_ptr = range_check_ptr
                 tempvar bitwise_ptr = bitwise_ptr
             else:
                 let (res: Uint256) = SqrtPriceMath.get_amount1_delta(sqrt_ratio_next, sqrt_ratio_current, liquidity, 0)
-                tempvar amount_out = res
+                amount_out2.low = res.low
+                amount_out2.high = res.high
                 tempvar range_check_ptr = range_check_ptr
                 tempvar bitwise_ptr = bitwise_ptr
             end
@@ -138,18 +151,22 @@ namespace SwapMath:
             let (flag1) = Utils.is_eq(max, 1)
             let (flag2) = Utils.is_eq(exact_in, 0)
             if flag1 + flag2 == 2:
-                tempvar amount_out = amount_out
+                amount_out2.low = amount_out.low
+                amount_out2.high = amount_out.high
                 tempvar range_check_ptr = range_check_ptr
                 tempvar bitwise_ptr = bitwise_ptr
             else:
                 let (res: Uint256) = SqrtPriceMath.get_amount0_delta(sqrt_ratio_current, sqrt_ratio_next, liquidity, 0)
-                tempvar amount_out = res
+                amount_out2.low = res.low
+                amount_out2.high = res.high
                 tempvar range_check_ptr = range_check_ptr
                 tempvar bitwise_ptr = bitwise_ptr
             end
         end
+        tempvar bitwise_ptr = bitwise_ptr
 
         let (is_valid) = uint256_eq(sqrt_ratio_next, sqrt_ratio_target)
+        tempvar bitwise_ptr = bitwise_ptr
         
         if exact_in == 1:
             if is_valid == 0:
@@ -163,10 +180,10 @@ namespace SwapMath:
 
         if flag == 1:
             let (fee_amount: Uint256) = uint256_sub(amount_remaining, amount_in2)
-            return (sqrt_ratio_next, amount_in2, amount_out, fee_amount)
+            return (sqrt_ratio_next, amount_in2, amount_out2, fee_amount)
         end
 
         let (fee_amount: Uint256) = FullMath.uint256_mul_div_roundingup(amount_in2, Uint256(fee_pips, 0), Uint256(num_1e6 - fee_pips, 0))
-        return (sqrt_ratio_next, amount_in2, amount_out, fee_amount)
+        return (sqrt_ratio_next, amount_in2, amount_out2, fee_amount)
     end
 end

@@ -304,7 +304,7 @@ namespace TickMath:
         let (not_negtive) = uint256_signed_nn(tick_low)
         if not_negtive == 0:
             let (res: Uint256) = uint256_neg(tick_low)
-            tempvar res2 = -1 * res.low
+            tempvar res2 = -res.low
             tl = res2
             tempvar range_check_ptr = range_check_ptr
         else:
@@ -316,7 +316,7 @@ namespace TickMath:
         let (not_negtive) = uint256_signed_nn(tick_high)
         if not_negtive == 0:
             let (res: Uint256) = uint256_neg(tick_high)
-            tempvar res2 = -1 * res.low
+            tempvar res2 = -res.low
             th = res2
             tempvar range_check_ptr = range_check_ptr
         else:
