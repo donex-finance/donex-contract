@@ -32,96 +32,84 @@ namespace SwapMath:
         local amount_in: Uint256
         local amount_out: Uint256
         local sqrt_ratio_next: Uint256
-        if exact_in == 1:
-            amount_out.low = 0
-            amount_out.high = 1
-            let (amount_remaining_less_fee: Uint256, _) = FullMath.uint256_mul_div(amount_remaining, Uint256(num_1e6, 0), Uint256(num_1e6, 0))
-            tempvar range_check_ptr = range_check_ptr
-            tempvar bitwise_ptr = bitwise_ptr
-            if zero_for_one == 1:
-                let (amount_in_tmp: Uint256) = SqrtPriceMath.get_amount0_delta(sqrt_ratio_target, sqrt_ratio_current, liquidity, 1)
-                tempvar range_check_ptr = range_check_ptr
-                tempvar bitwise_ptr = bitwise_ptr
+
+        with range_check_ptr, bitwise_ptr:
+            if exact_in == 1:
+                amount_out.low = 0
+                amount_out.high = 1
+                let (amount_remaining_less_fee: Uint256, _) = FullMath.uint256_mul_div(amount_remaining, Uint256(num_1e6, 0), Uint256(num_1e6, 0))
+                with range_check_ptr, bitwise_ptr:
+                    if zero_for_one == 1:
+                        let (amount_in_tmp: Uint256) = SqrtPriceMath.get_amount0_delta(sqrt_ratio_target, sqrt_ratio_current, liquidity, 1)
+                    else:
+                        let (amount_in_tmp: Uint256) = SqrtPriceMath.get_amount1_delta(sqrt_ratio_current, sqrt_ratio_target, liquidity, 1)
+                    end
+                end
+                let range_check_ptr = range_check_ptr2
+                let bitwise_ptr = bitwise_ptr2
+
+                amount_in.low = amount_in_tmp.low
+                amount_in.high = amount_in_tmp.high
+
+                let (is_valid) = uint256_lt(amount_in, amount_remaining_less_fee)
+                if is_valid == 1:
+                    sqrt_ratio_next.low = sqrt_ratio_target.low
+                    sqrt_ratio_next.high = sqrt_ratio_target.high
+                else:
+                    let (tmp: Uint256) = SqrtPriceMath.get_next_sqrt_price_from_input(sqrt_ratio_current, liquidity, amount_remaining_less_fee, zero_for_one)
+                    sqrt_ratio_next.low = tmp.low
+                    sqrt_ratio_next.high = tmp.high
+                end
             else:
-                let (amount_in_tmp: Uint256) = SqrtPriceMath.get_amount1_delta(sqrt_ratio_current, sqrt_ratio_target, liquidity, 1)
-                tempvar range_check_ptr = range_check_ptr
-                tempvar bitwise_ptr = bitwise_ptr
-            end
-            tempvar bitwise_ptr = bitwise_ptr
+                amount_in.low = 0
+                amount_in.high = 0
+                with range_check_ptr, bitwise_ptr:
+                    if zero_for_one == 1:
+                        let (tmp: Uint256) = SqrtPriceMath.get_amount1_delta(sqrt_ratio_target, sqrt_ratio_current, liquidity, 0)
+                    else:
+                        let (tmp: Uint256) = SqrtPriceMath.get_amount0_delta(sqrt_ratio_current, sqrt_ratio_target, liquidity, 0)
+                    end
+                end
+                let range_check_ptr = range_check_ptr2
+                let bitwise_ptr = bitwise_ptr2
 
-            amount_in.low = amount_in_tmp.low
-            amount_in.high = amount_in_tmp.high
+                amount_out.low = tmp.low
+                amount_out.high = tmp.high
 
-            let (is_valid) = uint256_lt(amount_in, amount_remaining_less_fee)
-            tempvar bitwise_ptr = bitwise_ptr
-            if is_valid == 1:
-                sqrt_ratio_next.low = sqrt_ratio_target.low
-                sqrt_ratio_next.high = sqrt_ratio_target.high
-                tempvar range_check_ptr = range_check_ptr
-                tempvar bitwise_ptr = bitwise_ptr
-            else:
-                let (tmp: Uint256) = SqrtPriceMath.get_next_sqrt_price_from_input(sqrt_ratio_current, liquidity, amount_remaining_less_fee, zero_for_one)
-                sqrt_ratio_next.low = tmp.low
-                sqrt_ratio_next.high = tmp.high
-                tempvar range_check_ptr = range_check_ptr
-                tempvar bitwise_ptr = bitwise_ptr
-            end
-
-        else:
-            amount_in.low = 0
-            amount_in.high = 0
-            if zero_for_one == 1:
-                let (tmp: Uint256) = SqrtPriceMath.get_amount1_delta(sqrt_ratio_target, sqrt_ratio_current, liquidity, 0)
-                tempvar range_check_ptr = range_check_ptr
-                tempvar bitwise_ptr = bitwise_ptr
-            else:
-                let (tmp: Uint256) = SqrtPriceMath.get_amount0_delta(sqrt_ratio_current, sqrt_ratio_target, liquidity, 0)
-                tempvar range_check_ptr = range_check_ptr
-                tempvar bitwise_ptr = bitwise_ptr
-            end
-            tempvar bitwise_ptr = bitwise_ptr
-
-            amount_out.low = tmp.low
-            amount_out.high = tmp.high
-
-            let (abs_amount_remaining: Uint256) = uint256_neg(amount_remaining)
-            let (is_valid) = uint256_lt(amount_out, abs_amount_remaining)
-            if is_valid == 1:
-                sqrt_ratio_next.low = sqrt_ratio_target.low
-                sqrt_ratio_next.high = sqrt_ratio_target.high
-                tempvar range_check_ptr = range_check_ptr
-                tempvar bitwise_ptr = bitwise_ptr
-            else:
-                let (tmp: Uint256) = SqrtPriceMath.get_next_sqrt_price_from_output(sqrt_ratio_current, liquidity, abs_amount_remaining, zero_for_one)
-                sqrt_ratio_next.low = tmp.low
-                sqrt_ratio_next.high = tmp.high
-                tempvar range_check_ptr = range_check_ptr
-                tempvar bitwise_ptr = bitwise_ptr
+                let (abs_amount_remaining: Uint256) = uint256_neg(amount_remaining)
+                let (is_valid) = uint256_lt(amount_out, abs_amount_remaining)
+                if is_valid == 1:
+                    sqrt_ratio_next.low = sqrt_ratio_target.low
+                    sqrt_ratio_next.high = sqrt_ratio_target.high
+                else:
+                    let (tmp: Uint256) = SqrtPriceMath.get_next_sqrt_price_from_output(sqrt_ratio_current, liquidity, abs_amount_remaining, zero_for_one)
+                    sqrt_ratio_next.low = tmp.low
+                    sqrt_ratio_next.high = tmp.high
+                end
             end
         end
-        tempvar bitwise_ptr = bitwise_ptr
+        let range_check_ptr = range_check_ptr2
+        let bitwise_ptr = bitwise_ptr2
 
         let (max) = uint256_eq(sqrt_ratio_target, sqrt_ratio_next)
-        tempvar range_check_ptr = range_check_ptr
-        tempvar bitwise_ptr = bitwise_ptr
 
         local amount_in2: Uint256
         local amount_out2: Uint256
 
         with range_check_ptr, bitwise_ptr:
             if zero_for_one == 1:
-                if max + exact_in == 2:
-                    amount_in2.low = amount_in.low
-                    amount_in2.high = amount_in.high
-                    tempvar range_check_ptr = range_check_ptr
-                    tempvar bitwise_ptr = bitwise_ptr
-                else:
-                    let (res: Uint256) = SqrtPriceMath.get_amount0_delta(sqrt_ratio_next, sqrt_ratio_current, liquidity, 1)
-                    amount_in2.low = res.low
-                    amount_in2.high = res.high
-                    tempvar range_check_ptr = range_check_ptr
-                    tempvar bitwise_ptr = bitwise_ptr
+                with range_check_ptr, bitwise_ptr:
+                    if max + exact_in == 2:
+                        amount_in2.low = amount_in.low
+                        amount_in2.high = amount_in.high
+                    else:
+                        let (res: Uint256) = SqrtPriceMath.get_amount0_delta(sqrt_ratio_next, sqrt_ratio_current, liquidity, 1)
+                        amount_in2.low = res.low
+                        amount_in2.high = res.high
+                    end
                 end
+                let range_check_ptr = range_check_ptr2
+                let bitwise_ptr = bitwise_ptr2
 
                 let (flag1) = Utils.is_eq(max, 1)
                 let (flag2) = Utils.is_eq(exact_in, 0)
@@ -129,42 +117,34 @@ namespace SwapMath:
                 if flag1 + flag2 == 2:
                     amount_out2.low = amount_out.low
                     amount_out2.high = amount_out.high
-                    tempvar range_check_ptr = range_check_ptr
-                    tempvar bitwise_ptr = bitwise_ptr
                 else:
                     let (res: Uint256) = SqrtPriceMath.get_amount1_delta(sqrt_ratio_next, sqrt_ratio_current, liquidity, 0)
                     amount_out2.low = res.low
                     amount_out2.high = res.high
-                    tempvar range_check_ptr = range_check_ptr
-                    tempvar bitwise_ptr = bitwise_ptr
                 end
             else:
-                if max + exact_in == 2:
-                    amount_in2.low = amount_in.low
-                    amount_in2.high = amount_in.high
-                    tempvar range_check_ptr = range_check_ptr
-                    tempvar bitwise_ptr = bitwise_ptr
-                else:
-                    let (res: Uint256) = SqrtPriceMath.get_amount1_delta(sqrt_ratio_current, sqrt_ratio_next, liquidity, 1)
-                    amount_in2.low = res.low
-                    amount_in2.high = res.high
-                    tempvar range_check_ptr = range_check_ptr
-                    tempvar bitwise_ptr = bitwise_ptr
+                with range_check_ptr, bitwise_ptr:
+                    if max + exact_in == 2:
+                        amount_in2.low = amount_in.low
+                        amount_in2.high = amount_in.high
+                    else:
+                        let (res: Uint256) = SqrtPriceMath.get_amount1_delta(sqrt_ratio_current, sqrt_ratio_next, liquidity, 1)
+                        amount_in2.low = res.low
+                        amount_in2.high = res.high
+                    end
                 end
+                let range_check_ptr = range_check_ptr2
+                let bitwise_ptr = bitwise_ptr2
 
                 let (flag1) = Utils.is_eq(max, 1)
                 let (flag2) = Utils.is_eq(exact_in, 0)
                 if flag1 + flag2 == 2:
                     amount_out2.low = amount_out.low
                     amount_out2.high = amount_out.high
-                    tempvar range_check_ptr = range_check_ptr
-                    tempvar bitwise_ptr = bitwise_ptr
                 else:
                     let (res: Uint256) = SqrtPriceMath.get_amount0_delta(sqrt_ratio_current, sqrt_ratio_next, liquidity, 0)
                     amount_out2.low = res.low
                     amount_out2.high = res.high
-                    tempvar range_check_ptr = range_check_ptr
-                    tempvar bitwise_ptr = bitwise_ptr
                 end
             end
         end
@@ -172,7 +152,6 @@ namespace SwapMath:
         let bitwise_ptr = bitwise_ptr2
 
         let (is_valid) = uint256_eq(sqrt_ratio_next, sqrt_ratio_target)
-        tempvar bitwise_ptr = bitwise_ptr
         
         if exact_in == 1:
             if is_valid == 0:

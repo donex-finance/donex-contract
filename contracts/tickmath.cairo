@@ -171,7 +171,6 @@ namespace TickMath:
         range_check_ptr
     }(x: Uint256, r: felt, mask: Uint256, bit: felt) -> (new_x: Uint256, new_r: felt):
         let (is_valid) = uint256_le(mask, x)
-        tempvar range_check_ptr = range_check_ptr
         if is_valid == 1:
             let (new_x: Uint256) = uint256_shr(x, Uint256(bit, 0))
             let new_r = r + bit
@@ -201,7 +200,6 @@ namespace TickMath:
 
 
         let (is_valid) = uint256_le(Uint256(0x2, 0), x)
-        tempvar range_check_ptr = range_check_ptr
         if is_valid == 1:
             let r = r + 1
             return (r)
@@ -261,7 +259,7 @@ namespace TickMath:
         }(sqrt_price_x96: Uint256) -> (res: felt):
         alloc_locals
 
-        local range_check_ptr = range_check_ptr
+        let range_check_ptr2 = range_check_ptr
 
         let (is_valid) = uint256_le(Uint256(MIN_SQRT_RATIO, 0), sqrt_price_x96)
         with_attr error_message("tick is too low"):
@@ -278,13 +276,14 @@ namespace TickMath:
 
         let (msb) = most_significant_bit(ratio)
         let (is_minus) = Utils.is_lt(msb, 128)
-        if is_minus == 0:
-            let (r: Uint256) = uint256_shr(ratio, Uint256(msb - 127, 0))
-            tempvar range_check_ptr = range_check_ptr
-        else: 
-            let (r: Uint256) = uint256_shl(ratio, Uint256(127 - msb, 0))
-            tempvar range_check_ptr = range_check_ptr
+        with range_check_ptr:
+            if is_minus == 0:
+                let (r: Uint256) = uint256_shr(ratio, Uint256(msb - 127, 0))
+            else: 
+                let (r: Uint256) = uint256_shl(ratio, Uint256(127 - msb, 0))
+            end
         end
+        let range_check_ptr = range_check_ptr2
 
         let (tmp: Uint256) = uint256_sub(Uint256(msb, 0), Uint256(128, 0))
         let (log_2: Uint256, _) = uint256_mul(tmp, Uint256(2 ** 64, 0))
@@ -302,27 +301,29 @@ namespace TickMath:
 
         local tl
         let (not_negtive) = uint256_signed_nn(tick_low)
-        if not_negtive == 0:
-            let (res: Uint256) = uint256_neg(tick_low)
-            tempvar res2 = -res.low
-            tl = res2
-            tempvar range_check_ptr = range_check_ptr
-        else:
-            tl = tick_low.low
-            tempvar range_check_ptr = range_check_ptr
+        with range_check_ptr:
+            if not_negtive == 0:
+                let (res: Uint256) = uint256_neg(tick_low)
+                tempvar res2 = -res.low
+                tl = res2
+            else:
+                tl = tick_low.low
+            end
         end
+        let range_check_ptr = range_check_ptr2
 
         local th
         let (not_negtive) = uint256_signed_nn(tick_high)
-        if not_negtive == 0:
-            let (res: Uint256) = uint256_neg(tick_high)
-            tempvar res2 = -res.low
-            th = res2
-            tempvar range_check_ptr = range_check_ptr
-        else:
-            th = tick_high.low
-            tempvar range_check_ptr = range_check_ptr
+        with range_check_ptr:
+            if not_negtive == 0:
+                let (res: Uint256) = uint256_neg(tick_high)
+                tempvar res2 = -res.low
+                th = res2
+            else:
+                th = tick_high.low
+            end
         end
+        let range_check_ptr = range_check_ptr2
 
         let (is_valid) = uint256_eq(tick_low, tick_high)
         if is_valid == 0:
