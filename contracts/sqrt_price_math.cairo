@@ -266,10 +266,15 @@ namespace SqrtPriceMath:
             amount_out: Uint256,
             zero_for_one: felt
         ) -> (res: Uint256):
+
         let (is_valid) = uint256_lt(Uint256(0, 0), sqrt_price_x96)
-        assert is_valid = 1
+        with_attr error_message("sqrt_price_x96 must be greater than 0"):
+            assert is_valid = 1
+        end
         let (is_valid) = Utils.is_gt(liquidity, 0)
-        assert is_valid = 1
+        with_attr error_message("liquidity must be greater than 0"):
+            assert is_valid = 1
+        end
 
         if zero_for_one == TRUE:
             let (res: Uint256) = get_next_sqrt_price_from_amount1_roundingdown(sqrt_price_x96, liquidity, amount_out, FALSE)

@@ -101,7 +101,6 @@ class FullMathTest(TestCase):
             to_uint(100000000000000000 - 1),
             ""
         )
-    '''
 
     @pytest.mark.asyncio
     async def test_get_next_sqrt_price_from_input(self):
@@ -183,4 +182,117 @@ class FullMathTest(TestCase):
             tuple(res.call_info.result),
             to_uint(1),
             "can return 1 with enough amountIn and zeroForOne = true"
+        )
+    '''
+
+    @pytest.mark.asyncio
+    async def test_get_next_sqrt_price_from_output(self):
+        await assert_revert(
+            self.contract.get_next_sqrt_price_from_output(to_uint(0), 0, to_uint(expand_to_18decimals(1) // 10), 0).call(),
+            "sqrt_price_x96 must be greater than 0"
+        )
+
+        await assert_revert(
+            self.contract.get_next_sqrt_price_from_output(to_uint(1), 0, to_uint(expand_to_18decimals(1) // 10), 0).call(),
+            "liquidity must be greater than 0"
+        )
+
+        price = to_uint(20282409603651670423947251286016)
+        liquidity = 1024
+        amount_out = to_uint(4)
+        await assert_revert(
+            self.contract.get_next_sqrt_price_from_output(price, liquidity, amount_out, 0).call(),
+            ""
+        )
+
+        liquidity = 1024
+        amount_out = to_uint(5)
+        await assert_revert(
+            self.contract.get_next_sqrt_price_from_output(price, liquidity, amount_out, 0).call(),
+            ""
+        )
+
+        liquidity = 1024
+        amount_out = to_uint(262145)
+        await assert_revert(
+            self.contract.get_next_sqrt_price_from_output(price, liquidity, amount_out, 1).call(),
+            ""
+        )
+
+        liquidity = 1024
+        amount_out = to_uint(262144)
+        await assert_revert(
+            self.contract.get_next_sqrt_price_from_output(price, liquidity, amount_out, 1).call(),
+            ""
+        )
+
+        liquidity = 1024
+        amount_out = to_uint(262143)
+        res = await self.contract.get_next_sqrt_price_from_output(price, liquidity, amount_out, 1).call()
+        self.assertEqual(
+            tuple(res.call_info.result),
+            to_uint(77371252455336267181195264)
+        )
+
+        price = to_uint(20282409603651670423947251286016)
+        liquidity = 1024
+        amount_out = to_uint(4)
+        await assert_revert(
+            self.contract.get_next_sqrt_price_from_output(price, liquidity, amount_out, 0).call(),
+            ""
+        )
+
+        price = encode_price_sqrt(1, 1)
+        res = await self.contract.get_next_sqrt_price_from_output(price, expand_to_18decimals(1) // 10, to_uint(0), 1).call()
+        self.assertEqual(
+            tuple(res.call_info.result),
+            price
+        )
+
+        res = await self.contract.get_next_sqrt_price_from_output(price, expand_to_18decimals(1) // 10, to_uint(0), 0).call()
+        self.assertEqual(
+            tuple(res.call_info.result),
+            price
+        )
+
+        res = await self.contract.get_next_sqrt_price_from_output(price, expand_to_18decimals(1), to_uint(expand_to_18decimals(1) // 10), 0).call()
+        self.assertEqual(
+            tuple(res.call_info.result),
+            to_uint(88031291682515930659493278152)
+        )
+
+        res = await self.contract.get_next_sqrt_price_from_output(price, expand_to_18decimals(1), to_uint(expand_to_18decimals(1) // 10), 1).call()
+        self.assertEqual(
+            tuple(res.call_info.result),
+            to_uint(71305346262837903834189555302)
+        )
+
+        await assert_revert(
+            self.contract.get_next_sqrt_price_from_output(price, 1, MaxUint256, 1).call(),
+            ""
+        )
+
+        await assert_revert(
+            self.contract.get_next_sqrt_price_from_output(price, 1, MaxUint256, 0).call(),
+            ""
+        )
+
+    @pytest.mark.asyncio
+    async def test_swap_computation(self):
+        price = to_uint(1025574284609383690408304870162715216695788925244)
+        liquidity = 50015962439936049619261659728067971248
+        zero_for_one = 1
+        amount_in = to_uint(406)
+
+        res = await self.contract.get_next_sqrt_price_from_input(price, liquidity, amount_in, zero_for_one).call()
+        sqrt_q = tuple(res.call_info.result)
+        self.assertEqual(
+            sqrt_q,
+            to_uint(1025574284609383582644711336373707553698163132913)
+        )
+
+        res = await self.contract.get_amount0_delta(sqrt_q, price, liquidity, 1).call()
+        self.assertEqual(
+            tuple(res.call_info.result),
+            to_uint(406)
         )
