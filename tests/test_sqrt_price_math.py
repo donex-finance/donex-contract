@@ -38,7 +38,6 @@ class FullMathTest(TestCase):
 
         cls.contract = await cls.starknet.deploy(**kwargs)
 
-    '''
     @pytest.mark.asyncio
     async def test_get_amount0_delta(self):
 
@@ -183,7 +182,6 @@ class FullMathTest(TestCase):
             to_uint(1),
             "can return 1 with enough amountIn and zeroForOne = true"
         )
-    '''
 
     @pytest.mark.asyncio
     async def test_get_next_sqrt_price_from_output(self):
