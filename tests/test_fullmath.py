@@ -92,6 +92,15 @@ class FullMathTest(TestCase):
             expected
         )
 
+        res = await self.contract.uint256_mul_div(
+            to_uint(115792089237316195423570985008687907853269984659341747863450311749907997002549), 
+            to_uint(115792089237316195423570985008687907853269984659341747863450311749907997002550), 
+            to_uint(115792089237316195423570985008687907853269984653042931687443039491902864365164)).call()
+        self.assertEqual(
+            tuple(res.call_info.result),
+            MaxUint256
+        )
+
     @pytest.mark.asyncio
     async def test_mul_div_roundingup(self):
         await assert_revert(
@@ -141,7 +150,7 @@ class FullMathTest(TestCase):
             expected
         )
 
-        res = await self.contract.uint256_mul_div(Q128, to_uint(1000 * 2 ** 128), to_uint(3000 * 2 ** 128)).call()
+        res = await self.contract.uint256_mul_div_roundingup(Q128, to_uint(1000 * 2 ** 128), to_uint(3000 * 2 ** 128)).call()
         expected = to_uint(2 ** 128 // 3 + 1)
         self.assertEqual(
             tuple(res.call_info.result),

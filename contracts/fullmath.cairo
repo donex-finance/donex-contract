@@ -8,6 +8,60 @@ from starkware.cairo.common.math_cmp import (is_nn, is_le)
 from contracts.math_utils import Utils
 
 namespace FullMath:
+
+    #func _count_inv{
+    #    range_check_ptr
+    #} (inv: Uint256, denominator: Uint256) -> (res: Uint256):
+    #    let (tmp: Uint256, _) = uint256_mul(denominator, inv)
+    #    let (tmp: Uint256) = uint256_sub(Uint256(2, 0), tmp)
+    #    let (new_inv: Uint256, _) = uint256_mul(inv, tmp)
+    #    %{ 
+    #        a = ids.inv.low + ids.inv.high * 2 ** 128
+    #        print(f"inv0: {a}")
+    #    %}
+    #    return (new_inv)
+    #end
+
+    func uint256_add_rem{
+        range_check_ptr
+        }(a: Uint256, b: Uint256, denominator: Uint256, rem_256: Uint256) -> (rem: Uint256):
+        alloc_locals
+        let (res: Uint256, carry) = uint256_add(a, b)
+        let (_, rem: Uint256) = uint256_unsigned_div_rem(res, denominator)
+        let (is_valid) = Utils.is_gt(carry, 0)
+        if is_valid == 1:
+            let (res: Uint256) = uint256_add_rem(rem, rem_256, denominator, rem_256)
+            return (res)
+        end
+        return (rem)
+    end
+
+    func uint512_div_rem{
+        range_check_ptr
+        }(low: Uint256, high: Uint256, denominator: Uint256, rem_256: Uint256) -> (remainder: Uint256):
+        alloc_locals
+
+        # high * 256_rem % c
+        let (_, rem_low: Uint256) = uint256_unsigned_div_rem(low, denominator)
+
+        let (tmp: Uint256, tmp2: Uint256) = uint256_mul(rem_256, high)
+        let (is_valid) = uint256_eq(Uint256(0, 0), tmp2)
+        if is_valid == 0:
+            let (rem_high: Uint256) = uint512_div_rem(tmp, tmp2, denominator, rem_256)
+            let (res) = uint256_add_rem(rem_low, rem_high, denominator, rem_256)
+            return (res)
+        end
+
+        let (_, rem_high: Uint256) = uint256_unsigned_div_rem(tmp, denominator)
+        %{ 
+            a = ids.rem_high.low + ids.rem_high.high * 2 ** 128
+            b = ids.rem_low.low + ids.rem_low.low * 2 ** 128
+            print(f"rem_high : {a}, rem_low : {b}")
+        %}
+        let (res) = uint256_add_rem(rem_low, rem_high, denominator, rem_256)
+        return (res)
+    end
+
 # a * b / c
     func uint256_mul_div{
             range_check_ptr,
@@ -30,51 +84,23 @@ namespace FullMath:
             assert is_valid = 1
         end
 
-        let (res: Uint256, rem_low: Uint256) = uint256_unsigned_div_rem(low, c)
-
         # check if high is 0
         let (is_valid) = uint256_eq(Uint256(0, 0), high)
         if is_valid == 1:
+            let (res: Uint256, rem_low: Uint256) = uint256_unsigned_div_rem(low, c)
             return (res, rem_low)
         end
 
-        %{ 
-            print(f"mul overflow: {ids.low.low}, {ids.low.high}, {ids.high.low}, {ids.high.high}")
-        %}
-
-        # high * u256_max // c + (u256_max % c) * high / c
-
-        # get the 2 ^ 256 - 1 % c
-        let (tmp: Uint256, rem_256_1: Uint256) = uint256_unsigned_div_rem(Uint256(Utils.MAX_UINT128, Utils.MAX_UINT128), c)
 
         # get 2 ^ 256 % c
+        let (tmp: Uint256, rem_256_1: Uint256) = uint256_unsigned_div_rem(Uint256(Utils.MAX_UINT128, Utils.MAX_UINT128), c)
         let (tmp: Uint256, _) = uint256_add(rem_256_1, Uint256(1, 0))
-        let (tmp2: Uint256, rem_256: Uint256) = uint256_unsigned_div_rem(tmp, c)
+        let (_, rem_256: Uint256) = uint256_unsigned_div_rem(tmp, c)
 
-        # high * 256_rem % c
-        let (tmp: Uint256, _) = uint256_mul(rem_256, high)
-        let (_, rem_high: Uint256) = uint256_unsigned_div_rem(tmp, c)
-
-        # (rem_high + rem_low) % c
-        let (tmp: Uint256, carry) =  uint256_add(rem_low, rem_high)
-        let (_, rem_all: Uint256) = uint256_unsigned_div_rem(tmp, c)
-
-        # if carry + 1, compute (rem_all + rem_256) % c
-        local rem_final: Uint256
-        let (is_valid) = Utils.is_gt(carry, 0)
-        if is_valid == 1:
-            let (tmp: Uint256, _) = uint256_add(rem_all, rem_256)
-            let (_, tmp2: Uint256) = uint256_unsigned_div_rem(tmp, c)
-            rem_final.low = tmp2.low 
-            rem_final.high = tmp2.high
-            tempvar range_check_ptr = range_check_ptr
-        else:
-            rem_final.low = rem_all.low
-            rem_final.high = rem_all.high
-            tempvar range_check_ptr = range_check_ptr
-        end
-        %{ 
-            print(f"compute a * b % c: {ids.rem_final.low}, {ids.rem_final.high}")
+        let (rem_final: Uint256) = uint512_div_rem(low, high, c, rem_256)
+        %{
+            a = ids.rem_final.low + ids.rem_final.high * 2 ** 128
+            print(f"rem_final : {a}")
         %}
 
         # Subtract 256 bit number from 512 bit number
@@ -89,7 +115,8 @@ namespace FullMath:
         let (twos: Uint256) = uint256_and(minus_c, c)
 
         %{ 
-            print(f"twos : {ids.twos.low}, {ids.twos.high}")
+            a = ids.twos.low + ids.twos.high * 2 ** 128
+            print(f"twos : {a}")
         %}
 
         # Divide denominator by power of two
@@ -109,13 +136,17 @@ namespace FullMath:
 
         let (prod0: Uint256, _) = uint256_add(prod0, tmp)
         %{ 
-            print(f"prod0: {ids.prod0.low}, {ids.prod0.high}")
+            a = ids.prod0.low + ids.prod0.high * 2 ** 128
+            b = ids.denominator.low + ids.denominator.high * 2 ** 128
+            c = ids.twos.low + ids.twos.high * 2 ** 128
+            print(f"prod0: {a}, denominator: {b}, twos: {c}")
         %}
 
         let (tmp: Uint256, _) = uint256_mul(Uint256(3, 0), denominator)
         let (inv: Uint256) = uint256_xor(tmp, Uint256(2, 0))
         %{ 
-            print(f"inv0: {ids.inv.low}, {ids.inv.high}")
+            a = ids.inv.low + ids.inv.high * 2 ** 128
+            print(f"inv0: {a}")
         %}
 
         # inverse mod 2**8
@@ -123,7 +154,8 @@ namespace FullMath:
         let (tmp: Uint256) = uint256_sub(Uint256(2, 0), tmp)
         let (inv: Uint256, _) = uint256_mul(inv, tmp)
         %{ 
-            print(f"inv1: {ids.inv.low}, {ids.inv.high}")
+            a = ids.inv.low + ids.inv.high * 2 ** 128
+            print(f"inv0: {a}")
         %}
 
         # inverse mod 2**16
@@ -131,7 +163,8 @@ namespace FullMath:
         let (tmp: Uint256) = uint256_sub(Uint256(2, 0), tmp)
         let (inv: Uint256, _) = uint256_mul(inv, tmp)
         %{ 
-            print(f"inv2: {ids.inv.low}, {ids.inv.high}")
+            a = ids.inv.low + ids.inv.high * 2 ** 128
+            print(f"inv0: {a}")
         %}
 
         # inverse mod 2**32
@@ -139,7 +172,8 @@ namespace FullMath:
         let (tmp: Uint256) = uint256_sub(Uint256(2, 0), tmp)
         let (inv: Uint256, _) = uint256_mul(inv, tmp)
         %{ 
-            print(f"inv3: {ids.inv.low}, {ids.inv.high}")
+            a = ids.inv.low + ids.inv.high * 2 ** 128
+            print(f"inv0: {a}")
         %}
 
         # inverse mod 2**64
@@ -147,7 +181,8 @@ namespace FullMath:
         let (tmp: Uint256) = uint256_sub(Uint256(2, 0), tmp)
         let (inv: Uint256, _) = uint256_mul(inv, tmp)
         %{ 
-            print(f"inv4: {ids.inv.low}, {ids.inv.high}")
+            a = ids.inv.low + ids.inv.high * 2 ** 128
+            print(f"inv0: {a}")
         %}
 
         # inverse mod 2**128
@@ -155,7 +190,8 @@ namespace FullMath:
         let (tmp: Uint256) = uint256_sub(Uint256(2, 0), tmp)
         let (inv: Uint256, _) = uint256_mul(inv, tmp)
         %{ 
-            print(f"inv5: {ids.inv.low}, {ids.inv.high}")
+            a = ids.inv.low + ids.inv.high * 2 ** 128
+            print(f"inv0: {a}")
         %}
 
         # inverse mod 2**256
@@ -163,7 +199,8 @@ namespace FullMath:
         let (tmp: Uint256) = uint256_sub(Uint256(2, 0), tmp)
         let (inv: Uint256, _) = uint256_mul(inv, tmp)
         %{ 
-            print(f"inv6: {ids.inv.low}, {ids.inv.high}")
+            a = ids.inv.low + ids.inv.high * 2 ** 128
+            print(f"inv0: {a}")
         %}
 
         let (result: Uint256, _) = uint256_mul(prod0, inv)
@@ -179,8 +216,11 @@ namespace FullMath:
         let (res: Uint256, rem: Uint256) = uint256_mul_div(a, b, c)
         let (is_valid) = uint256_lt(Uint256(0, 0), rem)
         if is_valid == 1:
-            let (is_valid) = uint256_lt(rem, Uint256(Utils.MAX_UINT128, Utils.MAX_UINT128))
-            with_attr error_message("overflow uint256"):
+            %{ 
+                print(f"res: {ids.res.low}, {ids.res.high}")
+            %}
+            let (is_valid) = uint256_lt(res, Uint256(Utils.MAX_UINT128, Utils.MAX_UINT128))
+            with_attr error_message("overflows uint256"):
                 assert is_valid = 1
             end
             let (tmp: Uint256, _) = uint256_add(res, Uint256(1, 0))
