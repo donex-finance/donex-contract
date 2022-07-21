@@ -15,10 +15,6 @@ namespace FullMath:
     #    let (tmp: Uint256, _) = uint256_mul(denominator, inv)
     #    let (tmp: Uint256) = uint256_sub(Uint256(2, 0), tmp)
     #    let (new_inv: Uint256, _) = uint256_mul(inv, tmp)
-    #    %{ 
-    #        a = ids.inv.low + ids.inv.high * 2 ** 128
-    #        print(f"inv0: {a}")
-    #    %}
     #    return (new_inv)
     #end
 
@@ -53,11 +49,6 @@ namespace FullMath:
         end
 
         let (_, rem_high: Uint256) = uint256_unsigned_div_rem(tmp, denominator)
-        %{ 
-            a = ids.rem_high.low + ids.rem_high.high * 2 ** 128
-            b = ids.rem_low.low + ids.rem_low.low * 2 ** 128
-            print(f"rem_high : {a}, rem_low : {b}")
-        %}
         let (res) = uint256_add_rem(rem_low, rem_high, denominator, rem_256)
         return (res)
     end
@@ -98,10 +89,6 @@ namespace FullMath:
         let (_, rem_256: Uint256) = uint256_unsigned_div_rem(tmp, c)
 
         let (rem_final: Uint256) = uint512_div_rem(low, high, c, rem_256)
-        %{
-            a = ids.rem_final.low + ids.rem_final.high * 2 ** 128
-            print(f"rem_final : {a}")
-        %}
 
         # Subtract 256 bit number from 512 bit number
         let (is_valid) = uint256_lt(low, rem_final)
@@ -114,19 +101,11 @@ namespace FullMath:
         let (minus_c: Uint256) = uint256_neg(c)
         let (twos: Uint256) = uint256_and(minus_c, c)
 
-        %{ 
-            a = ids.twos.low + ids.twos.high * 2 ** 128
-            print(f"twos : {a}")
-        %}
-
         # Divide denominator by power of two
         let (denominator: Uint256, _) = uint256_unsigned_div_rem(c, twos)
 
         # Divide [prod1 prod0] by the factors of two
         let (prod0: Uint256, _) = uint256_unsigned_div_rem(prod0, twos)
-        %{ 
-            print(f"prod0 : {ids.prod0.low}, {ids.prod0.high}")
-        %}
 
         let (tmp: Uint256) = uint256_neg(twos)
         let (tmp: Uint256, _) = uint256_unsigned_div_rem(tmp, twos)
@@ -135,73 +114,39 @@ namespace FullMath:
         let (tmp: Uint256, _) = uint256_mul(prod1, twos)
 
         let (prod0: Uint256, _) = uint256_add(prod0, tmp)
-        %{ 
-            a = ids.prod0.low + ids.prod0.high * 2 ** 128
-            b = ids.denominator.low + ids.denominator.high * 2 ** 128
-            c = ids.twos.low + ids.twos.high * 2 ** 128
-            print(f"prod0: {a}, denominator: {b}, twos: {c}")
-        %}
 
         let (tmp: Uint256, _) = uint256_mul(Uint256(3, 0), denominator)
         let (inv: Uint256) = uint256_xor(tmp, Uint256(2, 0))
-        %{ 
-            a = ids.inv.low + ids.inv.high * 2 ** 128
-            print(f"inv0: {a}")
-        %}
 
         # inverse mod 2**8
         let (tmp: Uint256, _) = uint256_mul(denominator, inv)
         let (tmp: Uint256) = uint256_sub(Uint256(2, 0), tmp)
         let (inv: Uint256, _) = uint256_mul(inv, tmp)
-        %{ 
-            a = ids.inv.low + ids.inv.high * 2 ** 128
-            print(f"inv0: {a}")
-        %}
 
         # inverse mod 2**16
         let (tmp: Uint256, _) = uint256_mul(denominator, inv)
         let (tmp: Uint256) = uint256_sub(Uint256(2, 0), tmp)
         let (inv: Uint256, _) = uint256_mul(inv, tmp)
-        %{ 
-            a = ids.inv.low + ids.inv.high * 2 ** 128
-            print(f"inv0: {a}")
-        %}
 
         # inverse mod 2**32
         let (tmp: Uint256, _) = uint256_mul(denominator, inv)
         let (tmp: Uint256) = uint256_sub(Uint256(2, 0), tmp)
         let (inv: Uint256, _) = uint256_mul(inv, tmp)
-        %{ 
-            a = ids.inv.low + ids.inv.high * 2 ** 128
-            print(f"inv0: {a}")
-        %}
 
         # inverse mod 2**64
         let (tmp: Uint256, _) = uint256_mul(denominator, inv)
         let (tmp: Uint256) = uint256_sub(Uint256(2, 0), tmp)
         let (inv: Uint256, _) = uint256_mul(inv, tmp)
-        %{ 
-            a = ids.inv.low + ids.inv.high * 2 ** 128
-            print(f"inv0: {a}")
-        %}
 
         # inverse mod 2**128
         let (tmp: Uint256, _) = uint256_mul(denominator, inv)
         let (tmp: Uint256) = uint256_sub(Uint256(2, 0), tmp)
         let (inv: Uint256, _) = uint256_mul(inv, tmp)
-        %{ 
-            a = ids.inv.low + ids.inv.high * 2 ** 128
-            print(f"inv0: {a}")
-        %}
 
         # inverse mod 2**256
         let (tmp: Uint256, _) = uint256_mul(denominator, inv)
         let (tmp: Uint256) = uint256_sub(Uint256(2, 0), tmp)
         let (inv: Uint256, _) = uint256_mul(inv, tmp)
-        %{ 
-            a = ids.inv.low + ids.inv.high * 2 ** 128
-            print(f"inv0: {a}")
-        %}
 
         let (result: Uint256, _) = uint256_mul(prod0, inv)
         return (result, rem_final)
@@ -216,9 +161,6 @@ namespace FullMath:
         let (res: Uint256, rem: Uint256) = uint256_mul_div(a, b, c)
         let (is_valid) = uint256_lt(Uint256(0, 0), rem)
         if is_valid == 1:
-            %{ 
-                print(f"res: {ids.res.low}, {ids.res.high}")
-            %}
             let (is_valid) = uint256_lt(res, Uint256(Utils.MAX_UINT128, Utils.MAX_UINT128))
             with_attr error_message("overflows uint256"):
                 assert is_valid = 1
