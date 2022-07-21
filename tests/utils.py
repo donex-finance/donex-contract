@@ -8,6 +8,8 @@ from starkware.starkware_utils.error_handling import StarkException
 from starkware.starknet.testing.starknet import StarknetContract
 from starkware.starknet.business_logic.execution.objects import Event
 from nile.signer import Signer
+from mpmath import mp, sqrt
+mp.dps = 100
 
 
 MAX_UINT256 = (2**128 - 1, 2**128 - 1)
@@ -15,6 +17,8 @@ INVALID_UINT256 = (MAX_UINT256[0] + 1, MAX_UINT256[1])
 ZERO_ADDRESS = 0
 TRUE = 1
 FALSE = 0
+
+PRECISION = 200
 
 TRANSACTION_VERSION = 0
 
@@ -182,3 +186,22 @@ class TestSigner():
 
         (call_array, calldata, sig_r, sig_s) = self.signer.sign_transaction(hex(account.contract_address), build_calls, nonce, max_fee)
         return await account.__execute__(call_array, calldata, nonce).invoke(signature=[sig_r, sig_s])
+
+#def encode_price_sqrt(reserve1, reserve2):
+#    """
+#    Encode the price sqrt as a uint256.
+#    """
+#    a = Context(prec=PRECISION).create_decimal(reserve1)
+#    b = Context(prec=PRECISION).create_decimal(reserve2)
+#    c = Context(prec=PRECISION).create_decimal(2 ** 96)
+#    a = (a / b).sqrt() * c
+#    return to_uint(int(a))
+
+def encode_price_sqrt(reserve1, reserve2):
+    a = mp.mpf(reserve1)
+    b = mp.mpf(reserve2)
+    c = sqrt((a / b)) * mp.mpf(2 ** 96)
+    return to_uint(int(c))
+
+def expand_to_18decimals(n):
+    return n * (10 ** 18)

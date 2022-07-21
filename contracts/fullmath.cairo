@@ -176,6 +176,11 @@ namespace FullMath:
         }(a: Uint256, b: Uint256) -> (res: Uint256):
         alloc_locals
 
+        let (is_valid) = uint256_eq(Uint256(0, 0), b)
+        if is_valid == 1:
+            return (Uint256(0, 0))
+        end
+
         let (res: Uint256, rem: Uint256) = uint256_unsigned_div_rem(a, b)
         let (is_valid) = uint256_lt(Uint256(0, 0), rem)
         if is_valid == 1:
