@@ -10,7 +10,7 @@ namespace BitMath:
     func _msb_shift{
             range_check_ptr
         }(x: Uint256, r: felt, mask: Uint256, bit: felt) -> (x: Uint256, r: felt):
-        let (is_valid) = uint256_lt(mask, x)
+        let (is_valid) = uint256_le(mask, x)
         if is_valid == 1:
             let (new_x: Uint256) = uint256_shr(x, Uint256(bit, 0))
             let new_r = r + bit
@@ -24,6 +24,9 @@ namespace BitMath:
         }(num: Uint256) -> (res: felt):
         alloc_locals
 
+        let (is_valid) = uint256_lt(Uint256(0, 0), num)
+        assert is_valid = 1
+
         let (x: Uint256, r) = _msb_shift(num, 0, Uint256(0, 1), 128)
         let (x: Uint256, r) = _msb_shift(x, r, Uint256(0x10000000000000000, 0), 64)
         let (x: Uint256, r) = _msb_shift(x, r, Uint256(0x100000000, 0), 32)
@@ -32,7 +35,7 @@ namespace BitMath:
         let (x: Uint256, r) = _msb_shift(x, r, Uint256(0x10, 0), 4)
         let (x: Uint256, r) = _msb_shift(x, r, Uint256(0x4, 0), 2)
 
-        let (is_valid) = uint256_lt(x, Uint256(0x2, 0))
+        let (is_valid) = uint256_le(Uint256(0x2, 0), x)
         if (is_valid) == 1:
             return (r + 1)
         end
@@ -46,7 +49,7 @@ namespace BitMath:
         alloc_locals
 
         let (tx: Uint256) = uint256_and(x, mask)
-        let (is_valid) = uint256_le(Uint256(0, 0), tx)
+        let (is_valid) = uint256_lt(Uint256(0, 0), tx)
         if is_valid == 1:
             let new_r = r - bit
             return (x, new_r)
@@ -60,10 +63,10 @@ namespace BitMath:
             bitwise_ptr: BitwiseBuiltin*
         }(num: Uint256) -> (res: felt):
 
-        let x: Uint256 = num
-        let r = 255
+        let (is_valid) = uint256_lt(Uint256(0, 0), num)
+        assert is_valid = 1
 
-        let (x: Uint256, r) = _lsb_shift(x, r, Uint256(Utils.MAX_UINT128, 0), 128)
+        let (x: Uint256, r) = _lsb_shift(num, 255, Uint256(Utils.MAX_UINT128, 0), 128)
         let (x: Uint256, r) = _lsb_shift(x, r, Uint256(0xffffffffffffffff, 0), 64)
         let (x: Uint256, r) = _lsb_shift(x, r, Uint256(0xffffffff, 0), 32)
         let (x: Uint256, r) = _lsb_shift(x, r, Uint256(0xffff, 0), 16)

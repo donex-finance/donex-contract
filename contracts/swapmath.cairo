@@ -19,7 +19,7 @@ namespace SwapMath:
             liquidity: felt,
             amount_remaining: Uint256,
             fee_pips: felt
-        ) -> (sqrt_ratio_next:  Uint256, amont_in: Uint256, amount_out: Uint256, fee_amount: Uint256):
+        ) -> (sqrt_ratio_next: Uint256, amont_in: Uint256, amount_out: Uint256, fee_amount: Uint256):
         alloc_locals
 
         let range_check_ptr2 = range_check_ptr
