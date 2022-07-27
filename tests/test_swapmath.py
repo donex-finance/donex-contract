@@ -50,5 +50,23 @@ class SwapmathTest(TestCase):
         zero_for_one = 0
 
         res = await self.contract.compute_swap_step(price, price_target, liquidity, amount, fee).call()
+        sqrt_price = tuple(res.call_info.result[:2])
+        amount_in = tuple(res.call_info.result[2: 4])
+        amount_out = tuple(res.call_info.result[4: 6])
+        fee_amount = tuple(res.call_info.result[6: 8])
+        self.assertEqual(
+            amount_in,
+            to_uint(9975124224178055)
+        )
+        self.assertEqual(
+            amount_out,
+            to_uint(9925619580021728)
+        )
+        self.assertEqual(
+            fee_amount,
+            to_uint(5988667735148)
+        )
 
-        print(res.call_info.result)
+        #priceAfterWholeInputAmount = await self.sqrtPriceMath.getNextSqrtPriceFromInput(price, liquidity, amount, zero_for_one)
+        self.assertEqual(sqrt_price, price_target)
+        #self.assertEqual(sqrt_price < priceAfterWholeInputAmount, True)
