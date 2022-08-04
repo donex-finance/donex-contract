@@ -25,7 +25,7 @@ namespace TickBitmap:
             syscall_ptr: felt*,
             pedersen_ptr: HashBuiltin*,
             range_check_ptr
-        }(tick: felt, tick_spaceing: felt):
+        }(tick: felt, tick_spacing: felt):
         let (_, rem) = unsigned_div_rem(tick, 256)
         assert rem = 0
 
@@ -44,10 +44,10 @@ namespace TickBitmap:
             pedersen_ptr: HashBuiltin*,
             range_check_ptr,
             bitwise_ptr: BitwiseBuiltin*
-        }(tick: felt, tick_spaceing: felt, lte: felt) -> (tick_next: felt, initialized: felt):
+        }(tick: felt, tick_spacing: felt, lte: felt) -> (tick_next: felt, initialized: felt):
         alloc_locals
 
-        let (compressed_0, rem) = unsigned_div_rem(tick, tick_spaceing)
+        let (compressed_0, rem) = unsigned_div_rem(tick, tick_spacing)
 
         let (is_valid) = Utils.is_lt(tick, 0)
 
@@ -75,11 +75,11 @@ namespace TickBitmap:
             let (is_valid) = uint256_eq(state, Uint256(0, 0))
             if is_valid == 0:
                 let (msb)= BitMath.most_significant_bit(state)
-                let next = (compressed - (bit_pos - msb)) * tick_spaceing
+                let next = (compressed - (bit_pos - msb)) * tick_spacing
                 return (next, 1)
             end
 
-            let next = (compressed - bit_pos) * tick_spaceing
+            let next = (compressed - bit_pos) * tick_spacing
             return (next, 0)
         else:
             let (word_pos, bit_pos) = position(compressed + 1)
@@ -93,11 +93,11 @@ namespace TickBitmap:
             let (is_valid) = uint256_eq(state, Uint256(0, 0))
             if is_valid == 0:
                 let (lsb) = BitMath.least_significant_bit(state)
-                let next = (compressed + 1 + (lsb - bit_pos)) * tick_spaceing
+                let next = (compressed + 1 + (lsb - bit_pos)) * tick_spacing
                 return (next, 1)
             end
 
-            let next = (compressed + 1 + 255 - bit_pos) * tick_spaceing
+            let next = (compressed + 1 + 255 - bit_pos) * tick_spacing
             return (next, 0)
         end
     end

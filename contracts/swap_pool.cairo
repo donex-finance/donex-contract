@@ -97,11 +97,11 @@ func constructor{
         pedersen_ptr: HashBuiltin*,
         range_check_ptr
     }(
-        tick_spaceing: felt, 
+        tick_spacing: felt, 
         fee: felt
     ):
 
-    _tick_spacing.write(tick_spaceing)
+    _tick_spacing.write(tick_spacing)
     _fee.write(fee)
     return ()
 end

@@ -26,11 +26,11 @@ namespace TickMgr:
     func get_max_liquidity_per_tick{
             range_check_ptr
         }(
-            tick_spaceing: felt
+            tick_spacing: felt
         ) -> (max_liquidity: felt):
-        let (min_tick) = signed_div_rem(TickMath.MIN_TICK, tick_spaceing)[0] * tick_spaceing
-        let (max_tick) = signed_div_rem(TickMath.MAX_TICK, tick_spaceing)[0] * tick_spaceing
-        let (n_ticks) = signed_div_rem(max_tick - min_tick, tick_spaceing)[0] + 1
+        let (min_tick) = signed_div_rem(TickMath.MIN_TICK, tick_spacing)[0] * tick_spacing
+        let (max_tick) = signed_div_rem(TickMath.MAX_TICK, tick_spacing)[0] * tick_spacing
+        let (n_ticks) = signed_div_rem(max_tick - min_tick, tick_spacing)[0] + 1
         let (max_liquidity, _) = signed_div_rem(Utils.MAX_UINT128, n_ticks) 
 
         return (max_liquidity)
