@@ -19,13 +19,14 @@ namespace SwapMath:
             sqrt_ratio_target: Uint256,
             liquidity: felt,
             amount_remaining: Uint256,
+            fee_pips: felt,
             exact_in: felt,
             zero_for_one: felt
         ) -> (sqrt_ratio_next: Uint256, amont_in: Uint256, amount_out: Uint256):
         alloc_locals
 
         if exact_in == 1:
-            let (amount_remaining_less_fee: Uint256, _) = FullMath.uint256_mul_div(amount_remaining, Uint256(num_1e6, 0), Uint256(num_1e6, 0))
+            let (amount_remaining_less_fee: Uint256, _) = FullMath.uint256_mul_div(amount_remaining, Uint256(num_1e6 - fee_pips, 0), Uint256(num_1e6, 0))
             local low
             local high
             if zero_for_one == 1:
@@ -171,7 +172,7 @@ namespace SwapMath:
         let (zero_for_one) = uint256_le(sqrt_ratio_target, sqrt_ratio_current)
         let (exact_in) = uint256_signed_nn(amount_remaining)
 
-        let (sqrt_ratio_next: Uint256, amount_in: Uint256, amount_out: Uint256) = _compute_swap_step_1(sqrt_ratio_current, sqrt_ratio_target, liquidity, amount_remaining, exact_in, zero_for_one)
+        let (sqrt_ratio_next: Uint256, amount_in: Uint256, amount_out: Uint256) = _compute_swap_step_1(sqrt_ratio_current, sqrt_ratio_target, liquidity, amount_remaining, fee_pips, exact_in, zero_for_one)
 
         let (max) = uint256_eq(sqrt_ratio_target, sqrt_ratio_next)
 
