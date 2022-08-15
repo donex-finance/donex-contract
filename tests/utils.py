@@ -205,3 +205,8 @@ def encode_price_sqrt(reserve1, reserve2):
 
 def expand_to_18decimals(n):
     return n * (10 ** 18)
+
+def int_to_felt(n):
+    if n < 0:
+        return P + n
+    return n
