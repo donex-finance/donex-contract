@@ -1,7 +1,7 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from starkware.cairo.common.math import signed_div_rem
+from starkware.cairo.common.math import (signed_div_rem, unsigned_div_rem)
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.bool import (TRUE, FALSE)
 from starkware.cairo.common.uint256 import (Uint256, uint256_sub)
@@ -22,16 +22,34 @@ func TickMgr_data(tick: felt) -> (tickInfo: TickInfo):
 end
 
 namespace TickMgr:
+    const bound = 2 ** 127
 
     func get_max_liquidity_per_tick{
             range_check_ptr
         }(
             tick_spacing: felt
         ) -> (max_liquidity: felt):
-        let (min_tick) = signed_div_rem(TickMath.MIN_TICK, tick_spacing)[0] * tick_spacing
-        let (max_tick) = signed_div_rem(TickMath.MAX_TICK, tick_spacing)[0] * tick_spacing
-        let (n_ticks) = signed_div_rem(max_tick - min_tick, tick_spacing)[0] + 1
-        let (max_liquidity, _) = signed_div_rem(Utils.MAX_UINT128, n_ticks) 
+        alloc_locals
+
+        let (tmp, rem) = signed_div_rem(TickMath.MIN_TICK, tick_spacing, bound)
+        let (is_valid) = Utils.is_gt(rem, 0)
+        if is_valid == 1:
+            tempvar min_tick = (tmp + 1) * tick_spacing
+        else:
+            tempvar min_tick = tmp * tick_spacing
+        end
+
+        let (tmp, _) = unsigned_div_rem(TickMath.MAX_TICK, tick_spacing)
+        let max_tick = tmp * tick_spacing
+
+        let (tmp, _) = unsigned_div_rem(max_tick - min_tick, tick_spacing)
+        let n_ticks = tmp + 1
+
+        %{
+            print('get_max_liq:', ids.tick_spacing, ids.min_tick, ids.max_tick, ids.n_ticks)
+        %}
+
+        let (max_liquidity, _) = unsigned_div_rem(Utils.MAX_UINT128, n_ticks) 
 
         return (max_liquidity)
     end
@@ -60,6 +78,29 @@ namespace TickMgr:
         return (info.liquidity_net)
     end
 
+    func _update_1{
+            syscall_ptr: felt*,
+            pedersen_ptr: HashBuiltin*,
+            range_check_ptr
+        }(
+            tick: felt, 
+            tick_current: felt, 
+            info: TickInfo,
+            fee_growth_global0_x128: Uint256,
+            fee_growth_global1_x128: Uint256
+        ) -> (fee_growth_outside0_x128: Uint256, fee_growth_outside1_x128: Uint256, initialized: felt):
+        if info.liquidity_gross == 0:
+            let (is_valid) = is_le(tick, tick_current)
+            if is_valid == 1:
+                return (fee_growth_global0_x128, fee_growth_global1_x128, TRUE)
+            end
+            return (info.fee_growth_outside0_x128, info.fee_growth_outside1_x128, TRUE)
+        end
+
+        return (info.fee_growth_outside0_x128, info.fee_growth_outside1_x128, info.initialized)
+
+    end
+
     func update{
             syscall_ptr: felt*,
             pedersen_ptr: HashBuiltin*,
@@ -73,6 +114,7 @@ namespace TickMgr:
             upper: felt, 
             max_liquidity: felt
         ) -> (flipped: felt):
+        alloc_locals
 
         let (info: TickInfo) = TickMgr_data.read(tick)
 
@@ -84,24 +126,21 @@ namespace TickMgr:
             assert is_valid = 1
         end
 
-        if liq_gross_before == 0:
-            let (is_valid) = is_le(tick, tick_current)
-            if is_valid == 1:
-                info.fee_growth_global0_x128 = fee_growth_global0_x128
-                info.fee_growth_global1_x128 = fee_growth_global1_x128
-            end
-            info.initialized = TRUE
-        end
-
-        info.liquidity_gross = liq_gross_after
+        let (fee_growth_outside0_x128: Uint256, fee_growth_outside1_x128: Uint256, initialized: felt) = _update_1(tick, tick_current, info, fee_growth_global0_x128, fee_growth_global1_x128)
 
         if upper == TRUE:
-            info.liquidity_net = info.liquidity_net - liquidity_delta
+            tempvar liquidity_net = info.liquidity_net - liquidity_delta
         else:
-            info.liquidity_net = info.liquidity_net + liquidity_delta
+            tempvar liquidity_net = info.liquidity_net + liquidity_delta
         end
 
-        TickMgr_data.write(tick, info)
+        TickMgr_data.write(tick, TickInfo(
+            liquidity_gross = liq_gross_after,
+            liquidity_net = liquidity_net,
+            fee_growth_outside0_x128 = fee_growth_outside0_x128,
+            fee_growth_outside1_x128 = fee_growth_outside1_x128,
+            initialized = initialized
+        ))
 
         let (tmp) = Utils.is_eq(liq_gross_after, 0)
         let (tmp2) = Utils.is_eq(liq_gross_before, 0)
@@ -111,7 +150,61 @@ namespace TickMgr:
         return (0)
     end
 
-    func get_fee_groth_inside{
+    func _get_fee_growth_inside_1{
+            syscall_ptr: felt*,
+            pedersen_ptr: HashBuiltin*,
+            range_check_ptr
+        }(
+            tick_lower: felt,
+            tick_current: felt,
+            fee_growth_global0_x128: Uint256,
+            fee_growth_global1_x128: Uint256
+        ) -> (fee_growth_below0_x128: Uint256, fee_growth_below1_x128: Uint256):
+        alloc_locals
+
+        let (info_lower: TickInfo) = TickMgr_data.read(tick_lower)
+
+        let (is_valid) = is_le(tick_lower, tick_current)
+        if is_valid == 1:
+            return (info_lower.fee_growth_outside0_x128, info_lower.fee_growth_outside1_x128)
+        end
+
+        let (fee_growth_below0_x128: Uint256) = uint256_sub(fee_growth_global0_x128, info_lower.fee_growth_outside0_x128)
+
+        let (fee_growth_below1_x128: Uint256) = uint256_sub(fee_growth_global1_x128, info_lower.fee_growth_outside1_x128)
+
+        return (fee_growth_below0_x128, fee_growth_below1_x128)
+    end
+
+    func _get_fee_growth_inside_2{
+            syscall_ptr: felt*,
+            pedersen_ptr: HashBuiltin*,
+            range_check_ptr
+        }(
+            tick_upper: felt,
+            tick_current: felt,
+            fee_growth_global0_x128: Uint256,
+            fee_growth_global1_x128: Uint256
+        ) -> (fee_growth_above0_x128: Uint256, fee_growth_above1_x128: Uint256):
+
+        alloc_locals
+
+        let (info_upper: TickInfo) = TickMgr_data.read(tick_upper)
+
+        let (is_valid) = Utils.is_lt(tick_current, tick_upper)
+        if is_valid == 1:
+            return (info_upper.fee_growth_outside0_x128, info_upper.fee_growth_outside1_x128)
+        end
+
+        let (fee_growth_above0_x128: Uint256) = uint256_sub(fee_growth_global0_x128, info_upper.fee_growth_outside0_x128)
+
+        let (fee_growth_above1_x128: Uint256) = uint256_sub(fee_growth_global1_x128, info_upper.fee_growth_outside1_x128)
+        
+        return (fee_growth_above0_x128, fee_growth_above1_x128)
+
+    end
+
+    func get_fee_growth_inside{
             syscall_ptr: felt*,
             pedersen_ptr: HashBuiltin*,
             range_check_ptr
@@ -124,37 +217,35 @@ namespace TickMgr:
         ) -> (fee_growth_inside0_x128: Uint256, fee_growth_inside1_x128: Uint256):
 
         alloc_locals
+
+        let (fee_growth_below0_x128: Uint256, fee_growth_below1_x128: Uint256) = _get_fee_growth_inside_1(tick_lower, tick_current,  fee_growth_global0_x128, fee_growth_global1_x128)
+
+        let (fee_growth_above0_x128: Uint256, fee_growth_above1_x128: Uint256) = _get_fee_growth_inside_2(tick_upper, tick_current, fee_growth_global0_x128, fee_growth_global1_x128)
         
-        let (info_lower: TickInfo) = TickMgr_data.read(tick_lower)
-        let (info_upper: TickInfo) = TickMgr_data.read(tick_upper)
+        let (tmp: Uint256) = uint256_sub(fee_growth_global0_x128, fee_growth_below0_x128)
+        let (fee_growth_inside0_x128: Uint256) = uint256_sub(tmp, fee_growth_above0_x128)
 
-        let (is_valid) = is_le(tick_lower, tick_current)
-        if is_valid == 1:
-            tempvar fee_growth_below0_x128: Uint256 = info_lower.fee_growth_outside0_x128
-            tempvar fee_growth_below1_x128: Uint256 = info_lower.fee_growth_outside1_x128
-        else:
-            let (tmp: Uint256) = uint256_sub(fee_growth_global0_x128, info_lower.fee_growth_outside0_x128)
-            tempvar fee_growth_below0_x128: Uint256 = tmp
-
-            let (tmp: Uint256) = uint256_sub(fee_growth_global1_x128, info_lower.fee_growth_outside1_x128)
-            tempvar fee_growth_below1_x128: Uint256 = tmp
-        end
-
-        let (is_valid) = Utils.is_lt(tick_current, tick_upper)
-        if is_valid == 1:
-            tempvar fee_growth_above0_x128: Uint256 = info_upper.fee_growth_outside0_x128
-            tempvar fee_growth_above1_x128: Uint256 = info_upper.fee_growth_outside1_x128
-        else:
-            let (tmp: Uint256) = fee_growth_global0_x128 - info_upper.fee_growth_outside0_x128
-            tempvar fee_growth_above0_x128: Uint256 = tmp
-
-            let (tmp: Uint256) = fee_growth_global1_x128 - info_upper.fee_growth_outside1_x128
-            tempvar fee_growth_above1_x128: Uint256 = tmp
-        end
-
-        let (fee_growth_inside0_x128: Uint256) = uint256_sub(uint256_sub(fee_growth_global0_x128, fee_growth_below0_x128)[0], fee_growth_above0_x128)
-        let (fee_growth_inside1_x128: Uint256) = uint256_sub(uint256_sub(fee_growth_global1_x128, fee_growth_below1_x128)[0], fee_growth_above1_x128)
+        let (tmp: Uint256) = uint256_sub(fee_growth_global1_x128, fee_growth_below1_x128)
+        let (fee_growth_inside1_x128: Uint256) = uint256_sub(tmp, fee_growth_above1_x128)
 
         return (fee_growth_inside0_x128, fee_growth_inside1_x128)
+    end
+
+    func set_tick{
+            syscall_ptr: felt*,
+            pedersen_ptr: HashBuiltin*,
+            range_check_ptr
+        }(tick: felt, tickInfo: TickInfo):
+        TickMgr_data.write(tick, tickInfo)
+        return ()
+    end
+
+    func get_tick{
+            syscall_ptr: felt*,
+            pedersen_ptr: HashBuiltin*,
+            range_check_ptr
+        }(tick: felt) -> (tickInfo: TickInfo):
+        let (tickInfo: TickInfo) = TickMgr_data.read(tick)
+        return (tickInfo)
     end
 end
