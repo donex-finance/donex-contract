@@ -4,14 +4,16 @@ from starkware.cairo.common.cairo_builtins import (HashBuiltin, BitwiseBuiltin)
 from starkware.cairo.common.uint256 import (Uint256, uint256_mul, uint256_shr, uint256_shl, uint256_lt, uint256_le, uint256_add, uint256_unsigned_div_rem, uint256_signed_div_rem, uint256_or, uint256_sub, uint256_and, uint256_eq, uint256_signed_lt, uint256_neg, uint256_signed_nn)
 from starkware.cairo.common.bool import (FALSE, TRUE)
 from starkware.cairo.common.math import unsigned_div_rem
+from starkware.cairo.common.math_cmp import is_le
 
 from contracts.tick_mgr import TickMgr 
 from contracts.tick_bitmap import TickBitmap
-from contracts.position_mgr import PositionMgr
+from contracts.position_mgr import (PositionMgr, PositionInfo)
 from contracts.swapmath import SwapMath
 from contracts.tickmath import TickMath
 from contracts.math_utils import Utils
 from contracts.fullmath import FullMath
+from contracts.sqrt_price_math import SqrtPriceMath
 
 struct SlotState:
     member sqrt_price_x96: Uint256
@@ -88,7 +90,7 @@ func _fee() -> (fee: felt):
 end
 
 @storage_var
-func _max_liquidity_per_tick() -> (max_liquidity_per_tick: Uint256):
+func _max_liquidity_per_tick() -> (max_liquidity_per_tick: felt):
 end
 
 @constructor
@@ -426,3 +428,192 @@ func swap{
     let (amount1: Uint256) = uint256_sub(amount_specified, state.amount_specified_remaining)
     return (amount0, amount1)
 end
+
+func _check_ticks{
+        range_check_ptr
+    }(
+        tick_lower: felt,
+        tick_upper: felt
+    ):
+    let (is_valid) = Utils.is_lt(tick_lower, tick_upper)
+    with_attr error_message("TLU"):
+        assert is_valid = 1
+    end
+
+    let (is_valid) = is_le(TickMath.MIN_TICK, tick_lower)
+    with_attr error_message("TLM"):
+        assert is_valid = 1
+    end
+
+    let (is_valid) = is_le(tick_upper, TickMath.MAX_TICK)
+    with_attr error_message("TUM"):
+        assert is_valid = 1
+    end
+end
+
+func _update_position{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr,
+        bitwise_ptr: BitwiseBuiltin*
+    }(
+        owner: felt,
+        tick_lower: felt,
+        tick_upper: felt,
+        liquidity_delta: felt,
+        tick: felt) -> (positionInfo: PositionInfo):
+
+    let (position: PositionInfo) = PositionMgr.get(owner, tick_lower, tick_upper)
+
+    let (fee_growth_global0_x128: Uint256) = _fee_growth_global0_x128.read()
+    let (fee_growth_global1_x128: Uint256) = _fee_growth_global1_x128.read()
+
+    if liquidity_delta != 0:
+        let (max_liquidity_per_tick) = _max_liquidity_per_tick.read()
+        let (flipped_lower: felt) = TickMgr.update(tick_lower, tick, liquidity_delta, fee_growth_global0_x128, fee_growth_global1_x128, 0, max_liquidity_per_tick)
+        let (flipped_uppder: felt) = TickMgr.update(tick_upper, tick, liquidity_delta, fee_growth_global0_x128, fee_growth_global1_x128, 1, max_liquidity_per_tick)
+
+        let (tick_spacing) = _tick_spacing.read()
+        if flipped_lower == 1:
+            TickBitmap.flip_tick(tick_lower, tick_spacing)
+        end
+
+        if flipped_uppder == 1:
+            TickBitmap.flip_tick(tick_upper, tick_spacing)
+        end
+    end
+
+    let (fee_growth_inside0_x128: Uint256, fee_growth_inside1_x128: Uint256) = TickMgr.get_fee_growth_inside(tick_lower, tick_upper, tick, fee_growth_global0_x128, fee_growth_global1_x128)
+
+    let (new_position: PositionInfo) = PositionMgr.update_position(position, liquidity_delta, fee_growth_inside0_x128, fee_growth_inside1_x128)
+
+    let (is_valid) = Utils.is_lt(liquidity_delta, 0)
+    if is_valid == 1:
+        if flipped_lower == 1:
+            TickMgr.clear(tick_lower)
+        end
+
+        if flipped_uppder == 1:
+            TickMgr.clear(tick_upper)
+        end
+    end
+
+    return (new_position)
+end
+
+func _modify_position{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr,
+        bitwise_ptr: BitwiseBuiltin*
+    }(params: ModifyPositionParams) -> (position: PositionInfo, amount0: Uint256, amount1: Uint256):
+
+    _check_ticks(params.tick_lower, params.tick_upper)
+
+    let (slot0: SlotState) = _slot0.read()
+
+    let (position: PositionInfo) = _update_position(params.owner, params.tick_lower, params.tick_upper, params.liquidity_delta, slot0.tick)
+
+    if params.liquidity_delta != 0:
+        let (sqrt_ratio0: Uint256) = TickMath.get_sqrt_ratio_at_tick(params.tick_lower)
+        let (sqrt_ratio1: Uint256) = TickMath.get_sqrt_ratio_at_tick(params.tick_upper)
+
+        let (is_valid) = Utils.is_lt(slot0.tick, params.tick_lower)
+        if is_valid == 1:
+            let (amount0: Uint256) = SqrtPriceMath.get_amount0_delta2(sqrt_ratio0, sqrt_ratio1, params.liquidity_delta)
+            return (position, amount0, Uint256(0, 0))
+        end
+
+        let (is_valid) = Utils.is_lt(slot0.tick, params.tick_upper)
+        if is_valid == 1:
+            let (amount0: Uint256) = SqrtPriceMath.get_amount0_delta2(slot0.sqrt_price_x96, sqrt_ratio1, params.liquidity_delta)
+
+            amount1 = SqrtPriceMath.get_amount1_delta2(sqrt_ratio0, slot0.sqrt_price_x96, params.liquidity_delta)
+
+            let (cur_liquidity) = _liquidity.read()
+            let liquidity = Utils.u128_safe_add(cur_liquidity, params.liquidity_delta)
+            _liquidity.write(liquidity)
+
+            return (position, amount0, amount1)
+        end
+
+        let (amount1: Uint256) = SqrtPriceMath.get_amount1_delta2(sqrt_ratio0, sqrt_ratio1, params.liquidity_delta)
+        return (position, Uint256(0, 0), amount1)
+    end
+
+    return (position, Uint256(0, 0), Uint256(0, 0))
+end
+
+@external
+func mint{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr,
+        bitwise_ptr: BitwiseBuiltin*
+    }(
+        recipient: felt,
+        tickLower: felt,
+        tickUpper: felt,
+        amount: felt,
+    ) -> (amount0: Uint256, amount1: Uint256):
+
+    #TODO: lock
+
+    let (is_valid) = Utils.is_gt(amount, 0)
+    assert is_valid = 1
+
+    let (position: PositionInfo, amount0: Uint256, amount1: Uint256) = _modify_position(
+        ModifyPositionParams(
+            owner = recipient,
+            tick_lower = tickLower,
+            tick_upper = tickUpper,
+            liquidity_delta = amount
+        )
+    )
+
+    #TODO: transfer
+
+    return (amount0, amount1)
+end
+
+@external
+func burn{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr,
+        bitwise_ptr: BitwiseBuiltin*
+    }(
+        recipient: felt,
+        tickLower: felt,
+        tickUpper: felt,
+        amount: felt,
+    ) -> (amount0: Uint256, amount1: Uint256):
+
+    #TODO: lock
+    let (position: PositionInfo, amount0: Uint256, amount1: Uint256) = _modify_position(
+        ModifyPositionParams(
+            owner = recipient,
+            tick_lower = tickLower,
+            tick_upper = tickUpper,
+            liquidity_delta = amount
+        )
+    )
+
+    #TODO: update position
+    return (-amount0, -amount1)
+end
+
+#@external
+#func setFeeProtocol{
+#        syscall_ptr: felt*,
+#        pedersen_ptr: HashBuiltin*,
+#        range_check_ptr,
+#        bitwise_ptr: BitwiseBuiltin*
+#    }(
+#        fee_protocol0: felt,
+#        fee_protocol1: felt
+#    ):
+#    #TODO: onlyOwner
+#    let (fee_protocol_ptr: Uint256) = fee_protocol
+#    _fee_protocol.write(fee_protocol_ptr)
+#end

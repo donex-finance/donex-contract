@@ -244,4 +244,20 @@ namespace TickMgr:
         let (tickInfo: TickInfo) = TickMgr_data.read(tick)
         return (tickInfo)
     end
+
+    func clear{
+            syscall_ptr: felt*,
+            pedersen_ptr: HashBuiltin*,
+            range_check_ptr
+        }(tick: felt):
+        #TODO: clear
+        TickMgr_data.write(tick, TickInfo(
+            liquidity_gross = 0,
+            liquidity_net = 0,
+            fee_growth_outside0_x128 = Uint256(0, 0),
+            fee_growth_outside1_x128 = Uint256(0, 0),
+            initialized = 0
+        ))
+        return ()
+    end
 end
