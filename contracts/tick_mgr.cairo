@@ -45,10 +45,6 @@ namespace TickMgr:
         let (tmp, _) = unsigned_div_rem(max_tick - min_tick, tick_spacing)
         let n_ticks = tmp + 1
 
-        %{
-            print('get_max_liq:', ids.tick_spacing, ids.min_tick, ids.max_tick, ids.n_ticks)
-        %}
-
         let (max_liquidity, _) = unsigned_div_rem(Utils.MAX_UINT128, n_ticks) 
 
         return (max_liquidity)

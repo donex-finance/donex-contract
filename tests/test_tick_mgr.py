@@ -40,7 +40,6 @@ class CairoContractTest(TestCase):
         contract = cached_contract(_state, self.contract_def, self.contract)
         return contract
 
-    '''
     @pytest.mark.asyncio
     async def test_get_max_liquidity_per_tick(self):
         
@@ -116,7 +115,6 @@ class CairoContractTest(TestCase):
         feeGrowthInside1X128 = from_uint(res.call_info.result[2: 4])
         self.assertEqual(feeGrowthInside0X128, 16)
         self.assertEqual(feeGrowthInside1X128, 13)
-    '''
 
     @pytest.mark.asyncio
     async def test_update(self):
@@ -155,65 +153,53 @@ class CairoContractTest(TestCase):
         res = await contract.get_tick(0).call()
         print('res', res.call_info.result)
         liquidityGross = res.call_info.result[0]
-        liquidityNet = res.call_info.result[1]
+        liquidityNet = felt_to_int(res.call_info.result[1])
         self.assertEqual(liquidityGross, 2 + 1 + 3 + 1)
-        self.assertEqual(liquidityGross, 2 - 1 - 3 + 1)
+        self.assertEqual(liquidityNet, 2 - 1 - 3 + 1)
 
-'''
-    it('reverts on overflow liquidity gross', async () => {
-      await tickTest.update(0, 0, MaxUint128.div(2).sub(1), 0, 0, 0, 0, 0, false, MaxUint128)
-      await expect(tickTest.update(0, 0, MaxUint128.div(2).sub(1), 0, 0, 0, 0, 0, false, MaxUint128)).to.be.reverted
-    })
-    it('assumes all growth happens below ticks lte current tick', async () => {
-      await tickTest.update(1, 1, 1, 1, 2, 3, 4, 5, false, MaxUint128)
-      const {
-        feeGrowthOutside0X128,
-        feeGrowthOutside1X128,
-        secondsOutside,
-        secondsPerLiquidityOutsideX128,
-        tickCumulativeOutside,
-        initialized,
-      } = await tickTest.ticks(1)
-      expect(feeGrowthOutside0X128).to.eq(1)
-      expect(feeGrowthOutside1X128).to.eq(2)
-      expect(secondsPerLiquidityOutsideX128).to.eq(3)
-      expect(tickCumulativeOutside).to.eq(4)
-      expect(secondsOutside).to.eq(5)
-      expect(initialized).to.eq(true)
-    })
-    it('does not set any growth fields if tick is already initialized', async () => {
-      await tickTest.update(1, 1, 1, 1, 2, 3, 4, 5, false, MaxUint128)
-      await tickTest.update(1, 1, 1, 6, 7, 8, 9, 10, false, MaxUint128)
-      const {
-        feeGrowthOutside0X128,
-        feeGrowthOutside1X128,
-        secondsOutside,
-        secondsPerLiquidityOutsideX128,
-        tickCumulativeOutside,
-        initialized,
-      } = await tickTest.ticks(1)
-      expect(feeGrowthOutside0X128).to.eq(1)
-      expect(feeGrowthOutside1X128).to.eq(2)
-      expect(secondsPerLiquidityOutsideX128).to.eq(3)
-      expect(tickCumulativeOutside).to.eq(4)
-      expect(secondsOutside).to.eq(5)
-      expect(initialized).to.eq(true)
-    })
-    it('does not set any growth fields for ticks gt current tick', async () => {
-      await tickTest.update(2, 1, 1, 1, 2, 3, 4, 5, false, MaxUint128)
-      const {
-        feeGrowthOutside0X128,
-        feeGrowthOutside1X128,
-        secondsOutside,
-        secondsPerLiquidityOutsideX128,
-        tickCumulativeOutside,
-        initialized,
-      } = await tickTest.ticks(2)
-      expect(feeGrowthOutside0X128).to.eq(0)
-      expect(feeGrowthOutside1X128).to.eq(0)
-      expect(secondsPerLiquidityOutsideX128).to.eq(0)
-      expect(tickCumulativeOutside).to.eq(0)
-      expect(secondsOutside).to.eq(0)
-      expect(initialized).to.eq(true)
-    })
-'''
+        contract = self.get_state_contract()
+        res = await contract.update(0, 0, MAX_UINT128 // 2 - 1, to_uint(0), to_uint(0), 0, MAX_UINT128).invoke()
+        print('res', res.call_info.result)
+        res = await contract.update(0, 0, MAX_UINT128 // 2 - 1, to_uint(0), to_uint(0), 0, MAX_UINT128).invoke()
+        print('res', res.call_info.result)
+        #TODO
+        #await assert_revert(
+        #    contract.update(0, 0, MAX_UINT128 // 2 - 1, to_uint(0), to_uint(0), 0, MAX_UINT128).invoke()
+        #)
+
+        contract = self.get_state_contract()
+        res = await contract.update(1, 1, 1, to_uint(1), to_uint(2), 0, MAX_UINT128).invoke()
+        res = await contract.get_tick(1).call()
+        liquidityGross = res.call_info.result[0]
+        liquidityNet = res.call_info.result[1]
+        feeGrowthOutside0X128 = from_uint(res.call_info.result[2: 4])
+        feeGrowthOutside1X128 = from_uint(res.call_info.result[4: 6])
+        initialized = res.call_info.result[6]
+        self.assertEqual(feeGrowthOutside0X128, 1)
+        self.assertEqual(feeGrowthOutside1X128, 2)
+        self.assertEqual(initialized, 1)
+        
+        contract = self.get_state_contract()
+        res = await contract.update(1, 1, 1, to_uint(1), to_uint(2), 0, MAX_UINT128).invoke()
+        res = await contract.update(1, 1, 1, to_uint(6), to_uint(7), 0, MAX_UINT128).invoke()
+        res = await contract.get_tick(1).call()
+        liquidityGross = res.call_info.result[0]
+        liquidityNet = res.call_info.result[1]
+        feeGrowthOutside0X128 = from_uint(res.call_info.result[2: 4])
+        feeGrowthOutside1X128 = from_uint(res.call_info.result[4: 6])
+        initialized = res.call_info.result[6]
+        self.assertEqual(feeGrowthOutside0X128, 1)
+        self.assertEqual(feeGrowthOutside1X128, 2)
+        self.assertEqual(initialized, 1)
+
+        contract = self.get_state_contract()
+        res = await contract.update(2, 1, 1, to_uint(1), to_uint(2), 0, MAX_UINT128).invoke()
+        res = await contract.get_tick(2).call()
+        liquidityGross = res.call_info.result[0]
+        liquidityNet = res.call_info.result[1]
+        feeGrowthOutside0X128 = from_uint(res.call_info.result[2: 4])
+        feeGrowthOutside1X128 = from_uint(res.call_info.result[4: 6])
+        initialized = res.call_info.result[6]
+        self.assertEqual(feeGrowthOutside0X128, 0)
+        self.assertEqual(feeGrowthOutside1X128, 0)
+        self.assertEqual(initialized, 1)
