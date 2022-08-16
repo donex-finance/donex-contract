@@ -449,6 +449,67 @@ func _check_ticks{
     with_attr error_message("TUM"):
         assert is_valid = 1
     end
+
+    return ()
+end
+
+func _flip_tick{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr,
+        bitwise_ptr: BitwiseBuiltin*
+    }(
+        flipped: felt,
+        tick: felt,
+        tick_spacing: felt
+    ):
+    alloc_locals
+    if flipped == 1:
+        TickBitmap.flip_tick(tick, tick_spacing)
+        return ()
+    end
+    return ()
+end
+
+func _clear_tick{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr,
+    }(clear: felt, tick: felt):
+    if clear == 1:
+        TickMgr.clear(tick)
+        return ()
+    end
+    return ()
+end
+
+func _update_position_1{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr,
+        bitwise_ptr: BitwiseBuiltin*
+    }(
+        tick_lower: felt,
+        tick_upper: felt,
+        liquidity_delta: felt,
+        tick: felt,
+        fee_growth_global0_x128: Uint256,
+        fee_growth_global1_x128: Uint256
+    ) -> (flipped_lower: felt, flipped_upper: felt):
+    alloc_locals
+
+    if liquidity_delta != 0:
+        let (max_liquidity_per_tick) = _max_liquidity_per_tick.read()
+        let (flipped_lower: felt) = TickMgr.update(tick_lower, tick, liquidity_delta, fee_growth_global0_x128, fee_growth_global1_x128, 0, max_liquidity_per_tick)
+        let (flipped_upper: felt) = TickMgr.update(tick_upper, tick, liquidity_delta, fee_growth_global0_x128, fee_growth_global1_x128, 1, max_liquidity_per_tick)
+
+        let (tick_spacing) = _tick_spacing.read()
+        _flip_tick(flipped_lower, tick_lower, tick_spacing)
+        _flip_tick(flipped_upper, tick_upper, tick_spacing)
+        return (flipped_lower, flipped_upper)
+    end
+
+    return (0, 0)
 end
 
 func _update_position{
@@ -461,41 +522,27 @@ func _update_position{
         tick_lower: felt,
         tick_upper: felt,
         liquidity_delta: felt,
-        tick: felt) -> (positionInfo: PositionInfo):
+        tick: felt
+    ) -> (positionInfo: PositionInfo):
+
+    alloc_locals
 
     let (position: PositionInfo) = PositionMgr.get(owner, tick_lower, tick_upper)
 
     let (fee_growth_global0_x128: Uint256) = _fee_growth_global0_x128.read()
     let (fee_growth_global1_x128: Uint256) = _fee_growth_global1_x128.read()
 
-    if liquidity_delta != 0:
-        let (max_liquidity_per_tick) = _max_liquidity_per_tick.read()
-        let (flipped_lower: felt) = TickMgr.update(tick_lower, tick, liquidity_delta, fee_growth_global0_x128, fee_growth_global1_x128, 0, max_liquidity_per_tick)
-        let (flipped_uppder: felt) = TickMgr.update(tick_upper, tick, liquidity_delta, fee_growth_global0_x128, fee_growth_global1_x128, 1, max_liquidity_per_tick)
-
-        let (tick_spacing) = _tick_spacing.read()
-        if flipped_lower == 1:
-            TickBitmap.flip_tick(tick_lower, tick_spacing)
-        end
-
-        if flipped_uppder == 1:
-            TickBitmap.flip_tick(tick_upper, tick_spacing)
-        end
-    end
+    let (flipped_lower, flipped_upper) = _update_position_1(tick_lower, tick_upper, liquidity_delta, tick, fee_growth_global0_x128, fee_growth_global1_x128)
 
     let (fee_growth_inside0_x128: Uint256, fee_growth_inside1_x128: Uint256) = TickMgr.get_fee_growth_inside(tick_lower, tick_upper, tick, fee_growth_global0_x128, fee_growth_global1_x128)
 
-    let (new_position: PositionInfo) = PositionMgr.update_position(position, liquidity_delta, fee_growth_inside0_x128, fee_growth_inside1_x128)
+    let (new_position: PositionInfo) = PositionMgr.update_position(position, liquidity_delta, fee_growth_inside0_x128, fee_growth_inside1_x128, owner, tick_lower, tick_upper)
 
     let (is_valid) = Utils.is_lt(liquidity_delta, 0)
     if is_valid == 1:
-        if flipped_lower == 1:
-            TickMgr.clear(tick_lower)
-        end
-
-        if flipped_uppder == 1:
-            TickMgr.clear(tick_upper)
-        end
+        _clear_tick(flipped_lower, tick_lower)
+        _clear_tick(flipped_upper, tick_upper)
+        return (new_position)
     end
 
     return (new_position)
@@ -507,6 +554,7 @@ func _modify_position{
         range_check_ptr,
         bitwise_ptr: BitwiseBuiltin*
     }(params: ModifyPositionParams) -> (position: PositionInfo, amount0: Uint256, amount1: Uint256):
+    alloc_locals
 
     _check_ticks(params.tick_lower, params.tick_upper)
 
@@ -528,10 +576,10 @@ func _modify_position{
         if is_valid == 1:
             let (amount0: Uint256) = SqrtPriceMath.get_amount0_delta2(slot0.sqrt_price_x96, sqrt_ratio1, params.liquidity_delta)
 
-            amount1 = SqrtPriceMath.get_amount1_delta2(sqrt_ratio0, slot0.sqrt_price_x96, params.liquidity_delta)
+            let (amount1: Uint256) = SqrtPriceMath.get_amount1_delta2(sqrt_ratio0, slot0.sqrt_price_x96, params.liquidity_delta)
 
             let (cur_liquidity) = _liquidity.read()
-            let liquidity = Utils.u128_safe_add(cur_liquidity, params.liquidity_delta)
+            let (liquidity) = Utils.u128_safe_add(cur_liquidity, params.liquidity_delta)
             _liquidity.write(liquidity)
 
             return (position, amount0, amount1)
@@ -562,7 +610,7 @@ func mint{
     let (is_valid) = Utils.is_gt(amount, 0)
     assert is_valid = 1
 
-    let (position: PositionInfo, amount0: Uint256, amount1: Uint256) = _modify_position(
+    let (_, amount0: Uint256, amount1: Uint256) = _modify_position(
         ModifyPositionParams(
             owner = recipient,
             tick_lower = tickLower,
@@ -584,23 +632,46 @@ func burn{
         bitwise_ptr: BitwiseBuiltin*
     }(
         recipient: felt,
-        tickLower: felt,
-        tickUpper: felt,
+        tick_lower: felt,
+        tick_upper: felt,
         amount: felt,
     ) -> (amount0: Uint256, amount1: Uint256):
+    alloc_locals
 
     #TODO: lock
     let (position: PositionInfo, amount0: Uint256, amount1: Uint256) = _modify_position(
         ModifyPositionParams(
             owner = recipient,
-            tick_lower = tickLower,
-            tick_upper = tickUpper,
+            tick_lower = tick_lower,
+            tick_upper = tick_upper,
             liquidity_delta = amount
         )
     )
 
-    #TODO: update position
-    return (-amount0, -amount1)
+    let (abs_amount0: Uint256) = uint256_neg(amount0)
+    let (abs_amount1: Uint256) = uint256_neg(amount1)
+
+    let (flag1) = uint256_lt(Uint256(0, 0), abs_amount0)
+    let (flag2) = uint256_lt(Uint256(0, 0), abs_amount1)
+
+    let (is_valid) = Utils.is_gt(flag1 + flag2, 0)
+    # could abs_amount greater then 2 ** 128
+    if is_valid == 1:
+        let tokensOwed0 = position.tokens_owed0 + abs_amount0.low
+        let tokensOwed1 = position.tokens_owed1 + abs_amount1.low
+        # write new position
+        let new_position = PositionInfo(
+            liquidity = position.liquidity,
+            fee_growth_inside0_x128 = position.fee_growth_inside0_x128,
+            fee_growth_inside1_x128 = position.fee_growth_inside1_x128,
+            tokens_owed0 = tokensOwed0,
+            tokens_owed1 = tokensOwed1,
+        )
+        PositionMgr.set(recipient, tick_lower, tick_upper, new_position)
+        return (abs_amount0, abs_amount1)
+    end
+
+    return (abs_amount0, abs_amount1)
 end
 
 #@external

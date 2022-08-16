@@ -15,7 +15,7 @@ struct PositionInfo:
 end
 
 @storage_var
-func _positions(address: felt, tick_lower: felt, tick_high: felt) -> (position: PositionInfo):
+func _positions(address: felt, tick_lower: felt, tick_upper: felt) -> (position: PositionInfo):
 end
 
 namespace PositionMgr:
@@ -39,6 +39,8 @@ namespace PositionMgr:
     end
     
     func update_position{
+            syscall_ptr: felt*,
+            pedersen_ptr: HashBuiltin*,
             range_check_ptr,
             bitwise_ptr: BitwiseBuiltin*
         }(
@@ -46,6 +48,9 @@ namespace PositionMgr:
             liquidity_delta: felt,
             fee_growth_inside0_x128: Uint256,
             fee_growth_inside1_x128: Uint256,
+            address: felt,
+            tick_lower: felt,
+            tick_upper: felt
         ) -> (new_position: PositionInfo):
 
         alloc_locals
@@ -65,10 +70,14 @@ namespace PositionMgr:
         let (is_valid) = Utils.is_lt(0, tmp + tmp2)
         if is_valid == 1:
             #TODO: if tokens_owed* < 0
-            return (PositionInfo(liquidity=liquidity, fee_growth_inside0_x128=fee_growth_inside0_x128, fee_growth_inside1_x128=fee_growth_inside1_x128, tokens_owed0=tokens_owed0, tokens_owed1=tokens_owed1))
+            let position: PositionInfo = PositionInfo(liquidity=liquidity, fee_growth_inside0_x128=fee_growth_inside0_x128, fee_growth_inside1_x128=fee_growth_inside1_x128, tokens_owed0=tokens_owed0, tokens_owed1=tokens_owed1)
+            _positions.write(address, tick_lower, tick_upper, position)
+            return (position)
         end
 
-        return (PositionInfo(liquidity=liquidity, fee_growth_inside0_x128=fee_growth_inside0_x128, fee_growth_inside1_x128=fee_growth_inside1_x128, tokens_owed0=position.tokens_owed0, tokens_owed1=position.tokens_owed1))
+        let position: PositionInfo = PositionInfo(liquidity=liquidity, fee_growth_inside0_x128=fee_growth_inside0_x128, fee_growth_inside1_x128=fee_growth_inside1_x128, tokens_owed0=position.tokens_owed0, tokens_owed1=position.tokens_owed1)
+        _positions.write(address, tick_lower, tick_upper, position)
+        return (position)
     end
 
     func get{
@@ -78,10 +87,24 @@ namespace PositionMgr:
         }(
             address: felt,
             tick_lower: felt,
-            tick_high: felt
+            tick_upper: felt
         ) -> (position: PositionInfo):
-        let (position: PositionInfo) = _positions.read(address, tick_lower, tick_high)
+        let (position: PositionInfo) = _positions.read(address, tick_lower, tick_upper)
         return (position)
+    end
+
+    func set{
+            syscall_ptr: felt*,
+            pedersen_ptr: HashBuiltin*,
+            range_check_ptr
+        }(
+            address: felt,
+            tick_lower: felt,
+            tick_upper: felt,
+            position: PositionInfo
+        ):
+        _positions.write(address, tick_lower, tick_upper, position)
+        return ()
     end
 
 end
