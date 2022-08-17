@@ -253,13 +253,36 @@ namespace TickMath:
         return (new_r, new_log_2)
     end
 
+    func _get_tick_at_sqrt_ratio1{
+            range_check_ptr
+        }(cond: felt, ratio: Uint256, msb: felt) -> (res: Uint256):
+        alloc_locals
+        if cond == 0:
+            let (res: Uint256) = uint256_shr(ratio, Uint256(msb - 127, 0))
+            return (res)
+        end
+        let (res: Uint256) = uint256_shl(ratio, Uint256(127 - msb, 0))
+        return (res)
+    end
+
+    func _get_tick_at_sqrt_ratio2{
+            range_check_ptr
+        }(cond: felt, tick_low: Uint256) -> (res: felt):
+        alloc_locals
+        if cond == 0:
+            let (res: Uint256) = uint256_neg(tick_low)
+            let res2 = -res.low
+            return (res2)
+        end
+
+        return (tick_low.low)
+    end
+
     func get_tick_at_sqrt_ratio{
-        range_check_ptr,
-        bitwise_ptr: BitwiseBuiltin*
+            range_check_ptr,
+            bitwise_ptr: BitwiseBuiltin*
         }(sqrt_price_x96: Uint256) -> (res: felt):
         alloc_locals
-
-        let range_check_ptr2 = range_check_ptr
 
         let (is_valid) = uint256_le(Uint256(MIN_SQRT_RATIO, 0), sqrt_price_x96)
         with_attr error_message("tick is too low"):
@@ -276,14 +299,8 @@ namespace TickMath:
 
         let (msb) = most_significant_bit(ratio)
         let (is_minus) = Utils.is_lt(msb, 128)
-        with range_check_ptr:
-            if is_minus == 0:
-                let (r: Uint256) = uint256_shr(ratio, Uint256(msb - 127, 0))
-            else: 
-                let (r: Uint256) = uint256_shl(ratio, Uint256(127 - msb, 0))
-            end
-        end
-        let range_check_ptr = range_check_ptr2
+
+        let (r: Uint256) = _get_tick_at_sqrt_ratio1(is_minus, ratio, msb)
 
         let (tmp: Uint256) = uint256_sub(Uint256(msb, 0), Uint256(128, 0))
         let (log_2: Uint256, _) = uint256_mul(tmp, Uint256(2 ** 64, 0))
@@ -299,31 +316,11 @@ namespace TickMath:
         let (t2: Uint256, _) = uint256_add(log_sqrt10001, Uint256(0xdb2df09e81959a81455e260799a0632f, 0))
         let (tick_high: Uint256, _) = uint256_signed_div_rem(t2, Uint256(0, 1))
 
-        local tl
         let (not_negtive) = uint256_signed_nn(tick_low)
-        with range_check_ptr:
-            if not_negtive == 0:
-                let (res: Uint256) = uint256_neg(tick_low)
-                tempvar res2 = -res.low
-                tl = res2
-            else:
-                tl = tick_low.low
-            end
-        end
-        let range_check_ptr = range_check_ptr2
+        let (tl) = _get_tick_at_sqrt_ratio2(not_negtive, tick_low)
 
-        local th
         let (not_negtive) = uint256_signed_nn(tick_high)
-        with range_check_ptr:
-            if not_negtive == 0:
-                let (res: Uint256) = uint256_neg(tick_high)
-                tempvar res2 = -res.low
-                th = res2
-            else:
-                th = tick_high.low
-            end
-        end
-        let range_check_ptr = range_check_ptr2
+        let (th) = _get_tick_at_sqrt_ratio2(not_negtive, tick_high)
 
         let (is_valid) = uint256_eq(tick_low, tick_high)
         if is_valid == 0:
