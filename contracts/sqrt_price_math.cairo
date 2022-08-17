@@ -143,9 +143,6 @@ namespace SqrtPriceMath:
             if not_overflow == 1:
                 let (denominator: Uint256, _) = uint256_add(numerator1, product)
                 let (is_valid) = uint256_le(numerator1, denominator)
-                %{ 
-                    print('b2')
-                %}
                 if is_valid == 1:
                     let (res: Uint256) = FullMath.uint256_mul_div_roundingup(numerator1, sqrt_price_x96, denominator)
                     return (res)
@@ -157,20 +154,8 @@ namespace SqrtPriceMath:
             end
 
             let (tmp: Uint256, _) = uint256_unsigned_div_rem(numerator1, sqrt_price_x96)
-            %{ 
-                a = ids.tmp.low + ids.tmp.high * 2 ** 128
-                print(f'b3, {a}')
-            %}
             let (tmp2: Uint256, _) = uint256_add(tmp, amount)
-            %{ 
-                a = ids.tmp2.low + ids.tmp2.high * 2 ** 128
-                print(f'b3, {a}')
-            %}
             let (res: Uint256) = FullMath.uint256_div_roundingup(numerator1, tmp2)
-            %{ 
-                c = ids.numerator1.low + ids.numerator1.high * 2 ** 128
-                print(f'b3, {c}')
-            %}
             return (res)
         end
 

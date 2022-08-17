@@ -137,3 +137,5 @@ dmypy.json
 artifacts/
 
 goerli.deployments.txt
+
+log.txt

@@ -132,7 +132,7 @@ func initialize{
     let (tick) = TickMath.get_tick_at_sqrt_ratio(sqrt_price_x96)
 
     let new_slot0: SlotState = SlotState(
-        sqrt_price_x96 = slot0.sqrt_price_x96,
+        sqrt_price_x96 = sqrt_price_x96,
         tick = tick
     )
     _slot0.write(new_slot0)
@@ -717,17 +717,18 @@ func burn{
     return (abs_amount0, abs_amount1)
 end
 
-#@external
-#func setFeeProtocol{
-#        syscall_ptr: felt*,
-#        pedersen_ptr: HashBuiltin*,
-#        range_check_ptr,
-#        bitwise_ptr: BitwiseBuiltin*
-#    }(
-#        fee_protocol0: felt,
-#        fee_protocol1: felt
-#    ):
-#    #TODO: onlyOwner
-#    let (fee_protocol_ptr: Uint256) = fee_protocol
-#    _fee_protocol.write(fee_protocol_ptr)
-#end
+@external
+func setFeeProtocol{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(
+        fee_protocol0: felt,
+        fee_protocol1: felt
+    ):
+    #TODO: lock and onlyOwner
+    let fee_protocol = fee_protocol0 + fee_protocol1 * 16
+    _fee_protocol.write(fee_protocol)
+
+    return ()
+end
