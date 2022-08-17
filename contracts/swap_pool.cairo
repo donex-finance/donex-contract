@@ -643,8 +643,8 @@ func mint{
         bitwise_ptr: BitwiseBuiltin*
     }(
         recipient: felt,
-        tickLower: felt,
-        tickUpper: felt,
+        tick_lower: felt,
+        tick_upper: felt,
         amount: felt,
     ) -> (amount0: Uint256, amount1: Uint256):
 
@@ -656,8 +656,8 @@ func mint{
     let (_, amount0: Uint256, amount1: Uint256) = _modify_position(
         ModifyPositionParams(
             owner = recipient,
-            tick_lower = tickLower,
-            tick_upper = tickUpper,
+            tick_lower = tick_lower,
+            tick_upper = tick_upper,
             liquidity_delta = amount
         )
     )
