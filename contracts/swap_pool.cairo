@@ -18,8 +18,6 @@ from contracts.sqrt_price_math import SqrtPriceMath
 struct SlotState:
     member sqrt_price_x96: Uint256
     member tick: felt
-    member fee_protocol: felt
-    member unlocked: felt
 end
 
 struct SwapCache:
@@ -55,6 +53,14 @@ struct ModifyPositionParams:
     member tick_upper: felt
     # any change in liquidity
     member liquidity_delta: felt
+end
+
+@storage_var
+func _fee_protocol() -> (fee_protocol: felt):
+end
+
+@storage_var
+func _slot_unlocked() -> (unlocked: felt):
 end
 
 @storage_var
@@ -109,7 +115,7 @@ func constructor{
 end
 
 @external
-func initialized{
+func initialize{
         syscall_ptr: felt*,
         pedersen_ptr: HashBuiltin*,
         range_check_ptr,
@@ -119,21 +125,133 @@ func initialized{
 
     let (slot0) = _slot0.read()
     let (is_valid) = uint256_eq(slot0.sqrt_price_x96, Uint256(0, 0))
-    with_attr error_message("initialized more than once"):
+    with_attr error_message("initialize more than once"):
         assert is_valid = 1
     end
 
     let (tick) = TickMath.get_tick_at_sqrt_ratio(sqrt_price_x96)
 
-    slot0.sqrt_price_x96.low = sqrt_price_x96.low
-    slot0.sqrt_price_x96.high = sqrt_price_x96.high
-    slot0.tick = tick
-    slot0.fee_protocol = 0
-    slot0.unlocked = 1
+    let new_slot0: SlotState = SlotState(
+        sqrt_price_x96 = slot0.sqrt_price_x96,
+        tick = tick
+    )
+    _slot0.write(new_slot0)
 
-    _slot0.write(slot0)
+    _slot_unlocked.write(1)
 
     return ()
+end
+
+func _compute_swap_step_1{
+        range_check_ptr
+    }(
+        exact_input: felt, 
+        state: SwapState,
+        amount_in: Uint256,
+        amount_out: Uint256,
+        fee_amount: Uint256
+    ) -> (amount_specified_remaining: Uint256, amount_caculated: Uint256):
+    if exact_input == 1:
+        let (tmp: Uint256, _) = uint256_add(amount_in, fee_amount)
+        let (amount_specified_remaining: Uint256) = uint256_sub(state.amount_specified_remaining, tmp)
+
+        let (amount_caculated: Uint256) = uint256_sub(state.amount_caculated, amount_out)
+
+        return (amount_specified_remaining, amount_caculated)
+    end
+
+    let (amount_specified_remaining: Uint256, _) = uint256_add(state.amount_specified_remaining, amount_out)
+
+    let (tmp: Uint256, _) = uint256_add(amount_in, fee_amount)
+    let (amount_caculated: Uint256, _) = uint256_add(state.amount_caculated, tmp)
+
+    return (amount_specified_remaining, amount_caculated)
+end
+
+func _compute_swap_step_2{
+        range_check_ptr
+    }(cache: SwapCache, state: SwapState, fee_amount: Uint256) -> (fee_amount: Uint256, protocol_fee: felt):
+    let (is_valid) = Utils.is_gt(cache.fee_protocol, 0)
+    if is_valid == 1:
+        let (delta: Uint256, _) = uint256_unsigned_div_rem(fee_amount, Uint256(cache.fee_protocol, 0))
+        let (fee_amount: Uint256) = uint256_sub(fee_amount, delta)
+
+        #TODO: overflow?
+        let (tmp: Uint256, _) = uint256_add(Uint256(state.protocol_fee, 0), delta)
+        let protocol_fee = tmp.low
+        return (fee_amount, protocol_fee)
+    end
+    return (fee_amount, state.protocol_fee)
+end
+
+func _compute_swap_step_3{
+        range_check_ptr,
+        bitwise_ptr: BitwiseBuiltin*
+    }(state: SwapState, fee_amount: Uint256) -> (fee_growth_global_x128: Uint256):
+    let (is_valid) = Utils.is_gt(state.liquidity, 0)
+    if is_valid == 1:
+        let (tmp: Uint256, _) = FullMath.uint256_mul_div(fee_amount, Uint256(0, 1), Uint256(state.liquidity, 0))
+        let (fee_growth_global_x128: Uint256, _) = uint256_add(state.fee_growth_global_x128, tmp)
+        return (fee_growth_global_x128)
+    end
+    return (state.fee_growth_global_x128)
+end
+
+func _compute_swap_step_4_1{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(zero_for_one: felt, tick_next: felt, state_fee_growth_global_x128: Uint256) -> (liquidity_net: felt):
+    if zero_for_one == 1:
+        let (fee_growth_global1_x128: Uint256) = _fee_growth_global1_x128.read()
+        let (tmp_felt) = TickMgr.cross(tick_next, state_fee_growth_global_x128, fee_growth_global1_x128)
+        tempvar liquidity_net = -tmp_felt
+        return (liquidity_net)
+    end
+
+    let (fee_growth_global0_x128: Uint256) = _fee_growth_global0_x128.read()
+    let (liquidity_net) = TickMgr.cross(tick_next, fee_growth_global0_x128, state_fee_growth_global_x128)
+    return (liquidity_net)
+end
+
+func _compute_swap_step_4{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr,
+        bitwise_ptr: BitwiseBuiltin*
+    }(
+        state: SwapState,
+        sqrt_price_start_x96: Uint256,
+        sqrt_price_next_x96: Uint256,
+        state_fee_growth_global_x128: Uint256,
+        tick_next: felt,
+        zero_for_one: felt,
+        initialized: felt,
+    ) -> (liquidity: felt, tick: felt):
+    alloc_locals
+
+    let (is_valid) = uint256_eq(state.sqrt_price_x96, sqrt_price_next_x96)
+    if is_valid == 1:
+        let (tick) = Utils.cond_assign(zero_for_one, tick_next - 1, tick_next)
+
+        if initialized == 1:
+            let (liquidity_net) = _compute_swap_step_4_1(zero_for_one, tick_next, state_fee_growth_global_x128)
+
+            let (liquidity) = Utils.u128_safe_add(state.liquidity, liquidity_net)
+
+            return (liquidity, tick)
+        end
+
+        return (state.liquidity, tick)
+    end
+
+    let (is_valid) = uint256_eq(state.sqrt_price_x96, sqrt_price_start_x96)
+    if is_valid == 0:
+        let (tick) = TickMath.get_tick_at_sqrt_ratio(state.sqrt_price_x96)
+        return (state.liquidity, tick)
+    end
+
+    return (state.liquidity, state.tick)
 end
 
 func _compute_swap_step{
@@ -147,62 +265,40 @@ func _compute_swap_step{
         exact_input: felt, 
         zero_for_one: felt, 
         sqrt_price_limit_x96: Uint256
-    ) -> (state: SwapState, cache: SwapCache):
+    ) -> (state: SwapState):
     alloc_locals
-    let syscall_ptr2 = syscall_ptr
-    let pedersen_ptr2 = pedersen_ptr
-    let range_check_ptr2 = range_check_ptr
-    let bitwise_ptr2 = bitwise_ptr
 
     let (flag1) = uint256_eq(state.amount_specified_remaining, Uint256(0, 0))
     let (flag2) = uint256_eq(state.sqrt_price_x96, sqrt_price_limit_x96)
 
     if flag1 + flag2 == 0:
-        return (state, cache)
+        return (state)
     end
 
     let (tick_spacing) = _tick_spacing.read()
 
     let (tick_next, initialized) = TickBitmap.next_valid_tick_within_one_word(state.tick, tick_spacing, zero_for_one)
 
-    let step = StepComputations(
-        sqrt_price_start_x96 = state.sqrt_price_x96,
-        tick_next = tick_next,
-        initialized = initialized,
-        sqrt_price_next_x96 = Uint256(0, 0),
-        amount_in = Uint256(0, 0),
-        amount_out = Uint256(0, 0),
-        fee_amount = Uint256(0, 0)
-    )
+    let sqrt_price_start_x96: Uint256 = state.sqrt_price_x96
 
     let (is_valid) = Utils.is_lt(tick_next, TickMath.MIN_TICK) 
-    if is_valid == 1:
-        step.tick_next = TickMath.MIN_TICK
-    end
+    let (tick_next) = Utils.cond_assign(is_valid, TickMath.MIN_TICK, tick_next)
 
     let (is_valid) = Utils.is_lt(TickMath.MAX_TICK, tick_next) 
-    if is_valid == 1:
-        step.tick_next = TickMath.MAX_TICK
-    end
+    let (tick_next) = Utils.cond_assign(is_valid, TickMath.MAX_TICK, tick_next)
 
-    let (res: Uint256) = TickMath.get_sqrt_ratio_at_tick(step.tick_next)
-    step.sqrt_price_next_x96.low = res.low
-    step.sqrt_price_next_x96.high = res.high
+    let (sqrt_price_next_x96: Uint256) = TickMath.get_sqrt_ratio_at_tick(tick_next)
 
     if zero_for_one == 1:
-        let (flag) = uint256_lt(step.sqrt_price_next_x96, sqrt_price_limit_x96)
+        let (flag) = uint256_lt(sqrt_price_next_x96, sqrt_price_limit_x96)
     else:
-        let (flag) = uint256_lt(sqrt_price_limit_x96, step.sqrt_price_next_x96)
+        let (flag) = uint256_lt(sqrt_price_limit_x96, sqrt_price_next_x96)
     end
 
-    if flag == 1:
-        tempvar sqrt_price_target_x96 = sqrt_price_limit_x96
-    else:
-        tempvar sqrt_price_target_x96 = step.sqrt_price_next_x96
-    end
+    let (sqrt_price_target_x96: Uint256) = Utils.cond_assign_uint256(flag, sqrt_price_limit_x96, sqrt_price_next_x96)
 
     let (fee) = _fee.read()
-    let (sqrt_price_next: Uint256, amount_in: Uint256, amount_out: Uint256, fee_amount: Uint256) = SwapMath.compute_swap_step(
+    let (state_sqrt_price_x96: Uint256, amount_in: Uint256, amount_out: Uint256, fee_amount: Uint256) = SwapMath.compute_swap_step(
         state.sqrt_price_x96,
         sqrt_price_target_x96,
         state.liquidity,
@@ -210,95 +306,91 @@ func _compute_swap_step{
         fee,
     )
 
-    with range_check_ptr:
-        if exact_input == 1:
-            let (tmp1: Uint256, _) = uint256_add(step.amount_in, step.fee_amount)
-            let (tmp2: Uint256) = uint256_sub(state.amount_specified_remaining, tmp1)
-            state.amount_specified_remaining.low = tmp2.low
-            state.amount_specified_remaining.high = tmp2.high
+    let (state_amount_specified_remaining: Uint256, state_amount_caculated: Uint256) = _compute_swap_step_1(
+        exact_input,
+        state,
+        amount_in,
+        amount_out,
+        fee_amount,
+    )
 
-            let (tmp3: Uint256) = uint256_sub(state.amount_caculated, step.amount_out)
-            state.amount_caculated.low = tmp3.low
-            state.amount_caculated.high = tmp3.high
-        else:
-            let (tmp: Uint256, _) = uint256_add(state.amount_specified_remaining, step.amount_out)
-            state.amount_specified_remaining.low = tmp.low
-            state.amount_specified_remaining.high = tmp.high
+    let (fee_amount: Uint256, state_protocol_fee) = _compute_swap_step_2(cache, state, fee_amount)
+    
+    let (state_fee_growth_global_x128: Uint256) = _compute_swap_step_3(state, fee_amount)
 
-            let (tmp2: Uint256, _) = uint256_add(step.amount_in, step.fee_amount)
-            let (tmp3: Uint256, _) = uint256_add(state.amount_caculated, tmp2)
-            state.amount_caculated.low = tmp3.low
-            state.amount_caculated.high = tmp3.high
-        end
+    let (state_liquidity, state_tick) = _compute_swap_step_4(state, sqrt_price_start_x96, sqrt_price_next_x96, state_fee_growth_global_x128, tick_next, zero_for_one, initialized)
+
+    let new_state: SwapState = SwapState(
+        amount_specified_remaining = state_amount_specified_remaining,
+        amount_caculated = state_amount_caculated,
+        sqrt_price_x96 = state_sqrt_price_x96,
+        tick = state_tick,
+        fee_growth_global_x128 = state_fee_growth_global_x128,
+        protocol_fee = state_protocol_fee,
+        liquidity = state_liquidity
+    )
+
+    return _compute_swap_step(new_state, cache, exact_input, zero_for_one, sqrt_price_limit_x96)
+end
+
+func _swap_1{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(slot0: SlotState, sqrt_price_limit_x96: Uint256, zero_for_one) -> (res: felt):
+    alloc_locals
+
+    let (fee_protocol) = _fee_protocol.read()
+    if zero_for_one == 1:
+        let (is_valid) = uint256_lt(sqrt_price_limit_x96, slot0.sqrt_price_x96)
+        assert is_valid = 1
+
+        let (is_valid) = uint256_lt(Uint256(TickMath.MIN_SQRT_RATIO, 0), sqrt_price_limit_x96)
+        assert is_valid = 1
+
+        let (_, res) = unsigned_div_rem(fee_protocol, 16)
+
+        return (res)
     end
-    let range_check_ptr = range_check_ptr2
 
-    with range_check_ptr:
-        let (is_valid) = Utils.is_gt(cache.fee_protocol, 0)
+    let (is_valid) = uint256_lt(slot0.sqrt_price_x96, sqrt_price_limit_x96)
+    assert is_valid = 1
+
+    let (is_valid) = uint256_lt(sqrt_price_limit_x96, Uint256(TickMath.MAX_SQRT_RATIO_LOW, TickMath.MAX_SQRT_RATIO_HIGH))
+    assert is_valid = 1
+
+    let (res, _) = unsigned_div_rem(fee_protocol, 16)
+    return (res)
+end
+
+func _swap_2{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(state: SwapState, zero_for_one: felt):
+    alloc_locals
+    if zero_for_one == 1:
+        _fee_growth_global0_x128.write(state.fee_growth_global_x128)
+
+        let (is_valid) = Utils.is_gt(state.protocol_fee, 0)
         if is_valid == 1:
-            let (delta: Uint256, _) = uint256_unsigned_div_rem(step.fee_amount, Uint256(cache.fee_protocol, 0))
-            let (tmp: Uint256) = uint256_sub(step.fee_amount, delta)
-            step.fee_amount.low = tmp.low
-            step.fee_amount.high = tmp.high
-            #TODO: overflow?
-            let (tmp: Uint256, _) = uint256_add(Uint256(state.protocol_fee, 0), delta)
-            state.protocol_fee = tmp.low
+            let (protocol_fee_token0: Uint256) = _protocol_fee_token0.read()
+            let (tmp: Uint256, _) = uint256_add(protocol_fee_token0, Uint256(state.protocol_fee, 0))
+            _protocol_fee_token0.write(tmp)
+            return ()
         end
+        return ()
     end
-    let range_check_ptr = range_check_ptr2
 
-    with range_check_ptr, bitwise_ptr:
-        let (is_valid) = Utils.is_gt(state.liquidity, 0)
-        if is_valid == 1:
-            let (tmp: Uint256, _) = FullMath.uint256_mul_div(step.fee_amount, Uint256(0, 1), Uint256(state.liquidity, 0))
-            let (tmp2: Uint256, _) = uint256_add(state.fee_growth_global_x128, tmp)
-            state.fee_growth_global_x128.low = tmp2.low
-            state.fee_growth_global_x128.high = tmp2.high
-        end
+    _fee_growth_global1_x128.write(state.fee_growth_global_x128)
+    let (is_valid) = Utils.is_gt(state.protocol_fee, 0)
+    if is_valid == 1:
+        let (protocol_fee_token1: Uint256) = _protocol_fee_token1.read()
+        let (tmp: Uint256, _) = uint256_add(protocol_fee_token1, Uint256(state.protocol_fee, 0))
+        _protocol_fee_token1.write(tmp)
+        return ()
     end
-    let range_check_ptr = range_check_ptr2
-    let bitwise_ptr = bitwise_ptr2
-
-    with syscall_ptr, pedersen_ptr, range_check_ptr, bitwise_ptr:
-        let (is_valid) = uint256_eq(state.sqrt_price_x96, step.sqrt_price_next_x96)
-        if is_valid == 1:
-            if step.initialized == 1:
-                local liquidity_net
-                if zero_for_one == 1:
-                    let (fee_growth_global1_x128: Uint256) = _fee_growth_global1_x128.read()
-                    let (tmp_felt) = TickMgr.cross(step.tick_next, state.fee_growth_global_x128, fee_growth_global1_x128)
-                    tempvar tmp_felt2 = -tmp_felt
-                    liquidity_net = tmp_felt2
-                    tempvar range_check_ptr = range_check_ptr
-                else:
-                    let (fee_growth_global0_x128: Uint256) = _fee_growth_global0_x128.read()
-                    let (tmp_felt) = TickMgr.cross(step.tick_next, fee_growth_global0_x128, state.fee_growth_global_x128)
-                    liquidity_net = tmp_felt
-                    tempvar range_check_ptr = range_check_ptr
-                end
-
-                let (tmp_felt) = Utils.u128_safe_add(state.liquidity, liquidity_net)
-                state.liquidity = tmp_felt
-            end
-            if zero_for_one == 1:
-                state.tick = step.tick_next - 1
-            else:
-                state.tick = step.tick_next
-            end
-        else:
-            let (is_valid) = uint256_eq(state.sqrt_price_x96, step.sqrt_price_start_x96)
-            if is_valid == 0:
-                let (tmp_felt) = TickMath.get_tick_at_sqrt_ratio(state.sqrt_price_x96)
-                state.tick = tmp_felt
-            end
-        end
-    end
-    let syscall_ptr = syscall_ptr2
-    let pedersen_ptr = pedersen_ptr2
-    let range_check_ptr = range_check_ptr2
-    let bitwise_ptr = bitwise_ptr2
-
-    return _compute_swap_step(state, cache, exact_input, zero_for_one, sqrt_price_limit_x96)
+    return ()
 end
 
 @external
@@ -314,44 +406,18 @@ func swap{
         sqrt_price_limit_x96: Uint256,
     ) -> (amount0: Uint256, amount1: Uint256):
     alloc_locals
-    let syscall_ptr2 = syscall_ptr
-    let pedersen_ptr2 = pedersen_ptr
-    let range_check_ptr2 = range_check_ptr
-    let bitwise_ptr2 = bitwise_ptr
 
     let (is_valid) = uint256_eq(amount_specified, Uint256(0, 0))
     assert is_valid = 1
 
+    let (slot_unlocked) = _slot_unlocked.read()
+    assert slot_unlocked = 1
+
     let (slot0: SlotState) = _slot0.read()
-    assert slot0.unlocked = 1
-
-    local fee_protocol
-    with range_check_ptr:
-        if zero_for_one == 1:
-            let (is_valid) = uint256_lt(sqrt_price_limit_x96, slot0.sqrt_price_x96)
-            assert is_valid = 1
-
-            let (is_valid) = uint256_lt(Uint256(TickMath.MIN_SQRT_RATIO, 0), sqrt_price_limit_x96)
-            assert is_valid = 1
-
-            let (_, tmp_felt) = unsigned_div_rem(slot0.fee_protocol, 16)
-            fee_protocol = tmp_felt
-        else:
-            let (is_valid) = uint256_lt(slot0.sqrt_price_x96, sqrt_price_limit_x96)
-            assert is_valid = 1
-
-            let (is_valid) = uint256_lt(sqrt_price_limit_x96, Uint256(TickMath.MAX_SQRT_RATIO_LOW, TickMath.MAX_SQRT_RATIO_HIGH))
-            assert is_valid = 1
-
-            let (tmp_felt, _) = unsigned_div_rem(slot0.fee_protocol, 16)
-            fee_protocol = tmp_felt
-        end
-    end
-    let range_check_ptr = range_check_ptr2
+    let (fee_protocol) = _swap_1(slot0, sqrt_price_limit_x96, zero_for_one)
 
     #TODO: prevent reentry?
-    slot0.unlocked = 1
-    _slot0.write(slot0)
+    _slot_unlocked.write(0)
 
     let (liquidity) = _liquidity.read()
     let cache = SwapCache(
@@ -367,7 +433,7 @@ func swap{
         let (fee_growth: Uint256) = _fee_growth_global1_x128.read()
     end
 
-    let state = SwapState(
+    let init_state = SwapState(
         amount_specified_remaining = amount_specified,
         amount_caculated = Uint256(0, 0),
         sqrt_price_x96 = slot0.sqrt_price_x96,
@@ -377,46 +443,22 @@ func swap{
         liquidity = cache.liquidity_start
     )
 
-    let (state: SwapState, cache: SwapCache) = _compute_swap_step(state, cache, exact_input, zero_for_one, sqrt_price_limit_x96)
+    let (state: SwapState) = _compute_swap_step(init_state, cache, exact_input, zero_for_one, sqrt_price_limit_x96)
 
-    slot0.sqrt_price_x96.low = state.sqrt_price_x96.low
-    slot0.sqrt_price_x96.high = state.sqrt_price_x96.high
-    if state.tick != slot0.tick:
-        slot0.tick = state.tick
-    end
+    _slot0.write(SlotState(
+        sqrt_price_x96 = state.sqrt_price_x96,
+        tick = state.tick,
+    ))
 
-    with syscall_ptr, pedersen_ptr, range_check_ptr:
-        if cache.liquidity_start != state.liquidity:
-            _liquidity.write(state.liquidity)
-        end
-    end
-    let syscall_ptr = syscall_ptr2
-    let pedersen_ptr = pedersen_ptr2
-    let range_check_ptr = range_check_ptr2
+    # TODO: use if to save gas? 
+    #if cache.liquidity_start != state.liquidity:
+    #    _liquidity.write(state.liquidity)
+    #end
+    _liquidity.write(state.liquidity)
 
-    with syscall_ptr, pedersen_ptr, range_check_ptr:
-        if zero_for_one == 1:
-            _fee_growth_global0_x128.write(state.fee_growth_global_x128)
+    _swap_2(state, zero_for_one)
 
-            let (is_valid) = Utils.is_gt(state.protocol_fee, 0)
-            if is_valid == 1:
-                let (protocol_fee_token0: Uint256) = _protocol_fee_token0.read()
-                let (tmp: Uint256, _) = uint256_add(protocol_fee_token0, Uint256(state.protocol_fee, 0))
-                _protocol_fee_token0.write(tmp)
-            end
-        else:
-            _fee_growth_global1_x128.write(state.fee_growth_global_x128)
-            let (is_valid) = Utils.is_gt(state.protocol_fee, 0)
-            if is_valid == 1:
-                let (protocol_fee_token1: Uint256) = _protocol_fee_token1.read()
-                let (tmp: Uint256, _) = uint256_add(protocol_fee_token1, Uint256(state.protocol_fee, 0))
-                _protocol_fee_token1.write(tmp)
-            end
-        end
-    end
-    let syscall_ptr = syscall_ptr2
-    let pedersen_ptr = pedersen_ptr2
-    let range_check_ptr = range_check_ptr2
+    _slot_unlocked.write(1)
 
     if zero_for_one == exact_input:
         let (amount0: Uint256) = uint256_sub(amount_specified, state.amount_specified_remaining)
@@ -426,6 +468,7 @@ func swap{
 
     let amount0: Uint256 = state.amount_caculated
     let (amount1: Uint256) = uint256_sub(amount_specified, state.amount_specified_remaining)
+
     return (amount0, amount1)
 end
 

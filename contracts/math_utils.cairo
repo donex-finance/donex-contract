@@ -1,6 +1,7 @@
 %lang starknet
 
 from starkware.cairo.common.math_cmp import (is_nn, is_le)
+from starkware.cairo.common.uint256 import Uint256
 
 namespace Utils:
     # P = 2 ** 251 + 17 * (2 ** 192) + 1
@@ -60,5 +61,25 @@ namespace Utils:
         end
 
         return (res)
+    end
+
+    func cond_assign{
+        range_check_ptr
+    }(cond: felt, new_value: felt, old_value: felt) -> (res: felt):
+    
+        if cond == 1:
+            return (new_value)
+        end
+        return (old_value)
+    end
+
+    func cond_assign_uint256{
+        range_check_ptr
+    }(cond: felt, new_value: Uint256, old_value: Uint256) -> (res: Uint256):
+    
+        if cond == 1:
+            return (new_value)
+        end
+        return (old_value)
     end
 end
