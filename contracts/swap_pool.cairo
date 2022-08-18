@@ -114,6 +114,17 @@ func constructor{
     return ()
 end
 
+@view
+func get_cur_slot{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }() -> (slot: SlotState):
+
+    let (slot: SlotState) = _slot0.read()
+    return (slot)
+end
+
 @external
 func initialize{
         syscall_ptr: felt*,
@@ -636,7 +647,7 @@ func _modify_position{
 end
 
 @external
-func mint{
+func add_liquidity{
         syscall_ptr: felt*,
         pedersen_ptr: HashBuiltin*,
         range_check_ptr,
@@ -668,7 +679,7 @@ func mint{
 end
 
 @external
-func burn{
+func remove_liquidity{
         syscall_ptr: felt*,
         pedersen_ptr: HashBuiltin*,
         range_check_ptr,

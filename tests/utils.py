@@ -222,3 +222,9 @@ def int_to_felt(n):
     if n < 0:
         return P + n
     return n
+
+def get_min_tick(tick_spacing):
+    return math.ceil(-887272 / tick_spacing) * tick_spacing
+
+def get_max_tick(tick_spacing):
+    return math.floor(887272 / tick_spacing) * tick_spacing
