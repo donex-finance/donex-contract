@@ -2,12 +2,16 @@
 
 from pathlib import Path
 import math
+import time
 from starkware.starknet.public.abi import get_selector_from_name
 from starkware.starknet.compiler.compile import compile_starknet_files
 from starkware.starkware_utils.error_handling import StarkException
 from starkware.starknet.testing.starknet import StarknetContract
 from starkware.starknet.business_logic.execution.objects import Event
 from nile.signer import Signer
+from starkware.starknet.compiler.compile import compile_starknet_files
+from inspect import signature
+from starkware.starknet.testing.starknet import Starknet
 from mpmath import mp, sqrt
 mp.dps = 100
 
@@ -228,3 +232,24 @@ def get_min_tick(tick_spacing):
 
 def get_max_tick(tick_spacing):
     return math.floor(887272 / tick_spacing) * tick_spacing
+
+async def init_contract(contract_file, constructor_calldata=None):
+    begin = time.time()
+    starknet = await Starknet.empty()
+    print('create starknet time:', time.time() - begin)
+    begin = time.time()
+    compiled_contract = compile_starknet_files(
+        [contract_file], debug_info=True, disable_hint_validation=True
+    )
+    print('compile contract time:', time.time() - begin)
+
+    kwargs = {
+        "contract_class": compiled_contract,
+        "constructor_calldata": constructor_calldata
+        }
+
+    begin = time.time()
+    contract = await starknet.deploy(**kwargs)
+    print('deploy contract time:', time.time() - begin)
+
+    return compiled_contract, contract

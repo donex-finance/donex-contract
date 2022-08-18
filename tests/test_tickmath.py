@@ -10,7 +10,7 @@ from inspect import signature
 from utils import (
     MAX_UINT256, assert_revert, add_uint, sub_uint,
     mul_uint, div_rem_uint, to_uint, contract_path,
-    felt_to_int, from_uint
+    felt_to_int, from_uint, init_contract
 )
 from decimal import *
 
@@ -40,18 +40,21 @@ def encodePriceSqrt(reserve1, reserve2):
 class CairoContractTest(TestCase):
     @classmethod
     async def setUp(cls):
-        cls.starknet = await Starknet.empty()
-        compiled_contract = compile_starknet_files(
-            [CONTRACT_FILE], debug_info=True, disable_hint_validation=True
-        )
-        kwargs = (
-            {"contract_def": compiled_contract}
-            if "contract_def" in signature(cls.starknet.deploy).parameters
-            else {"contract_class": compiled_contract}
-        )
-        #kwargs["constructor_calldata"] = [len(PRODUCT_ARRAY), *PRODUCT_ARRAY]
+        #cls.starknet = await Starknet.empty()
+        #compiled_contract = compile_starknet_files(
+        #    [CONTRACT_FILE], debug_info=True, disable_hint_validation=True
+        #)
+        #kwargs = (
+        #    {"contract_def": compiled_contract}
+        #    if "contract_def" in signature(cls.starknet.deploy).parameters
+        #    else {"contract_class": compiled_contract}
+        #)
+        ##kwargs["constructor_calldata"] = [len(PRODUCT_ARRAY), *PRODUCT_ARRAY]
 
-        cls.contract = await cls.starknet.deploy(**kwargs)
+        #cls.contract = await cls.starknet.deploy(**kwargs)
+        if not hasattr(cls, 'contract_def'):
+            cls.contract_def, cls.contract = await init_contract(CONTRACT_FILE)
+
 
     @pytest.mark.asyncio
     async def test_get_sqrt_ratio_at_tick(self):

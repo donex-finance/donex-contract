@@ -303,18 +303,18 @@ namespace TickMath:
         let (r: Uint256) = _get_tick_at_sqrt_ratio1(is_minus, ratio, msb)
 
         let (tmp: Uint256) = uint256_sub(Uint256(msb, 0), Uint256(128, 0))
-        let (log_2: Uint256, _) = uint256_mul(tmp, Uint256(2 ** 64, 0))
+        let (log_2_1: Uint256, _) = uint256_mul(tmp, Uint256(2 ** 64, 0))
 
-        let (r: Uint256, log_2: Uint256) = log_step(r, log_2, 63)
+        let (r: Uint256, log_2: Uint256) = log_step(r, log_2_1, 63)
 
         let (log_sqrt10001: Uint256, _) = uint256_mul(log_2, Uint256(255738958999603826347141, 0))
 
         let (t1: Uint256) = uint256_sub(log_sqrt10001, Uint256(0x28f6481ab7f045a5af012a19d003aaa, 0))
 
-        let (tick_low: Uint256, _) = uint256_signed_div_rem(t1, Uint256(0, 1))
+        let (tick_low: Uint256) = Utils.int256_shr(t1, 128)
 
         let (t2: Uint256, _) = uint256_add(log_sqrt10001, Uint256(0xdb2df09e81959a81455e260799a0632f, 0))
-        let (tick_high: Uint256, _) = uint256_signed_div_rem(t2, Uint256(0, 1))
+        let (tick_high: Uint256) = Utils.int256_shr(t2, 128)
 
         let (not_negtive) = uint256_signed_nn(tick_low)
         let (tl) = _get_tick_at_sqrt_ratio2(not_negtive, tick_low)
@@ -322,8 +322,8 @@ namespace TickMath:
         let (not_negtive) = uint256_signed_nn(tick_high)
         let (th) = _get_tick_at_sqrt_ratio2(not_negtive, tick_high)
 
-        let (is_valid) = uint256_eq(tick_low, tick_high)
-        if is_valid == 0:
+        #let (is_valid) = uint256_eq(tick_low, tick_high)
+        if tl != th:
             let (res: Uint256) = get_sqrt_ratio_at_tick(th)
             let (is_valid) = uint256_le(res, sqrt_price_x96)
             if is_valid == 1:

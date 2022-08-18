@@ -1,7 +1,7 @@
 %lang starknet
 
 from starkware.cairo.common.math_cmp import (is_nn, is_le)
-from starkware.cairo.common.uint256 import Uint256
+from starkware.cairo.common.uint256 import (Uint256, uint256_shr, uint256_pow2, uint256_sub, uint256_add, uint256_signed_nn)
 
 namespace Utils:
     # P = 2 ** 251 + 17 * (2 ** 192) + 1
@@ -81,5 +81,22 @@ namespace Utils:
             return (new_value)
         end
         return (old_value)
+    end
+
+    func int256_shr{
+        range_check_ptr
+    }(a: Uint256, b: felt) -> (res: Uint256):
+        alloc_locals
+        let (res: Uint256) = uint256_shr(a, Uint256(b, 0))
+        let (is_valid) = uint256_signed_nn(a) 
+        if is_valid == 0:
+            let (tmp1: Uint256) = uint256_pow2(Uint256(256 - b, 0))
+            let (tmp2: Uint256) = uint256_sub(tmp1, Uint256(1, 0))
+            let (tmp3: Uint256) = uint256_sub(Uint256(2 ** 128 - 1, 2 ** 128 - 1), tmp2)
+            let (res2: Uint256, _) = uint256_add(res, tmp3)
+            return (res2)
+        end
+
+        return (res)
     end
 end

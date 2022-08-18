@@ -108,9 +108,13 @@ func constructor{
         tick_spacing: felt, 
         fee: felt
     ):
+    alloc_locals
 
     _tick_spacing.write(tick_spacing)
     _fee.write(fee)
+
+    let (max_liquidity_per_tick) = TickMgr.get_max_liquidity_per_tick(tick_spacing)
+    _max_liquidity_per_tick.write(max_liquidity_per_tick)
     return ()
 end
 
@@ -123,6 +127,16 @@ func get_cur_slot{
 
     let (slot: SlotState) = _slot0.read()
     return (slot)
+end
+
+@view
+func get_max_liquidity_per_tick{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }() -> (liquidity: felt):
+    let (liquidity: felt) = _max_liquidity_per_tick.read()
+    return (liquidity)
 end
 
 @external
@@ -148,7 +162,7 @@ func initialize{
     )
     _slot0.write(new_slot0)
 
-    _slot_unlocked.write(1)
+    _unlock()
 
     return ()
 end
@@ -404,6 +418,28 @@ func _swap_2{
     return ()
 end
 
+func _lock{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr,
+    }():
+    let (slot_unlocked) = _slot_unlocked.read()
+    with_attr error_message("swap is locked"):
+        assert slot_unlocked = 1
+    end
+    _slot_unlocked.write(0)
+    return ()
+end
+
+func _unlock{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr,
+    }():
+    _slot_unlocked.write(1)
+    return ()
+end
+
 @external
 func swap{
         syscall_ptr: felt*,
@@ -421,14 +457,11 @@ func swap{
     let (is_valid) = uint256_eq(amount_specified, Uint256(0, 0))
     assert is_valid = 1
 
-    let (slot_unlocked) = _slot_unlocked.read()
-    assert slot_unlocked = 1
+    #TODO: prevent reentry?
+    _lock()
 
     let (slot0: SlotState) = _slot0.read()
     let (fee_protocol) = _swap_1(slot0, sqrt_price_limit_x96, zero_for_one)
-
-    #TODO: prevent reentry?
-    _slot_unlocked.write(0)
 
     let (liquidity) = _liquidity.read()
     let cache = SwapCache(
@@ -469,7 +502,7 @@ func swap{
 
     _swap_2(state, zero_for_one)
 
-    _slot_unlocked.write(1)
+    _unlock()
 
     if zero_for_one == exact_input:
         let (amount0: Uint256) = uint256_sub(amount_specified, state.amount_specified_remaining)
@@ -490,17 +523,17 @@ func _check_ticks{
         tick_upper: felt
     ):
     let (is_valid) = Utils.is_lt(tick_lower, tick_upper)
-    with_attr error_message("TLU"):
+    with_attr error_message("tick lower is greater than tick upper"):
         assert is_valid = 1
     end
 
     let (is_valid) = is_le(TickMath.MIN_TICK, tick_lower)
-    with_attr error_message("TLM"):
+    with_attr error_message("tick is too low"):
         assert is_valid = 1
     end
 
     let (is_valid) = is_le(tick_upper, TickMath.MAX_TICK)
-    with_attr error_message("TUM"):
+    with_attr error_message("tick is too high"):
         assert is_valid = 1
     end
 
@@ -658,8 +691,9 @@ func add_liquidity{
         tick_upper: felt,
         amount: felt,
     ) -> (amount0: Uint256, amount1: Uint256):
+    alloc_locals
 
-    #TODO: lock
+    _lock()
 
     let (is_valid) = Utils.is_gt(amount, 0)
     assert is_valid = 1
@@ -674,6 +708,8 @@ func add_liquidity{
     )
 
     #TODO: transfer
+
+    _unlock()
 
     return (amount0, amount1)
 end
@@ -692,7 +728,8 @@ func remove_liquidity{
     ) -> (amount0: Uint256, amount1: Uint256):
     alloc_locals
 
-    #TODO: lock
+    _lock()
+
     let (position: PositionInfo, amount0: Uint256, amount1: Uint256) = _modify_position(
         ModifyPositionParams(
             owner = recipient,
@@ -724,6 +761,8 @@ func remove_liquidity{
         PositionMgr.set(recipient, tick_lower, tick_upper, new_position)
         return (abs_amount0, abs_amount1)
     end
+
+    _unlock()
 
     return (abs_amount0, abs_amount1)
 end
