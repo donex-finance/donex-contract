@@ -1,7 +1,7 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import (HashBuiltin, BitwiseBuiltin)
-from starkware.cairo.common.uint256 import (Uint256, uint256_mul, uint256_shr, uint256_shl, uint256_lt, uint256_le, uint256_add, uint256_unsigned_div_rem, uint256_signed_div_rem, uint256_or, uint256_sub, uint256_and, uint256_eq, uint256_signed_lt, uint256_neg, uint256_signed_nn)
+from starkware.cairo.common.uint256 import (Uint256, uint256_mul, uint256_shr, uint256_shl, uint256_lt, uint256_le, uint256_add, uint256_unsigned_div_rem, uint256_or, uint256_sub, uint256_and, uint256_eq, uint256_signed_lt, uint256_neg, uint256_signed_nn)
 from starkware.cairo.common.bool import (FALSE, TRUE)
 from starkware.cairo.common.math import unsigned_div_rem
 from starkware.cairo.common.math_cmp import is_le
