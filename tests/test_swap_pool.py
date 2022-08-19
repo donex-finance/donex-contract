@@ -12,7 +12,8 @@ from utils import (
     MAX_UINT256, MAX_UINT128, assert_revert, add_uint, sub_uint,
     mul_uint, div_rem_uint, to_uint, contract_path,
     felt_to_int, int_to_felt, from_uint, cached_contract, encode_price_sqrt,
-    get_max_tick, get_min_tick, TICK_SPACINGS, FeeAmount, init_contract
+    get_max_tick, get_min_tick, TICK_SPACINGS, FeeAmount, init_contract,
+    expand_to_18decimals
 )
 
 from test_tickmath import (MIN_SQRT_RATIO, MAX_SQRT_RATIO)
@@ -23,39 +24,29 @@ MaxUint256 = to_uint(2 ** 256 - 1)
 # The path to the contract source code.
 CONTRACT_FILE = os.path.join("tests", "../contracts/swap_pool.cairo")
 
-tick_spacing = TICK_SPACINGS[FeeAmount.MEDIUM]
+FEE = FeeAmount.MEDIUM
+tick_spacing = TICK_SPACINGS[FEE]
 min_tick = get_min_tick(tick_spacing)
 max_tick = get_max_tick(tick_spacing)
 
 address = 111
 
-#async def init_contract():
-#    begin = time.time()
-#    starknet = await Starknet.empty()
-#    print('create starknet time:', time.time() - begin)
-#    begin = time.time()
-#    compiled_contract = compile_starknet_files(
-#        [CONTRACT_FILE], debug_info=True, disable_hint_validation=True
-#    )
-#    print('compile contract time:', time.time() - begin)
-#
-#    kwargs = {
-#        "contract_class": compiled_contract,
-#        "constructor_calldata": [tick_spacing, 0]
-#        }
-#
-#    begin = time.time()
-#    contract = await starknet.deploy(**kwargs)
-#    print('deploy contract time:', time.time() - begin)
-#
-#    return compiled_contract, contract
+async def swap_exact0_for1(contract, amount, address):
+    sqrt_price_limit = MIN_SQRT_RATIO + 1
+    res = await contract.swap(address, 1, to_uint(amount), to_uint(sqrt_price_limit)).invoke()
+    return res
+
+async def swap_exact1_for0(contract, amount, address):
+    sqrt_price_limit = MAX_SQRT_RATIO - 1
+    res = await contract.swap(address, 0, to_uint(amount), to_uint(sqrt_price_limit)).invoke()
+    return res
 
 class SwapPoolTest(TestCase):
 
     @classmethod
     async def setUp(cls):
         if not hasattr(cls, 'contract_def'):
-            cls.contract_def, cls.contract = await init_contract(CONTRACT_FILE, [tick_spacing, 0])
+            cls.contract_def, cls.contract = await init_contract(CONTRACT_FILE, [tick_spacing, FEE])
 
     def get_state_contract(self):
         _state = self.contract.state.copy()
@@ -327,4 +318,94 @@ class SwapPoolTest(TestCase):
         self.assertEqual(liquidity_gross, 250)
         self.assertEqual(fee_growth_outside0, 0)
         self.assertEqual(fee_growth_outside1, 0)
-    '''
+
+        # price within range: transfers current price of both tokens
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 100).invoke()
+        amount0 = from_uint(res.call_info.result[0: 2])
+        amount1 = from_uint(res.call_info.result[2: 4])
+        self.assertEqual(amount0, 317)
+        self.assertEqual(amount1, 32)
+
+        # initializes lower tick
+        res = await new_contract.get_tick(int_to_felt(min_tick + tick_spacing)).call()
+        liquidity_gross = res.call_info.result[0]
+        self.assertEqual(liquidity_gross, 100)
+        res = await new_contract.get_tick(int_to_felt(max_tick - tick_spacing)).call()
+        liquidity_gross = res.call_info.result[0]
+        self.assertEqual(liquidity_gross, 100)
+
+        # initializes upper tick
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, int_to_felt(min_tick), max_tick, 10000).invoke()
+        amount0 = from_uint(res.call_info.result[0: 2])
+        amount1 = from_uint(res.call_info.result[2: 4])
+        self.assertEqual(amount0, 31623)
+        self.assertEqual(amount1, 3163)
+
+        # removing works
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 100).invoke()
+        res = await new_contract.remove_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 100).invoke()
+        res = await new_contract.collect(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, MAX_UINT128, MAX_UINT128).invoke()
+        amount0 = res.call_info.result[0]
+        amount1 = res.call_info.result[1]
+        self.assertEqual(amount0, 316)
+        self.assertEqual(amount1, 31)
+
+        # transfers token1 only
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, int_to_felt(-46080), int_to_felt(-23040), 10000).invoke()
+        amount0 = from_uint(res.call_info.result[0: 2])
+        amount1 = from_uint(res.call_info.result[2: 4])
+        self.assertEqual(amount0, 0)
+        self.assertEqual(amount1, 2162)
+
+        # min tick with max leverage
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, int_to_felt(min_tick), int_to_felt(min_tick + tick_spacing), 2 ** 102).invoke()
+        amount0 = from_uint(res.call_info.result[0: 2])
+        amount1 = from_uint(res.call_info.result[2: 4])
+        self.assertEqual(amount0, 0)
+        self.assertEqual(amount1, 828011520)
+
+        # works for min tick
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, int_to_felt(min_tick), int_to_felt(-23040), 10000).invoke()
+        amount0 = from_uint(res.call_info.result[0: 2])
+        amount1 = from_uint(res.call_info.result[2: 4])
+        self.assertEqual(amount0, 0)
+        self.assertEqual(amount1, 3161)
+
+        # removing works
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, int_to_felt(-46080), int_to_felt(-46020), 10000).invoke()
+        res = await new_contract.remove_liquidity(address, int_to_felt(-46080), int_to_felt(-46020), 10000).invoke()
+        res = await new_contract.collect(address, int_to_felt(-46080), int_to_felt(-46020), MAX_UINT128, MAX_UINT128).invoke()
+        amount0 = res.call_info.result[0]
+        amount1 = res.call_info.result[1]
+        self.assertEqual(amount0, 0)
+        self.assertEqual(amount1, 3)
+
+        '''
+
+    @pytest.mark.asyncio
+    async def test_protocol_fee(self):
+        contract = self.get_state_contract()
+        price = to_uint(25054144837504793118650146401)
+        await contract.initialize(price).invoke()
+        res = await contract.add_liquidity(address, min_tick, max_tick, 3161).invoke()
+
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        await new_contract.set_fee_protocol(6, 6).invoke()
+        res = await new_contract.add_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, expand_to_18decimals(1)).invoke()
+        print('add_liquidity', res.call_info.result)
+        res = await swap_exact0_for1(new_contract, expand_to_18decimals(1) // 10, address)
+        print('swap_exact0_for1', res.call_info.result)
+        res = await swap_exact1_for0(new_contract, expand_to_18decimals(1) // 100, address)
+        print('swap_exact1_for0', res.call_info.result)
+        res = await new_contract.get_protocol_fees().call()
+        token0_fee = from_uint(res.call_info.result[0: 2])
+        token1_fee = from_uint(res.call_info.result[2: 4]) 
+        self.assertEqual(token0_fee, 50000000000000)
+        self.assertEqual(token1_fee, 5000000000000)
