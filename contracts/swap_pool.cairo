@@ -6,7 +6,7 @@ from starkware.cairo.common.bool import (FALSE, TRUE)
 from starkware.cairo.common.math import unsigned_div_rem
 from starkware.cairo.common.math_cmp import is_le
 
-from contracts.tick_mgr import TickMgr 
+from contracts.tick_mgr import (TickMgr, TickInfo)
 from contracts.tick_bitmap import TickBitmap
 from contracts.position_mgr import (PositionMgr, PositionInfo)
 from contracts.swapmath import SwapMath
@@ -137,6 +137,16 @@ func get_max_liquidity_per_tick{
     }() -> (liquidity: felt):
     let (liquidity: felt) = _max_liquidity_per_tick.read()
     return (liquidity)
+end
+
+@view 
+func get_tick{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(tick: felt) -> (tick: TickInfo):
+    let (tick_info: TickInfo) = TickMgr.get_tick(tick)
+    return (tick_info)
 end
 
 @external
@@ -689,7 +699,7 @@ func add_liquidity{
         recipient: felt,
         tick_lower: felt,
         tick_upper: felt,
-        amount: felt,
+        amount: felt
     ) -> (amount0: Uint256, amount1: Uint256):
     alloc_locals
 
@@ -708,6 +718,9 @@ func add_liquidity{
     )
 
     #TODO: transfer
+
+    #TODO: data
+    #TODO: callback for contract
 
     _unlock()
 
@@ -735,7 +748,7 @@ func remove_liquidity{
             owner = recipient,
             tick_lower = tick_lower,
             tick_upper = tick_upper,
-            liquidity_delta = amount
+            liquidity_delta = -amount
         )
     )
 
@@ -748,15 +761,15 @@ func remove_liquidity{
     let (is_valid) = Utils.is_gt(flag1 + flag2, 0)
     # could abs_amount greater then 2 ** 128
     if is_valid == 1:
-        let tokensOwed0 = position.tokens_owed0 + abs_amount0.low
-        let tokensOwed1 = position.tokens_owed1 + abs_amount1.low
+        let tokens_owed0 = position.tokens_owed0 + abs_amount0.low
+        let tokens_owed1 = position.tokens_owed1 + abs_amount1.low
         # write new position
         let new_position = PositionInfo(
             liquidity = position.liquidity,
             fee_growth_inside0_x128 = position.fee_growth_inside0_x128,
             fee_growth_inside1_x128 = position.fee_growth_inside1_x128,
-            tokens_owed0 = tokensOwed0,
-            tokens_owed1 = tokensOwed1,
+            tokens_owed0 = tokens_owed0,
+            tokens_owed1 = tokens_owed1,
         )
         PositionMgr.set(recipient, tick_lower, tick_upper, new_position)
         return (abs_amount0, abs_amount1)
@@ -781,4 +794,35 @@ func setFeeProtocol{
     _fee_protocol.write(fee_protocol)
 
     return ()
+end
+
+@external
+func collect{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(
+        recipient: felt,
+        tick_lower: felt,
+        tick_upper: felt,
+        amount0_requested: felt,
+        amount1_requested: felt
+    ) -> (amount0: felt, amount1: felt):
+    alloc_locals
+
+    let (position: PositionInfo) = PositionMgr.get(recipient, tick_lower, tick_upper)
+
+    let (is_valid) = Utils.is_gt(amount0_requested, position.tokens_owed0)
+    let (amount0) = Utils.cond_assign(is_valid, position.tokens_owed0, amount0_requested)
+
+    let (is_valid) = Utils.is_gt(amount1_requested, position.tokens_owed1)
+    let (amount1) = Utils.cond_assign(is_valid, position.tokens_owed1, amount1_requested)
+
+    let (is_valid) = Utils.is_gt(amount0, 0)
+    let (tokens_owed0) = Utils.cond_assign(is_valid, position.tokens_owed0 - amount0, position.tokens_owed0)
+
+    let (is_valid) = Utils.is_gt(amount1, 0)
+    let (tokens_owed1) = Utils.cond_assign(is_valid, position.tokens_owed1 - amount1, position.tokens_owed1) 
+
+    return (amount0, amount1)
 end
