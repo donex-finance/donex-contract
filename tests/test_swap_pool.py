@@ -30,6 +30,7 @@ min_tick = get_min_tick(tick_spacing)
 max_tick = get_max_tick(tick_spacing)
 
 address = 111
+other_address = 222
 
 async def swap_exact0_for1(contract, amount, address):
     sqrt_price_limit = MIN_SQRT_RATIO + 1
@@ -387,7 +388,7 @@ class SwapPoolTest(TestCase):
         self.assertEqual(amount0, 0)
         self.assertEqual(amount1, 3)
 
-        '''
+    '''
 
     @pytest.mark.asyncio
     async def test_protocol_fee(self):
@@ -396,6 +397,7 @@ class SwapPoolTest(TestCase):
         await contract.initialize(price).invoke()
         res = await contract.add_liquidity(address, min_tick, max_tick, 3161).invoke()
 
+        # protocol fees accumulate as expected during swap
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
         await new_contract.set_fee_protocol(6, 6).invoke()
         res = await new_contract.add_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, expand_to_18decimals(1)).invoke()
@@ -409,3 +411,136 @@ class SwapPoolTest(TestCase):
         token1_fee = from_uint(res.call_info.result[2: 4]) 
         self.assertEqual(token0_fee, 50000000000000)
         self.assertEqual(token1_fee, 5000000000000)
+
+        # positions are protected before protocol fee is turned on
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, expand_to_18decimals(1)).invoke()
+        res = await swap_exact0_for1(new_contract, expand_to_18decimals(1) // 10, address)
+        res = await swap_exact1_for0(new_contract, expand_to_18decimals(1) // 100, address)
+        res = await new_contract.get_protocol_fees().call()
+        token0_fee = from_uint(res.call_info.result[0: 2])
+        token1_fee = from_uint(res.call_info.result[2: 4]) 
+        self.assertEqual(token0_fee, 0)
+        self.assertEqual(token1_fee, 0)
+
+        await new_contract.set_fee_protocol(6, 6).invoke()
+        res = await new_contract.get_protocol_fees().call()
+        token0_fee = from_uint(res.call_info.result[0: 2])
+        token1_fee = from_uint(res.call_info.result[2: 4]) 
+        self.assertEqual(token0_fee, 0)
+        self.assertEqual(token1_fee, 0)
+
+        # poke is not allowed on uninitialized position
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(other_address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, expand_to_18decimals(1)).invoke()
+        res = await swap_exact0_for1(new_contract, expand_to_18decimals(1) // 10, address)
+        res = await swap_exact1_for0(new_contract, expand_to_18decimals(1) // 100, address)
+
+        await assert_revert(
+            new_contract.remove_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 0).invoke(),
+            ""
+        )
+        res = await new_contract.add_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 1).invoke()
+
+        res = await new_contract.get_position(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing).call()
+        liquidity = res.call_info.result[0]
+        fee_growth_inside0_x128 = from_uint(res.call_info.result[1: 3])
+        fee_growth_inside1_x128 = from_uint(res.call_info.result[3: 5])
+        tokens_owed0 = res.call_info.result[5]
+        tokens_owed1 = res.call_info.result[6]
+        self.assertEqual(liquidity, 1)
+        self.assertEqual(fee_growth_inside0_x128, 102084710076281216349243831104605583)
+        self.assertEqual(fee_growth_inside1_x128, 10208471007628121634924383110460558)
+        self.assertEqual(tokens_owed0, 0)
+        self.assertEqual(tokens_owed1, 0)
+
+        await new_contract.remove_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 1).invoke()
+        res = await new_contract.get_position(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing).call()
+        liquidity = res.call_info.result[0]
+        fee_growth_inside0_x128 = from_uint(res.call_info.result[1: 3])
+        fee_growth_inside1_x128 = from_uint(res.call_info.result[3: 5])
+        tokens_owed0 = res.call_info.result[5]
+        tokens_owed1 = res.call_info.result[6]
+        self.assertEqual(liquidity, 0)
+        self.assertEqual(fee_growth_inside0_x128, 102084710076281216349243831104605583)
+        self.assertEqual(fee_growth_inside1_x128, 10208471007628121634924383110460558)
+        self.assertEqual(tokens_owed0, 3)
+        self.assertEqual(tokens_owed1, 0)
+
+    async def check_tick_is_clear(self, contract, tick):
+        res = await contract.get_tick(int_to_felt(tick)).call()
+        liquidity_gross = res.call_info.result[0]
+        liquidity_net = res.call_info.result[1]
+        fee_growth_outside0 = from_uint(res.call_info.result[2: 4])
+        fee_growth_outside1 = from_uint(res.call_info.result[4: 6])
+        self.assertEqual(liquidity_gross, 0)
+        self.assertEqual(liquidity_net, 0)
+        self.assertEqual(fee_growth_outside0, 0)
+        self.assertEqual(fee_growth_outside1, 0)
+
+    async def check_tick_is_not_clear(self, contract, tick):
+        res = await contract.get_tick(int_to_felt(tick)).call()
+        liquidity_gross = res.call_info.result[0]
+        self.assertEqual(liquidity_gross != 0, True)
+
+    '''
+
+    @pytest.mark.asyncio
+    async def test_remove_liquidity(self):
+
+        contract = self.get_state_contract()
+        price = encode_price_sqrt(1, 1)
+        await contract.initialize(price).invoke()
+        res = await contract.add_liquidity(address, int_to_felt(min_tick), max_tick, expand_to_18decimals(2)).invoke()
+
+        # does not clear the position fee growth snapshot if no more liquidity
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(other_address, int_to_felt(min_tick), max_tick, expand_to_18decimals(1)).invoke()
+        print('add_liquidity', res.call_info.result)
+        res = await swap_exact0_for1(new_contract, expand_to_18decimals(1), address)
+        print('min_tick', min_tick, 'max_tick', max_tick)
+        print('swap_exact0_for1:', res.call_info.result)
+        res = await swap_exact1_for0(new_contract, expand_to_18decimals(1), address)
+        print('swap_exact1_for0:', res.call_info.result)
+
+        res = await new_contract.remove_liquidity(other_address, int_to_felt(min_tick), max_tick, expand_to_18decimals(1)).invoke()
+        res = await new_contract.get_position(other_address, int_to_felt(min_tick), max_tick).call()
+        liquidity = res.call_info.result[0]
+        fee_growth_inside0_x128 = from_uint(res.call_info.result[1: 3])
+        fee_growth_inside1_x128 = from_uint(res.call_info.result[3: 5])
+        tokens_owed0 = res.call_info.result[5]
+        tokens_owed1 = res.call_info.result[6]
+        self.assertEqual(liquidity, 0)
+        self.assertEqual(fee_growth_inside0_x128, 340282366920938463463374607431768211)
+        self.assertEqual(fee_growth_inside1_x128, 340282366920938576890830247744589365)
+        self.assertNotEqual(tokens_owed0, 0)
+        self.assertNotEqual(tokens_owed1, 0)
+
+        # clears the tick if its the last position using it
+        tick_lower, tick_upper = min_tick + tick_spacing, max_tick - tick_spacing
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, tick_lower, tick_upper, 1).invoke()
+        res = await swap_exact0_for1(new_contract, expand_to_18decimals(1), address)
+        res = await new_contract.remove_liquidity(address, tick_lower, tick_upper, 1).invoke()
+        await self.check_tick_is_clear(new_contract, tick_lower)
+        await self.check_tick_is_clear(new_contract, tick_upper)
+
+        # clears only the lower tick if upper is still used
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, tick_lower, tick_upper, 1).invoke()
+        res = await new_contract.add_liquidity(address, tick_lower + tick_spacing, tick_upper, 1).invoke()
+        res = await swap_exact0_for1(new_contract, expand_to_18decimals(1), address)
+        res = await new_contract.remove_liquidity(address, tick_lower, tick_upper, 1).invoke()
+        await self.check_tick_is_clear(new_contract, tick_lower)
+        await self.check_tick_is_not_clear(new_contract, tick_upper)
+
+        # clears only the upper tick if lower is still used
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, tick_lower, tick_upper, 1).invoke()
+        res = await new_contract.add_liquidity(address, tick_lower, tick_upper - tick_spacing, 1).invoke()
+        res = await swap_exact0_for1(new_contract, expand_to_18decimals(1), address)
+        res = await new_contract.remove_liquidity(address, tick_lower, tick_upper, 1).invoke()
+        await self.check_tick_is_not_clear(new_contract, tick_lower)
+        await self.check_tick_is_clear(new_contract, tick_upper)
+
+    '''

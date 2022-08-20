@@ -160,6 +160,16 @@ func get_tick{
     return (tick_info)
 end
 
+@view
+func get_position{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(address: felt, tick_lower: felt, tick_upper: felt) -> (position: PositionInfo):
+    let (position: PositionInfo) = PositionMgr.get(address, tick_lower, tick_upper)
+    return (position)
+end
+
 @external
 func initialize{
         syscall_ptr: felt*,
@@ -715,7 +725,13 @@ func _modify_position{
             let (amount1: Uint256) = SqrtPriceMath.get_amount1_delta2(sqrt_ratio0, slot0.sqrt_price_x96, params.liquidity_delta)
 
             let (cur_liquidity) = _liquidity.read()
+            %{
+                print("cur_liquidity", ids.cur_liquidity, ids.params.liquidity_delta)
+            %}
             let (liquidity) = Utils.u128_safe_add(cur_liquidity, params.liquidity_delta)
+            %{
+                print('add liquidity:', ids.liquidity, ids.slot0.tick)
+            %}
             _liquidity.write(liquidity)
 
             return (position, amount0, amount1)
