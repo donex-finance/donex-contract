@@ -161,6 +161,16 @@ func get_tick{
 end
 
 @view
+func get_tick_spacing{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }() -> (tick_spacing: felt):
+    let (tick_spacing) = _tick_spacing.read()
+    return (tick_spacing)
+end
+
+@view
 func get_position{
         syscall_ptr: felt*,
         pedersen_ptr: HashBuiltin*,
