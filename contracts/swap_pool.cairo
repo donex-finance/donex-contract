@@ -180,6 +180,16 @@ func get_position{
     return (position)
 end
 
+@ view
+func get_liquidity{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }() -> (liquidity: felt):
+    let (liquidity) = _liquidity.read()
+    return (liquidity)
+end
+
 @external
 func initialize{
         syscall_ptr: felt*,
@@ -365,9 +375,6 @@ func _compute_swap_step{
     let (sqrt_price_target_x96: Uint256) = Utils.cond_assign_uint256(flag, sqrt_price_limit_x96, sqrt_price_next_x96)
 
     let (fee) = _fee.read()
-    %{
-        print("fee:", ids.fee)
-    %}
     let (state_sqrt_price_x96: Uint256, amount_in: Uint256, amount_out: Uint256, fee_amount: Uint256) = SwapMath.compute_swap_step(
         state.sqrt_price_x96,
         sqrt_price_target_x96,
@@ -375,13 +382,6 @@ func _compute_swap_step{
         state.amount_specified_remaining,
         fee,
     )
-    %{
-        a = ids.state_sqrt_price_x96.low + ids.state_sqrt_price_x96.high * 2 ** 128
-        b = ids.amount_in.low + ids.amount_in.high * 2 ** 128
-        c = ids.amount_out.low + ids.amount_out.high * 2 ** 128
-        d = ids.fee_amount.low + ids.fee_amount.high * 2 ** 128
-        print('compute_swap_step:', a, b, c, d)
-    %}
 
     let (state_amount_specified_remaining: Uint256, state_amount_caculated: Uint256) = _compute_swap_step_1(
         exact_input,
@@ -397,13 +397,6 @@ func _compute_swap_step{
 
     let (state_liquidity, state_tick) = _compute_swap_step_4(state, state_sqrt_price_x96, sqrt_price_start_x96, sqrt_price_next_x96, state_fee_growth_global_x128, tick_next, zero_for_one, initialized)
 
-    %{
-        a = ids.state_amount_specified_remaining.low + ids.state_amount_specified_remaining.high * 2 ** 128
-        b = ids.state_sqrt_price_x96.low + ids.state_sqrt_price_x96.high * 2 ** 128
-        c = ids.state_fee_growth_global_x128.low + ids.state_fee_growth_global_x128.high * 2 ** 128
-        d = ids.state_amount_caculated.low + ids.state_amount_caculated.high * 2 ** 128
-        print('_compute_swap_step:', a, d, b, c, ids.state_tick, ids.state_protocol_fee, ids.state_liquidity)
-    %}
     let new_state: SwapState = SwapState(
         amount_specified_remaining = state_amount_specified_remaining,
         amount_caculated = state_amount_caculated,
@@ -523,19 +516,12 @@ func swap{
     let (fee_protocol) = _swap_1(slot0, sqrt_price_limit_x96, zero_for_one)
 
     let (liquidity) = _liquidity.read()
-    %{
-        print('swap liquidity:', ids.liquidity)
-    %}
     let cache = SwapCache(
         liquidity_start = liquidity,
         fee_protocol = fee_protocol
     )
 
     let (exact_input) = uint256_lt(Uint256(0, 0), amount_specified)
-
-    %{
-        print('swap:', ids.zero_for_one, ids.exact_input, ids.amount_specified.low + ids.amount_specified.high * 2 ** 128, ids.sqrt_price_limit_x96.low + ids.sqrt_price_limit_x96.high * 2 ** 128)
-    %}
 
     if zero_for_one == 1:
         let (fee_growth: Uint256) = _fee_growth_global0_x128.read()
@@ -554,9 +540,6 @@ func swap{
     )
 
     let (state: SwapState) = _compute_swap_step(init_state, cache, exact_input, zero_for_one, sqrt_price_limit_x96)
-    %{
-        print('swap: state', ids.state.amount_specified_remaining.low + ids.state.amount_specified_remaining.high * 2 ** 128)
-    %}
 
     _slot0.write(SlotState(
         sqrt_price_x96 = state.sqrt_price_x96,
@@ -735,13 +718,7 @@ func _modify_position{
             let (amount1: Uint256) = SqrtPriceMath.get_amount1_delta2(sqrt_ratio0, slot0.sqrt_price_x96, params.liquidity_delta)
 
             let (cur_liquidity) = _liquidity.read()
-            %{
-                print("cur_liquidity", ids.cur_liquidity, ids.params.liquidity_delta)
-            %}
             let (liquidity) = Utils.u128_safe_add(cur_liquidity, params.liquidity_delta)
-            %{
-                print('add liquidity:', ids.liquidity, ids.slot0.tick)
-            %}
             _liquidity.write(liquidity)
 
             return (position, amount0, amount1)

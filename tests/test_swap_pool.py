@@ -42,6 +42,13 @@ async def swap_exact1_for0(contract, amount, address):
     res = await contract.swap(address, 0, to_uint(amount), to_uint(sqrt_price_limit)).invoke()
     return res
 
+async def initialize_at_zero_tick(contract):
+    res = await contract.get_tick_spacing().call()
+    tick_spacing = res.call_info.result[0]
+    min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
+    await contract.initialize(encode_price_sqrt(1, 1)).invoke()
+    await contract.add_liquidity(address, min_tick, max_tick, expand_to_18decimals(2)).invoke()
+
 class SwapPoolTest(TestCase):
 
     @classmethod
@@ -121,6 +128,11 @@ class SwapPoolTest(TestCase):
         contract = self.get_state_contract()
         await contract.initialize(encode_price_sqrt(1, 10)).invoke()
         await contract.add_liquidity(address, min_tick, max_tick, 3161).invoke()
+
+        await assert_revert(
+            contract.add_liquidity(address, -3, 3, expand_to_18decimals(2)).invoke(),
+            "tick must be multiples of tick_spacing"
+        )
 
         await assert_revert(
             contract.add_liquidity(address, int_to_felt(1), 0, 1).invoke(),
@@ -388,7 +400,6 @@ class SwapPoolTest(TestCase):
         self.assertEqual(amount0, 0)
         self.assertEqual(amount1, 3)
 
-    '''
 
     @pytest.mark.asyncio
     async def test_protocol_fee(self):
@@ -483,8 +494,6 @@ class SwapPoolTest(TestCase):
         liquidity_gross = res.call_info.result[0]
         self.assertEqual(liquidity_gross != 0, True)
 
-    '''
-
     @pytest.mark.asyncio
     async def test_remove_liquidity(self):
 
@@ -544,3 +553,185 @@ class SwapPoolTest(TestCase):
         await self.check_tick_is_clear(new_contract, tick_upper)
 
     '''
+
+    @pytest.mark.asyncio
+    async def test_add_liquidity2(self):
+        FEE = FeeAmount.LOW
+        tick_spacing = TICK_SPACINGS[FeeAmount.LOW]
+        contract_def, contract = await init_contract(CONTRACT_FILE, [tick_spacing, FEE])
+        price = encode_price_sqrt(1, 1)
+        await contract.initialize(price).invoke()
+        min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
+        res = await contract.add_liquidity(address, int_to_felt(min_tick), max_tick, expand_to_18decimals(2)).invoke()
+
+        liquidity_delta = 1000
+        tick_lower = tick_spacing
+        tick_upper = tick_spacing * 2
+
+        res = await contract.get_liquidity().call()
+        liquidity_before = res.call_info.result[0]
+
+        # mint to the right of the current price
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        res = await new_contract.add_liquidity(address, tick_lower, tick_upper, liquidity_delta).invoke()
+        amount0 = from_uint(res.call_info.result[0: 2])
+        amount1 = from_uint(res.call_info.result[2: 4])
+        self.assertEqual(amount0, 1)
+        self.assertEqual(amount1, 0)
+        
+        res = await new_contract.get_liquidity().call()
+        liquidity_after = res.call_info.result[0]
+        self.assertEqual(liquidity_after >= liquidity_before, True)
+
+        # mint to the left of the current price
+        tick_lower = -tick_spacing * 2
+        tick_upper = -tick_spacing
+
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        res = await new_contract.add_liquidity(address, tick_lower, tick_upper, liquidity_delta).invoke()
+        amount0 = from_uint(res.call_info.result[0: 2])
+        amount1 = from_uint(res.call_info.result[2: 4])
+        self.assertEqual(amount0, 0)
+        self.assertEqual(amount1, 1)
+
+        res = await new_contract.get_liquidity().call()
+        liquidity_after = res.call_info.result[0]
+        self.assertEqual(liquidity_after >= liquidity_before, True)
+
+        # mint within the current price
+        tick_lower = - tick_spacing
+        tick_upper = tick_spacing
+
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        res = await new_contract.add_liquidity(address, tick_lower, tick_upper, liquidity_delta).invoke()
+        amount0 = from_uint(res.call_info.result[0: 2])
+        amount1 = from_uint(res.call_info.result[2: 4])
+        self.assertEqual(amount0, 1)
+        self.assertEqual(amount1, 1)
+
+        res = await new_contract.get_liquidity().call()
+        liquidity_after = res.call_info.result[0]
+        self.assertEqual(liquidity_after >= liquidity_before, True)
+
+        # cannot remove more than the entire position
+        tick_lower = -tick_spacing
+        tick_upper = tick_spacing
+
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        res = await new_contract.add_liquidity(address, tick_lower, tick_upper, expand_to_18decimals(1000)).invoke()
+
+        await assert_revert(
+            new_contract.remove_liquidity(address, tick_lower, tick_upper, expand_to_18decimals(1001)).invoke(), 
+            ""
+        )
+
+        # collect fees within the current price after swap
+        liquidity_delta = expand_to_18decimals(100)
+        tick_lower = -tick_spacing * 100
+        tick_upper = tick_spacing * 100
+
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        res = await new_contract.add_liquidity(address, tick_lower, tick_upper, liquidity_delta).invoke()
+
+        res = await new_contract.get_liquidity().call()
+        liquidity_before = res.call_info.result[0]
+
+        amount0_in = expand_to_18decimals(1)
+        await swap_exact0_for1(new_contract, amount0_in, address)
+
+        res = await new_contract.get_liquidity().call()
+        liquidity_after = res.call_info.result[0]
+        self.assertEqual(liquidity_after >= liquidity_before, True)
+
+        res = await new_contract.remove_liquidity(address, tick_lower, tick_upper, 0).invoke()
+        res = await new_contract.collect(address, tick_lower, tick_upper, MAX_UINT128, MAX_UINT128).invoke()
+
+        res = await new_contract.remove_liquidity(address, tick_lower, tick_upper, 0).invoke()
+
+        res = await new_contract.collect(address, int_to_felt(-46080), int_to_felt(-46020), MAX_UINT128, MAX_UINT128).invoke()
+        amount0 = res.call_info.result[0]
+        amount1 = res.call_info.result[1]
+        self.assertEqual(amount0, 0)
+        self.assertEqual(amount1, 0)
+        #TODO: check token balance befere and after
+
+    # post-initialize at medium fee
+    @pytest.mark.asyncio
+    async def test_add_liquidity3(self):
+        contract = self.get_state_contract()
+        #initialize_at_zero_tick(contract)
+        price = encode_price_sqrt(1, 1)
+        await contract.initialize(price).invoke()
+        res = await contract.add_liquidity(address, int_to_felt(min_tick), max_tick, expand_to_18decimals(2)).invoke()
+
+        res = await contract.get_liquidity().call()
+        liquidity = res.call_info.result[0]
+        self.assertEqual(liquidity, expand_to_18decimals(2))
+
+        # returns in supply in range        
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, -tick_spacing, tick_spacing, expand_to_18decimals(3)).invoke()
+        res = await new_contract.get_liquidity().call()
+        liquidity = res.call_info.result[0]
+        self.assertEqual(liquidity, expand_to_18decimals(5))
+
+        # excludes supply at tick above current tick
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, tick_spacing, tick_spacing * 2, expand_to_18decimals(3)).invoke()
+        res = await new_contract.get_liquidity().call()
+        liquidity = res.call_info.result[0]
+        self.assertEqual(liquidity, expand_to_18decimals(2))
+
+        # excludes supply at tick below current tick
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, -tick_spacing * 2, -tick_spacing, expand_to_18decimals(3)).invoke()
+        res = await new_contract.get_liquidity().call()
+        liquidity = res.call_info.result[0]
+        self.assertEqual(liquidity, expand_to_18decimals(2))
+
+        # updates correctly when exiting range
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.get_liquidity().call()
+        liquidity_before = res.call_info.result[0]
+        self.assertEqual(liquidity_before, expand_to_18decimals(2))
+
+        liquidity_delta = expand_to_18decimals(1)
+        tick_lower = 0
+        tick_upper = tick_spacing
+
+        res = await new_contract.add_liquidity(address, tick_lower, tick_upper, liquidity_delta).invoke()
+
+        res = await new_contract.get_liquidity().call()
+        liquidity_after = res.call_info.result[0]
+        self.assertEqual(liquidity_after, expand_to_18decimals(3))
+
+        res = await swap_exact0_for1(new_contract, 1, address)
+        res = await new_contract.get_cur_slot().call()
+        tick = felt_to_int(res.call_info.result[2])
+        self.assertEqual(tick, -1)
+
+        res = await new_contract.get_liquidity().call()
+        liquidity_after = res.call_info.result[0]
+        self.assertEqual(liquidity_after, expand_to_18decimals(2))
+
+        # updates correctly when entering range
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.get_liquidity().call()
+        liquidity_before = res.call_info.result[0]
+
+        liquidity_delta = expand_to_18decimals(1)
+        tick_lower = -tick_spacing
+        tick_upper = 0
+        res = await new_contract.add_liquidity(address, tick_lower, tick_upper, liquidity_delta).invoke()
+        res = await new_contract.get_liquidity().call()
+        liquidity_after = res.call_info.result[0]
+        self.assertEqual(liquidity_after, liquidity_before)
+
+        res = await swap_exact0_for1(new_contract, 1, address)
+        res = await new_contract.get_cur_slot().call()
+        tick = felt_to_int(res.call_info.result[2])
+        self.assertEqual(tick, -1)
+
+        res = await new_contract.get_liquidity().call()
+        liquidity_after = res.call_info.result[0]
+        self.assertEqual(liquidity_after, expand_to_18decimals(3))

@@ -37,7 +37,9 @@ namespace TickBitmap:
         alloc_locals
 
         let (_, rem) = signed_div_rem(tick, tick_spacing, bound)
-        assert rem = 0
+        with_attr error_message("tick must be multiples of tick_spacing"):
+            assert rem = 0
+        end
 
         let (word_pos, bit_pos) = position(tick)
         let (mask: Uint256) = uint256_pow2(Uint256(bit_pos, 0))
