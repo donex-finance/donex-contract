@@ -70,7 +70,7 @@ namespace PositionMgr:
         let (is_valid) = Utils.is_lt(0, tmp + tmp2)
         if is_valid == 1:
             #TODO: if tokens_owed* < 0
-            let position: PositionInfo = PositionInfo(liquidity=liquidity, fee_growth_inside0_x128=fee_growth_inside0_x128, fee_growth_inside1_x128=fee_growth_inside1_x128, tokens_owed0=tokens_owed0, tokens_owed1=tokens_owed1)
+            let position: PositionInfo = PositionInfo(liquidity=liquidity, fee_growth_inside0_x128=fee_growth_inside0_x128, fee_growth_inside1_x128=fee_growth_inside1_x128, tokens_owed0=position.tokens_owed0 + tokens_owed0, tokens_owed1=position.tokens_owed1 + tokens_owed1)
             _positions.write(address, tick_lower, tick_upper, position)
             return (position)
         end

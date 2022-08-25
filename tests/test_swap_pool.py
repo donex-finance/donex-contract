@@ -13,7 +13,7 @@ from utils import (
     mul_uint, div_rem_uint, to_uint, contract_path,
     felt_to_int, int_to_felt, from_uint, cached_contract, encode_price_sqrt,
     get_max_tick, get_min_tick, TICK_SPACINGS, FeeAmount, init_contract,
-    expand_to_18decimals
+    expand_to_18decimals, assert_event_emitted
 )
 
 from test_tickmath import (MIN_SQRT_RATIO, MAX_SQRT_RATIO)
@@ -61,7 +61,6 @@ class SwapPoolTest(TestCase):
         new_contract = cached_contract(_state, self.contract_def, self.contract)
         return new_contract
 
-    '''
     @pytest.mark.asyncio
     async def test_initialize(self):
 
@@ -552,8 +551,6 @@ class SwapPoolTest(TestCase):
         await self.check_tick_is_not_clear(new_contract, tick_lower)
         await self.check_tick_is_clear(new_contract, tick_upper)
 
-    '''
-
     @pytest.mark.asyncio
     async def test_add_liquidity2(self):
         FEE = FeeAmount.LOW
@@ -659,7 +656,6 @@ class SwapPoolTest(TestCase):
     @pytest.mark.asyncio
     async def test_add_liquidity3(self):
         contract = self.get_state_contract()
-        #initialize_at_zero_tick(contract)
         price = encode_price_sqrt(1, 1)
         await contract.initialize(price).invoke()
         res = await contract.add_liquidity(address, int_to_felt(min_tick), max_tick, expand_to_18decimals(2)).invoke()
@@ -735,3 +731,93 @@ class SwapPoolTest(TestCase):
         res = await new_contract.get_liquidity().call()
         liquidity_after = res.call_info.result[0]
         self.assertEqual(liquidity_after, expand_to_18decimals(3))
+
+    @pytest.mark.asyncio
+    async def test_limit_orders(self):
+        contract = self.get_state_contract()
+        price = encode_price_sqrt(1, 1)
+        await contract.initialize(price).invoke()
+        res = await contract.add_liquidity(address, int_to_felt(min_tick), max_tick, expand_to_18decimals(2)).invoke()
+
+        # limit selling 0 for 1 at tick 0 thru 1
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, 0, 120, expand_to_18decimals(1)).invoke()
+        res = await swap_exact1_for0(new_contract, expand_to_18decimals(2), other_address)
+        res = await new_contract.remove_liquidity(address, 0, 120, expand_to_18decimals(1)).invoke()
+        assert_event_emitted(
+            res,
+            from_address=new_contract.contract_address,
+            name='RemoveLiquidity',
+            data=[
+                address,
+                0, 
+                120,
+                expand_to_18decimals(1),
+                0,
+                0,
+                6017734268818165,
+                0
+            ]
+        )
+
+        res = await new_contract.collect(address, 0, 120, MAX_UINT128, MAX_UINT128).invoke()
+        assert_event_emitted(
+            res,
+            from_address=new_contract.contract_address,
+            name = 'Collect',
+            data=[
+                address,
+                0, 
+                120,
+                MAX_UINT128,
+                MAX_UINT128,
+                0,
+                6017734268818165 + 18107525382602,
+            ]
+        )
+        res = await new_contract.get_cur_slot().call()
+        tick = felt_to_int(res.call_info.result[2])
+        self.assertEqual(tick >= 120, True)
+
+        # limit selling 1 for 0 at tick 0 thru -1
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, -120, 0, expand_to_18decimals(1)).invoke()
+
+        res = await swap_exact0_for1(new_contract, expand_to_18decimals(2), other_address)
+
+        res = await new_contract.remove_liquidity(address, -120, 0, expand_to_18decimals(1)).invoke()
+        assert_event_emitted(
+            res,
+            from_address=new_contract.contract_address,
+            name='RemoveLiquidity',
+            data=[
+                address,
+                int_to_felt(-120), 
+                0,
+                expand_to_18decimals(1),
+                6017734268818165,
+                0,
+                0,
+                0
+            ]
+        )
+
+        res = await new_contract.collect(address, -120, 0, MAX_UINT128, MAX_UINT128).invoke()
+        print(res.raw_events)
+        assert_event_emitted(
+            res,
+            from_address=new_contract.contract_address,
+            name = 'Collect',
+            data=[
+                address,
+                int_to_felt(-120), 
+                0,
+                MAX_UINT128,
+                MAX_UINT128,
+                6017734268818165 + 18107525382602,
+                0,
+            ]
+        )
+        res = await new_contract.get_cur_slot().call()
+        tick = felt_to_int(res.call_info.result[2])
+        self.assertEqual(tick < -120, True)

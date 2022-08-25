@@ -99,6 +99,22 @@ end
 func _max_liquidity_per_tick() -> (max_liquidity_per_tick: felt):
 end
 
+@event
+func AddLiquidity(recipient: felt, tick_lower: felt, tick_upper: felt, amount: felt, amount0: Uint256, amount1: Uint256):
+end
+
+@event
+func RemoveLiquidity(recipient: felt, tick_lower: felt, tick_upper: felt, amount: felt, amount0: Uint256, amount1: Uint256):
+end
+
+@event
+func Swap(recipient: felt, zero_for_one: felt, amount_specified: Uint256, amount0: Uint256, amount1: Uint256, sqrt_price_x96: Uint256, liquidity: felt, tick: felt):
+end
+
+@event
+func Collect(recipient: felt, tick_lower: felt, tick_upper: felt, amount0_requested: felt, amount1_requested: felt, amount0: felt, amount1: felt):
+end
+
 @constructor
 func constructor{
         syscall_ptr: felt*,
@@ -470,6 +486,27 @@ func _swap_2{
     return ()
 end
 
+func _swap_3{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(
+        zero_for_one: felt,
+        exact_input: felt,
+        amount_specified: Uint256,
+        state: SwapState,
+    ) -> (amount0: Uint256, amount1: Uint256):
+    if zero_for_one == exact_input:
+        let (amount0: Uint256) = uint256_sub(amount_specified, state.amount_specified_remaining)
+        let amount1: Uint256 = state.amount_caculated
+        return (amount0, amount1)
+    end
+
+    let amount0: Uint256 = state.amount_caculated
+    let (amount1: Uint256) = uint256_sub(amount_specified, state.amount_specified_remaining)
+    return (amount0, amount1)
+end
+
 func _lock{
         syscall_ptr: felt*,
         pedersen_ptr: HashBuiltin*,
@@ -554,16 +591,20 @@ func swap{
 
     _swap_2(state, zero_for_one)
 
+    let (amount0: Uint256, amount1: Uint256) = _swap_3(zero_for_one, exact_input, amount_specified, state)
+
     _unlock()
 
-    if zero_for_one == exact_input:
-        let (amount0: Uint256) = uint256_sub(amount_specified, state.amount_specified_remaining)
-        let amount1: Uint256 = state.amount_caculated
-        return (amount0, amount1)
-    end
-
-    let amount0: Uint256 = state.amount_caculated
-    let (amount1: Uint256) = uint256_sub(amount_specified, state.amount_specified_remaining)
+    Swap.emit(
+        recipient,
+        zero_for_one,
+        amount_specified,
+        amount0,
+        amount1,
+        state.sqrt_price_x96,
+        state.liquidity,
+        state.tick,
+    )
 
     return (amount0, amount1)
 end
@@ -766,7 +807,47 @@ func add_liquidity{
 
     _unlock()
 
+    AddLiquidity.emit(recipient, tick_lower, tick_upper, amount, amount0, amount1)
+
     return (amount0, amount1)
+end
+
+func _remove_liquidity_1{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr,
+        bitwise_ptr: BitwiseBuiltin*
+    }(
+        recipient: felt,
+        tick_lower: felt,
+        tick_upper: felt,
+        position: PositionInfo, 
+        abs_amount0: Uint256, 
+        abs_amount1: Uint256
+    ):
+    alloc_locals
+
+    let (flag1) = uint256_lt(Uint256(0, 0), abs_amount0)
+    let (flag2) = uint256_lt(Uint256(0, 0), abs_amount1)
+
+    let (is_valid) = Utils.is_gt(flag1 + flag2, 0)
+    # TODO: could abs_amount greater then 2 ** 128
+    if is_valid == 1:
+        let tokens_owed0 = position.tokens_owed0 + abs_amount0.low
+        let tokens_owed1 = position.tokens_owed1 + abs_amount1.low
+        # write new position
+        let new_position = PositionInfo(
+            liquidity = position.liquidity,
+            fee_growth_inside0_x128 = position.fee_growth_inside0_x128,
+            fee_growth_inside1_x128 = position.fee_growth_inside1_x128,
+            tokens_owed0 = tokens_owed0,
+            tokens_owed1 = tokens_owed1,
+        )
+        PositionMgr.set(recipient, tick_lower, tick_upper, new_position)
+
+        return ()
+    end
+    return ()
 end
 
 @external
@@ -797,27 +878,10 @@ func remove_liquidity{
     let (abs_amount0: Uint256) = uint256_neg(amount0)
     let (abs_amount1: Uint256) = uint256_neg(amount1)
 
-    let (flag1) = uint256_lt(Uint256(0, 0), abs_amount0)
-    let (flag2) = uint256_lt(Uint256(0, 0), abs_amount1)
-
-    let (is_valid) = Utils.is_gt(flag1 + flag2, 0)
-    # could abs_amount greater then 2 ** 128
-    if is_valid == 1:
-        let tokens_owed0 = position.tokens_owed0 + abs_amount0.low
-        let tokens_owed1 = position.tokens_owed1 + abs_amount1.low
-        # write new position
-        let new_position = PositionInfo(
-            liquidity = position.liquidity,
-            fee_growth_inside0_x128 = position.fee_growth_inside0_x128,
-            fee_growth_inside1_x128 = position.fee_growth_inside1_x128,
-            tokens_owed0 = tokens_owed0,
-            tokens_owed1 = tokens_owed1,
-        )
-        PositionMgr.set(recipient, tick_lower, tick_upper, new_position)
-        return (abs_amount0, abs_amount1)
-    end
+    _remove_liquidity_1(recipient, tick_lower, tick_upper, position, abs_amount0, abs_amount1)
 
     _unlock()
+    RemoveLiquidity.emit(recipient, tick_lower, tick_upper, amount, abs_amount0, abs_amount1)
 
     return (abs_amount0, abs_amount1)
 end
@@ -838,6 +902,42 @@ func set_fee_protocol{
     return ()
 end
 
+func _collect_1{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(
+        recipient: felt,
+        tick_lower: felt,
+        tick_upper: felt,
+        amount0: felt,
+        amount1: felt,
+        position: PositionInfo
+    ):
+    alloc_locals
+
+    let (flag1) = Utils.is_gt(amount0, 0)
+    let (tokens_owed0) = Utils.cond_assign(flag1, position.tokens_owed0 - amount0, position.tokens_owed0)
+
+    let (flag2) = Utils.is_gt(amount1, 0)
+    let (tokens_owed1) = Utils.cond_assign(flag2, position.tokens_owed1 - amount1, position.tokens_owed1) 
+
+    let flag = flag1 + flag2
+    let (is_valid) = Utils.is_gt(flag, 0)
+    if is_valid == 1:
+        let new_position = PositionInfo(
+            liquidity = position.liquidity,
+            fee_growth_inside0_x128 = position.fee_growth_inside0_x128,
+            fee_growth_inside1_x128 = position.fee_growth_inside1_x128,
+            tokens_owed0 = tokens_owed0,
+            tokens_owed1 = tokens_owed1,
+        )
+        PositionMgr.set(recipient, tick_lower, tick_upper, new_position)
+        return ()
+    end
+    return ()
+end
+
 @external
 func collect{
         syscall_ptr: felt*,
@@ -852,19 +952,22 @@ func collect{
     ) -> (amount0: felt, amount1: felt):
     alloc_locals
 
+    _lock()
+
     let (position: PositionInfo) = PositionMgr.get(recipient, tick_lower, tick_upper)
 
+    # TODO: why collect use uint128 for amount0 and amount1
     let (is_valid) = Utils.is_gt(amount0_requested, position.tokens_owed0)
     let (amount0) = Utils.cond_assign(is_valid, position.tokens_owed0, amount0_requested)
 
     let (is_valid) = Utils.is_gt(amount1_requested, position.tokens_owed1)
     let (amount1) = Utils.cond_assign(is_valid, position.tokens_owed1, amount1_requested)
 
-    let (is_valid) = Utils.is_gt(amount0, 0)
-    let (tokens_owed0) = Utils.cond_assign(is_valid, position.tokens_owed0 - amount0, position.tokens_owed0)
+    _collect_1(recipient, tick_lower, tick_upper, amount0, amount1, position)
 
-    let (is_valid) = Utils.is_gt(amount1, 0)
-    let (tokens_owed1) = Utils.cond_assign(is_valid, position.tokens_owed1 - amount1, position.tokens_owed1) 
+    _unlock()
+
+    Collect.emit(recipient, tick_lower, tick_upper, amount0_requested, amount1_requested, amount0, amount1)
 
     return (amount0, amount1)
 end

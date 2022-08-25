@@ -36,12 +36,12 @@ namespace TickBitmap:
         }(tick: felt, tick_spacing: felt):
         alloc_locals
 
-        let (_, rem) = signed_div_rem(tick, tick_spacing, bound)
+        let (key, rem) = signed_div_rem(tick, tick_spacing, bound)
         with_attr error_message("tick must be multiples of tick_spacing"):
             assert rem = 0
         end
 
-        let (word_pos, bit_pos) = position(tick)
+        let (word_pos, bit_pos) = position(key)
         let (mask: Uint256) = uint256_pow2(Uint256(bit_pos, 0))
         let (cur_state: Uint256) = TickBitmap_data.read(word_pos)
 

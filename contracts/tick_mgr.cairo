@@ -61,15 +61,16 @@ namespace TickMgr:
         ) -> (liquidity_net: felt):
         
         let (info: TickInfo) = TickMgr_data.read(tick)
-        let (tmp: Uint256) = uint256_sub(fee_growth_global0_x128, info.fee_growth_outside0_x128)
-        info.fee_growth_outside0_x128.low = tmp.low
-        info.fee_growth_outside0_x128.high = tmp.high
-        let (tmp: Uint256) = uint256_sub(fee_growth_global1_x128, info.fee_growth_outside1_x128)
-        info.fee_growth_outside1_x128.low = tmp.low
-        info.fee_growth_outside1_x128.high = tmp.high
+        let (fee_growth_outside0_x128: Uint256) = uint256_sub(fee_growth_global0_x128, info.fee_growth_outside0_x128)
+        let (fee_growth_outside1_x128: Uint256) = uint256_sub(fee_growth_global1_x128, info.fee_growth_outside1_x128)
 
-        #TODO: if need write to the storage
-        TickMgr_data.write(tick, info)
+        TickMgr_data.write(tick, TickInfo(
+            liquidity_gross = info.liquidity_gross,
+            liquidity_net = info.liquidity_net,
+            fee_growth_outside0_x128 = fee_growth_outside0_x128,
+            fee_growth_outside1_x128 = fee_growth_outside1_x128,
+            initialized = info.initialized
+        ))
 
         return (info.liquidity_net)
     end
