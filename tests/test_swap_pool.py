@@ -32,6 +32,9 @@ max_tick = get_max_tick(tick_spacing)
 address = 111
 other_address = 222
 
+token0 = 0
+token1 = 1
+
 async def swap_exact0_for1(contract, amount, address):
     sqrt_price_limit = MIN_SQRT_RATIO + 1
     res = await contract.swap(address, 1, to_uint(amount), to_uint(sqrt_price_limit)).invoke()
@@ -48,23 +51,59 @@ async def initialize_at_zero_tick(contract):
     min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
     await contract.initialize(encode_price_sqrt(1, 1)).invoke()
     await contract.add_liquidity(address, min_tick, max_tick, expand_to_18decimals(2)).invoke()
+    return contract
+
+async def swap_and_get_fees_owed(contract, amount, zeroForOne, poke, min_tick, max_tick):
+    if zeroForOne:
+        await swap_exact0_for1(contract, amount, address)
+    else:
+        await swap_exact1_for0(contract, amount, address)
+
+    if poke:
+        await contract.remove_liquidity(address, min_tick, max_tick, 0).invoke()
+
+    res = await contract.collet(address, min_tick, max_tick, MAX_UINT128, MAX_UINT128).invoke()
+    amount0 = from_uint(res.call_info.result[0: 2])
+    amount1 = from_uint(res.call_info.result[2: 4])
+
+    self.assertEqual(amount0 >= 0, True)
+    self.assertEqual(amount1 >= 0, True)
+    return amount0, amount1
+
+async def test_collect_fee(contract, tick_lower, tick_upper, a1, a2):
+    res = await contract.collet(address, tick_lower, tick_upper, MAX_UINT128, MAX_UINT128).invoke()
+    amount0 = from_uint(res.call_info.result[0: 2])
+    amount1 = from_uint(res.call_info.result[2: 4])
+
+    self.assertEqual(amount0, a1)
+    self.assertEqual(amount1, a2)
+    return amount0, amount1
 
 class SwapPoolTest(TestCase):
 
     @classmethod
     async def setUp(cls):
-        if not hasattr(cls, 'contract_def'):
-            cls.contract_def, cls.contract = await init_contract(CONTRACT_FILE, [tick_spacing, FEE])
+        pass
 
-    def get_state_contract(self):
+    async def get_state_contract(self):
+        if not hasattr(self, 'contract'):
+            self.contract_def, self.contract = await init_contract(CONTRACT_FILE, [tick_spacing, FEE, token0, token1])
+
         _state = self.contract.state.copy()
         new_contract = cached_contract(_state, self.contract_def, self.contract)
+        return new_contract
+
+    async def get_state_contract_low(self):
+        if not hasattr(self, 'contract_low'):
+            self.contract_def, self.contract_low = await init_contract(CONTRACT_FILE, [TICK_SPACINGS[FeeAmount.LOW], FeeAmount.LOW, token0, token1])
+        _state = self.contract_low.state.copy()
+        new_contract = cached_contract(_state, self.contract_def, self.contract_low)
         return new_contract
 
     @pytest.mark.asyncio
     async def test_initialize(self):
 
-        contract = self.get_state_contract()
+        contract = await self.get_state_contract()
         begin = time.time()
         await contract.initialize(encode_price_sqrt(1, 1)).invoke()
         print('initial call time:', time.time() - begin)
@@ -73,7 +112,7 @@ class SwapPoolTest(TestCase):
             "initialize more than once"
         )
 
-        contract = self.get_state_contract()
+        contract = await self.get_state_contract()
         await assert_revert(
             contract.initialize(to_uint(1)).invoke(),
             "tick is too low"
@@ -83,7 +122,7 @@ class SwapPoolTest(TestCase):
             "tick is too low"
         )
 
-        contract = self.get_state_contract()
+        contract = await self.get_state_contract()
         await assert_revert(
             contract.initialize(to_uint(MAX_SQRT_RATIO)).invoke(),
             "tick is too high"
@@ -94,19 +133,19 @@ class SwapPoolTest(TestCase):
         )
 
         # can be initialized at MIN_SQRT_RATIO
-        contract = self.get_state_contract()
+        contract = await self.get_state_contract()
         await contract.initialize(to_uint(MIN_SQRT_RATIO)).invoke()
         res = await contract.get_cur_slot().call()
         tick = felt_to_int(res.call_info.result[2])
         self.assertEqual(tick, get_min_tick(1))
 
-        contract = self.get_state_contract()
+        contract = await self.get_state_contract()
         await contract.initialize(to_uint(MAX_SQRT_RATIO - 1)).invoke()
         res = await contract.get_cur_slot().call()
         tick = felt_to_int(res.call_info.result[2])
         self.assertEqual(tick, get_max_tick(1) - 1)
 
-        contract = self.get_state_contract()
+        contract = await self.get_state_contract()
         price = encode_price_sqrt(1, 2)
         await contract.initialize(price).invoke()
         res = await contract.get_cur_slot().call()
@@ -118,13 +157,13 @@ class SwapPoolTest(TestCase):
     @pytest.mark.asyncio
     async def test_add_liquidity_failed(self):
 
-        contract = self.get_state_contract()
+        contract = await self.get_state_contract()
         await assert_revert(
             contract.add_liquidity(address, int_to_felt(-tick_spacing), tick_spacing, 1).invoke(),
             'swap is locked'
         )
 
-        contract = self.get_state_contract()
+        contract = await self.get_state_contract()
         await contract.initialize(encode_price_sqrt(1, 10)).invoke()
         await contract.add_liquidity(address, min_tick, max_tick, 3161).invoke()
 
@@ -182,7 +221,7 @@ class SwapPoolTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_add_liquidity_succuss(self):
-        contract = self.get_state_contract()
+        contract = await self.get_state_contract()
         price = to_uint(25054144837504793118650146401)
         await contract.initialize(price).invoke()
         res = await contract.add_liquidity(address, min_tick, max_tick, 3161).invoke()
@@ -402,7 +441,7 @@ class SwapPoolTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_protocol_fee(self):
-        contract = self.get_state_contract()
+        contract = await self.get_state_contract()
         price = to_uint(25054144837504793118650146401)
         await contract.initialize(price).invoke()
         res = await contract.add_liquidity(address, min_tick, max_tick, 3161).invoke()
@@ -496,7 +535,7 @@ class SwapPoolTest(TestCase):
     @pytest.mark.asyncio
     async def test_remove_liquidity(self):
 
-        contract = self.get_state_contract()
+        contract = await self.get_state_contract()
         price = encode_price_sqrt(1, 1)
         await contract.initialize(price).invoke()
         res = await contract.add_liquidity(address, int_to_felt(min_tick), max_tick, expand_to_18decimals(2)).invoke()
@@ -553,13 +592,10 @@ class SwapPoolTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_add_liquidity2(self):
-        FEE = FeeAmount.LOW
         tick_spacing = TICK_SPACINGS[FeeAmount.LOW]
-        contract_def, contract = await init_contract(CONTRACT_FILE, [tick_spacing, FEE])
-        price = encode_price_sqrt(1, 1)
-        await contract.initialize(price).invoke()
         min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
-        res = await contract.add_liquidity(address, int_to_felt(min_tick), max_tick, expand_to_18decimals(2)).invoke()
+        contract = await self.get_state_contract_low()
+        constract = await initialize_at_zero_tick(contract)
 
         liquidity_delta = 1000
         tick_lower = tick_spacing
@@ -655,7 +691,7 @@ class SwapPoolTest(TestCase):
     # post-initialize at medium fee
     @pytest.mark.asyncio
     async def test_add_liquidity3(self):
-        contract = self.get_state_contract()
+        contract = await self.get_state_contract()
         price = encode_price_sqrt(1, 1)
         await contract.initialize(price).invoke()
         res = await contract.add_liquidity(address, int_to_felt(min_tick), max_tick, expand_to_18decimals(2)).invoke()
@@ -734,7 +770,7 @@ class SwapPoolTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_limit_orders(self):
-        contract = self.get_state_contract()
+        contract = await self.get_state_contract()
         price = encode_price_sqrt(1, 1)
         await contract.initialize(price).invoke()
         res = await contract.add_liquidity(address, int_to_felt(min_tick), max_tick, expand_to_18decimals(2)).invoke()
@@ -821,3 +857,350 @@ class SwapPoolTest(TestCase):
         res = await new_contract.get_cur_slot().call()
         tick = felt_to_int(res.call_info.result[2])
         self.assertEqual(tick < -120, True)
+
+        # fee is on
+        res = await contract.set_fee_protocol(6, 6).invoke()
+
+        # limit selling 0 for 1 at tick 0 thru 1
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, 0, 120, expand_to_18decimals(1)).invoke()
+        res = await swap_exact1_for0(new_contract, expand_to_18decimals(2), other_address)
+        res = await new_contract.remove_liquidity(address, 0, 120, expand_to_18decimals(1)).invoke()
+        assert_event_emitted(
+            res,
+            from_address=new_contract.contract_address,
+            name='RemoveLiquidity',
+            data=[
+                address,
+                0, 
+                120,
+                expand_to_18decimals(1),
+                0,
+                0,
+                6017734268818165,
+                0
+            ]
+        )
+
+        res = await new_contract.collect(address, 0, 120, MAX_UINT128, MAX_UINT128).invoke()
+        assert_event_emitted(
+            res,
+            from_address=new_contract.contract_address,
+            name = 'Collect',
+            data=[
+                address,
+                0, 
+                120,
+                MAX_UINT128,
+                MAX_UINT128,
+                0,
+                6017734268818165 + 15089604485501,
+            ]
+        )
+        res = await new_contract.get_cur_slot().call()
+        tick = felt_to_int(res.call_info.result[2])
+        self.assertEqual(tick >= 120, True)
+
+        # limit selling 1 for 0 at tick 0 thru -1
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        res = await new_contract.add_liquidity(address, -120, 0, expand_to_18decimals(1)).invoke()
+
+        res = await swap_exact0_for1(new_contract, expand_to_18decimals(2), other_address)
+
+        res = await new_contract.remove_liquidity(address, -120, 0, expand_to_18decimals(1)).invoke()
+        assert_event_emitted(
+            res,
+            from_address=new_contract.contract_address,
+            name='RemoveLiquidity',
+            data=[
+                address,
+                int_to_felt(-120), 
+                0,
+                expand_to_18decimals(1),
+                6017734268818165,
+                0,
+                0,
+                0
+            ]
+        )
+
+        res = await new_contract.collect(address, -120, 0, MAX_UINT128, MAX_UINT128).invoke()
+        print(res.raw_events)
+        assert_event_emitted(
+            res,
+            from_address=new_contract.contract_address,
+            name = 'Collect',
+            data=[
+                address,
+                int_to_felt(-120), 
+                0,
+                MAX_UINT128,
+                MAX_UINT128,
+                6017734268818165 + 15089604485501,
+                0,
+            ]
+        )
+        res = await new_contract.get_cur_slot().call()
+        tick = felt_to_int(res.call_info.result[2])
+        self.assertEqual(tick < -120, True)
+
+    @pytest.mark.asyncio
+    async def test_collect(self):
+        tick_spacing = TICK_SPACINGS[FeeAmount.LOW]
+        min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
+        contract = await self.get_state_contract_low()
+        contract = await initialize_at_zero_tick(contract)
+
+        # works with multiple LPs
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        res = await new_contract.add_liquidity(address, min_tick, max_tick, expand_to_18decimals(1)).invoke()
+        res = await new_contract.add_liquidity(address, min_tick + tick_spacing, max_tick - tick_spacing, expand_to_18decimals(1)).invoke()
+
+        res = await swap_exact1_for0(new_contract, expand_to_18decimals(1), address)
+        res = await new_contract.remove_liquidity(address, min_tick, max_tick, 0).invoke()
+        res = await new_contract.remove_liquidity(address, min_tick + tick_spacing, max_tick - tick_spacing, 0).invoke()
+
+        res = await new_contract.get_position(address, int_to_felt(min_tick), max_tick).call()
+        tokens_owed0 = res.call_info.result[5]
+        self.assertEqual(tokens_owed0, 166666666666667)
+
+        res = await new_contract.get_position(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing).call()
+        tokens_owed0 = res.call_info.result[5]
+        self.assertEqual(tokens_owed0, 333333333333334)
+
+        #TODO: works across large increases
+        '''
+        res = await contract.add_liquidity(address, min_tick, max_tick, expand_to_18decimals(1)).invoke()
+
+        magic_num = 115792089237316195423570985008687907852929702298719625575994
+
+        # works just before the cap binds
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        res = await new_contract.add_liquidity(address, min_tick, max_tick, expand_to_18decimals(1)).invoke()
+        #TODO: set_fee
+        res = await new_contract.set_fee_growth_global0_x128(to_uint(magic_num)).invoke()
+
+        res = await new_contract.remove_liquidity(address, min_tick, max_tick, 0).invoke()
+
+        res = await new_contract.get_position(address, int_to_felt(min_tick ), max_tick).call()
+        tokens_owed0 = res.call_info.result[5]
+        tokens_owed1 = res.call_info.result[6]
+        self.assertEqual(tokens_owed0, MAX_UINT128 - 1)
+        self.assertEqual(tokens_owed1, 0)
+
+        # works just after the cap binds
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        #TODO: set_fee
+        res = await new_contract.set_fee_growth_global0_x128(to_uint(magic_num + 1)).invoke()
+
+        res = await new_contract.remove_liquidity(address, min_tick, max_tick, 0).invoke()
+
+        res = await new_contract.get_position(address, int_to_felt(min_tick ), max_tick).call()
+        tokens_owed0 = res.call_info.result[5]
+        tokens_owed1 = res.call_info.result[6]
+        self.assertEqual(tokens_owed0, MAX_UINT128)
+        self.assertEqual(tokens_owed1, 0)
+
+        # worksworks well after the cap binds
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        #TODO: set_fee
+        res = await new_contract.set_fee_growth_global0_x128(to_uint(2 ** 256 - 1)).invoke()
+
+        res = await new_contract.remove_liquidity(address, min_tick, max_tick, 0).invoke()
+
+        res = await new_contract.get_position(address, int_to_felt(min_tick ), max_tick).call()
+        tokens_owed0 = res.call_info.result[5]
+        tokens_owed1 = res.call_info.result[6]
+        self.assertEqual(tokens_owed0, MAX_UINT128)
+        self.assertEqual(tokens_owed1, 0)
+        '''
+
+    @pytest.mark.asyncio
+    async def test_fee_protocol(self):
+        liquidity_amount = expand_to_18decimals(1000)
+        tick_spacing = TICK_SPACINGS[FeeAmount.LOW]
+        min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
+        contract = await self.get_state_contract_low()
+        contract = await initialize_at_zero_tick(contract)
+        res = await contract.add_liquidity(address, min_tick, max_tick, liquidity_amount).invoke()
+
+        # is initially set to 0
+        res = await contract.get_fee_protocol().call()
+        self.assertEqual(res.call_info.result[0], 0)
+
+        # can be changed by the owner
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        res = await new_contract.set_fee_protocol(6, 6).invoke()
+        res = await new_contract.get_fee_protocol().call()
+        self.assertEqual(res.call_info.result[0], 102)
+
+        # can be changed by the owner
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        await assert_revert(
+            new_contract.set_fee_protocol(3, 3).invoke(),
+            ''
+        )
+        await assert_revert(
+            new_contract.set_fee_protocol(11, 11).invoke(),
+            ''
+        )
+
+        # TODO:cannot be changed by addresses that are not owner
+        #it('cannot be changed by addresses that are not owner', async () => {
+        #  await expect(pool.connect(other).setFeeProtocol(6, 6)).to.be.reverted
+        #})
+
+        # position owner gets full fees when protocol fee is off
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        token0_fees, token1_fees = await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, True, min_tick, max_tick)
+        self.assertEqual(token0_fees, 499999999999999)
+        self.assertEqual(token1_fees, 0)
+
+        # swap fees accumulate as expected (0 for 1)
+        token0_fees, token1_fees = await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, True, min_tick, max_tick)
+        self.assertEqual(token0_fees, 999999999999998)
+        self.assertEqual(token1_fees, 0)
+
+        token0_fees, token1_fees = await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, True, min_tick, max_tick)
+        self.assertEqual(token0_fees, 1499999999999997)
+        self.assertEqual(token1_fees, 0)
+
+        # swap fees accumulate as expected (1 for 0)
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        token0_fees, token1_fees = await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), false, True, min_tick, max_tick)
+        self.assertEqual(token0_fees, 0)
+        self.assertEqual(token1_fees, 499999999999999)
+
+        # swap fees accumulate as expected (0 for 1)
+        token0_fees, token1_fees = await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), false, True, min_tick, max_tick)
+        self.assertEqual(token0_fees, 0)
+        self.assertEqual(token1_fees, 999999999999998)
+
+        token0_fees, token1_fees = await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), false, True, min_tick, max_tick)
+        self.assertEqual(token0_fees, 0)
+        self.assertEqual(token1_fees, 1499999999999997)
+
+        # position owner gets partial fees when protocol fee is on
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        res = await new_contract.set_fee_protocol(6, 6).invoke()
+        token0_fees, token1_fees = await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, True, min_tick, max_tick)
+        self.assertEqual(token0_fees, 416666666666666)
+        self.assertEqual(token1_fees, 0)
+
+        # collectProtocol
+        # returns 0 if no fees
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        res = await new_contract.set_fee_protocol(6, 6).invoke()
+        res = await new_contract.collect_protocol(address, MAX_UINT128, MAX_UINT128).invoke()
+        self.assertEqual(res.call_info.result[0], 0)
+        self.assertEqual(res.call_info.result[1], 0)
+
+        # can collect fees
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        res = await new_contract.set_fee_protocol(6, 6).invoke()
+        res = await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, True, min_tick, max_tick)
+
+        res = await new_contract.collect_protocol(other_address, MAX_UINT128, MAX_UINT128).invoke()
+        assert_event_emitted(
+            res,
+            from_address=new_contract.contract_address,
+            name='TransferToken',
+            data=[
+                token0,
+                other_address, 
+                83333333333332,
+                0
+            ]
+        )
+
+        # fees collected can differ between token0 and token1
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        res = await new_contract.set_fee_protocol(8, 5).invoke()
+        await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, False, min_tick, max_tick)
+        await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), False, False, min_tick, max_tick)
+        res = await new_contract.collect_protocol(other_address, MAX_UINT128, MAX_UINT128).invoke()
+        print(res.raw_events)
+        assert_event_emitted(
+            res,
+            from_address=new_contract.contract_address,
+            name='TransferToken',
+            data=[
+                token0,
+                other_address, 
+                62499999999999,
+                0
+            ]
+        )
+        assert_event_emitted(
+            res,
+            from_address=new_contract.contract_address,
+            name='TransferToken',
+            data=[
+                token1,
+                other_address, 
+                99999999999998,
+                0
+            ]
+        )
+
+        # fees collected by lp after two swaps should be double one swap
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, True, min_tick, max_tick)
+        res = await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, True, min_tick, max_tick)
+        token0_fees = from_uint(res.call_info.result[0: 2])
+        token1_fees = from_uint(res.call_info.result[2: 4])
+        self.assertEqual(token0_fees, 999999999999998)
+        self.assertEqual(token0_fees, 0)
+
+        # fees collected after two swaps with fee turned on in middle are fees from last swap (not confiscatory)
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, False, min_tick, max_tick)
+
+        await new_contract.set_fee_protocol(6, 6).invoke()
+        res = await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, False, min_tick, max_tick)
+        token0_fees = from_uint(res.call_info.result[0: 2])
+        token1_fees = from_uint(res.call_info.result[2: 4])
+        self.assertEqual(token0_fees, 916666666666666)
+        self.assertEqual(token0_fees, 0)
+
+        # fees collected by lp after two swaps with intermediate withdrawal
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        await new_contract.set_fee_protocol(6, 6).invoke()
+        res = await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, True, min_tick, max_tick)
+        token0_fees = from_uint(res.call_info.result[0: 2])
+        token1_fees = from_uint(res.call_info.result[2: 4])
+        self.assertEqual(token0_fees, 416666666666666)
+        self.assertEqual(token0_fees, 0)
+
+        res = await new_contract.collect(address, min_tick, max_tick, MAX_UINT128, MAX_UINT128).invoke()
+        res = await swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, false, min_tick, max_tick)
+        token0_fees = from_uint(res.call_info.result[0: 2])
+        token1_fees = from_uint(res.call_info.result[2: 4])
+        self.assertEqual(token0_fees, 0)
+        self.assertEqual(token0_fees, 0)
+
+        res = await new_contract.get_protocol_fees().call()
+        token0_fee = from_uint(res.call_info.result[0: 2])
+        token1_fee = from_uint(res.call_info.result[2: 4]) 
+        self.assertEqual(token0_fee, 166666666666666)
+        self.assertEqual(token1_fee, 0)
+
+        await new_contract.remove_liquidity(address, min_tick, max_tick, 0).invoke()
+        res = new_contract.collect(address, min_tick, max_tick, MAX_UINT128, MAX_UINT128)
+        assert_event_emitted(
+            res,
+            from_address=new_contract.contract_address,
+            name='TransferToken',
+            data=[
+                token0,
+                address, 
+                416666666666666,
+                0
+            ]
+        )
+
+        res = await new_contract.get_protocol_fees().call()
+        token0_fee = from_uint(res.call_info.result[0: 2])
+        token1_fee = from_uint(res.call_info.result[2: 4]) 
+        self.assertEqual(token0_fee, 166666666666666)
+        self.assertEqual(token1_fee, 0)

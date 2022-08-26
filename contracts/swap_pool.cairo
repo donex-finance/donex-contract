@@ -68,11 +68,11 @@ func _slot0() -> (slot0: SlotState):
 end
 
 @storage_var
-func _protocol_fee_token0() -> (fee: Uint256):
+func _protocol_fee_token0() -> (fee: felt):
 end
 
 @storage_var
-func _protocol_fee_token1() -> (fee: Uint256):
+func _protocol_fee_token1() -> (fee: felt):
 end
 
 @storage_var
@@ -99,6 +99,14 @@ end
 func _max_liquidity_per_tick() -> (max_liquidity_per_tick: felt):
 end
 
+@storage_var
+func _token0() -> (address: felt):
+end
+
+@storage_var
+func _token1() -> (address: felt):
+end
+
 @event
 func AddLiquidity(recipient: felt, tick_lower: felt, tick_upper: felt, amount: felt, amount0: Uint256, amount1: Uint256):
 end
@@ -115,6 +123,14 @@ end
 func Collect(recipient: felt, tick_lower: felt, tick_upper: felt, amount0_requested: felt, amount1_requested: felt, amount0: felt, amount1: felt):
 end
 
+@event
+func CollectProtocol(recipient: felt, amount0_requested: felt, amount1_requested: felt, amount0: felt, amount1: felt):
+end
+
+@event
+func TransferToken(token_contract: felt, to: felt, amount: Uint256):
+end
+
 @constructor
 func constructor{
         syscall_ptr: felt*,
@@ -122,16 +138,32 @@ func constructor{
         range_check_ptr
     }(
         tick_spacing: felt, 
-        fee: felt
+        fee: felt,
+        token0: felt,
+        token1: felt
     ):
     alloc_locals
 
     _tick_spacing.write(tick_spacing)
     _fee.write(fee)
 
+    _token0.write(token0)
+    _token1.write(token1)
+
     let (max_liquidity_per_tick) = TickMgr.get_max_liquidity_per_tick(tick_spacing)
     _max_liquidity_per_tick.write(max_liquidity_per_tick)
     return ()
+end
+
+@view
+func get_fee_protocol{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }() -> (slot: felt):
+
+    let (res) = _fee_protocol.read()
+    return (res)
 end
 
 @view
@@ -160,9 +192,9 @@ func get_protocol_fees{
         syscall_ptr: felt*,
         pedersen_ptr: HashBuiltin*,
         range_check_ptr
-    }() -> (fee_token0: Uint256, fee_token1: Uint256):
-    let (fee_token0: Uint256) = _protocol_fee_token0.read()
-    let (fee_token1: Uint256) = _protocol_fee_token1.read()
+    }() -> (fee_token0: felt, fee_token1: felt):
+    let (fee_token0) = _protocol_fee_token0.read()
+    let (fee_token1) = _protocol_fee_token1.read()
     return (fee_token0, fee_token1)
 end
 
@@ -231,6 +263,39 @@ func initialize{
 
     _unlock()
 
+    return ()
+end
+
+func _transfer_token{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(
+        token_contract: felt,
+        to: felt,
+        value: Uint256):
+
+    alloc_locals
+    #TODO: transfer token
+    TransferToken.emit(token_contract, to, value)
+    return ()
+end
+
+func _transfer_token_cond{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(
+        cond: felt,
+        token_contract: felt,
+        recipient: felt,
+        value: Uint256):
+    alloc_locals
+
+    if cond == 1:
+        _transfer_token(token_contract, recipient, value)
+        return ()
+    end
     return ()
 end
 
@@ -467,9 +532,8 @@ func _swap_2{
 
         let (is_valid) = Utils.is_gt(state.protocol_fee, 0)
         if is_valid == 1:
-            let (protocol_fee_token0: Uint256) = _protocol_fee_token0.read()
-            let (tmp: Uint256, _) = uint256_add(protocol_fee_token0, Uint256(state.protocol_fee, 0))
-            _protocol_fee_token0.write(tmp)
+            let (protocol_fee_token0 ) = _protocol_fee_token0.read()
+            _protocol_fee_token0.write(protocol_fee_token0 + state.protocol_fee)
             return ()
         end
         return ()
@@ -478,9 +542,8 @@ func _swap_2{
     _fee_growth_global1_x128.write(state.fee_growth_global_x128)
     let (is_valid) = Utils.is_gt(state.protocol_fee, 0)
     if is_valid == 1:
-        let (protocol_fee_token1: Uint256) = _protocol_fee_token1.read()
-        let (tmp: Uint256, _) = uint256_add(protocol_fee_token1, Uint256(state.protocol_fee, 0))
-        _protocol_fee_token1.write(tmp)
+        let (protocol_fee_token1) = _protocol_fee_token1.read()
+        _protocol_fee_token1.write(protocol_fee_token1 + state.protocol_fee)
         return ()
     end
     return ()
@@ -933,6 +996,12 @@ func _collect_1{
             tokens_owed1 = tokens_owed1,
         )
         PositionMgr.set(recipient, tick_lower, tick_upper, new_position)
+
+        let (token0) = _token0.read()
+        _transfer_token_cond(flag1, token0, recipient, Uint256(amount0, 0))
+
+        let (token1) = _token1.read()
+        _transfer_token_cond(flag2, token1, recipient, Uint256(amount1, 0))
         return ()
     end
     return ()
@@ -968,6 +1037,78 @@ func collect{
     _unlock()
 
     Collect.emit(recipient, tick_lower, tick_upper, amount0_requested, amount1_requested, amount0, amount1)
+
+    return (amount0, amount1)
+end
+
+func _collect_protocol_1{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(
+        recipient: felt,
+        amount: felt,
+        protocol_fee_token: felt
+    ):
+    alloc_locals
+    let (is_valid) = Utils.is_gt(amount, 0)
+    if is_valid == 1:
+        _protocol_fee_token0.write(protocol_fee_token - amount) 
+        _transfer_token(0, recipient, Uint256(amount, 0))
+        return ()
+    end
+
+    return ()
+end
+
+func _collect_protocol_2{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(
+        recipient: felt,
+        amount: felt,
+        protocol_fee_token: felt
+    ):
+    alloc_locals
+    let (is_valid) = Utils.is_gt(amount, 0)
+    if is_valid == 1:
+        _protocol_fee_token1.write(protocol_fee_token - amount) 
+        _transfer_token(1, recipient, Uint256(amount, 0))
+        return ()
+    end
+
+    return ()
+end
+
+@external
+func collect_protocol{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(
+        recipient: felt,
+        amount0_requested: felt,
+        amount1_requested: felt
+    ) -> (amount0: felt, amount1: felt):
+    alloc_locals
+    #TODO: onlyFactorOwner
+
+    _lock()
+
+    let (protocol_fee_token0) = _protocol_fee_token0.read()
+    let (is_valid) = Utils.is_gt(amount0_requested, protocol_fee_token0)
+    let (amount0) = Utils.cond_assign(is_valid, protocol_fee_token0, amount0_requested)
+
+    let (protocol_fee_token1) = _protocol_fee_token1.read()
+    let (is_valid) = Utils.is_gt(amount1_requested, protocol_fee_token1)
+    let (amount1) = Utils.cond_assign(is_valid, protocol_fee_token1, amount1_requested)
+
+    _collect_protocol_1(recipient, amount0, protocol_fee_token0)
+    _collect_protocol_2(recipient, amount1, protocol_fee_token1)
+
+    _unlock()
+    CollectProtocol.emit(recipient, amount0_requested, amount1_requested, amount0, amount1)
 
     return (amount0, amount1)
 end
