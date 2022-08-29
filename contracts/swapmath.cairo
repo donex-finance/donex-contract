@@ -192,10 +192,22 @@ namespace SwapMath:
 
         if flag == 1:
             let (fee_amount: Uint256) = uint256_sub(amount_remaining, amount_in2)
+            %{
+                a = ids.amount_remaining.low + ids.amount_remaining.high * 2 ** 128
+                b = ids.amount_in2.low + ids.amount_in2.high * 2 ** 128
+                c = ids.fee_amount.low + ids.fee_amount.high * 2 ** 128
+                print("compute_swap_step_1: a:", a, "b:", b, "c:", c)
+            %}
             return (sqrt_ratio_next, amount_in2, amount_out2, fee_amount)
         end
 
         let (fee_amount: Uint256) = FullMath.uint256_mul_div_roundingup(amount_in2, Uint256(fee_pips, 0), Uint256(num_1e6 - fee_pips, 0))
+        %{
+            a = ids.amount_remaining.low + ids.amount_remaining.high * 2 ** 128
+            b = ids.amount_in2.low + ids.amount_in2.high * 2 ** 128
+            c = ids.fee_amount.low + ids.fee_amount.high * 2 ** 128
+            print("compute_swap_step_2: a:", a, "b:", b, "c:", c)
+        %}
         return (sqrt_ratio_next, amount_in2, amount_out2, fee_amount)
     end
 end

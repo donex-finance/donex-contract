@@ -349,18 +349,24 @@ end
 
 func _compute_swap_step_2{
         range_check_ptr
-    }(cache: SwapCache, state: SwapState, fee_amount: Uint256) -> (fee_amount: Uint256, protocol_fee: felt):
-    let (is_valid) = Utils.is_gt(cache.fee_protocol, 0)
+    }(fee_protocol: felt, protocol_fee: felt, fee_amount: Uint256) -> (new_fee_amount: Uint256, new_protocol_fee: felt):
+    let (is_valid) = Utils.is_gt(fee_protocol, 0)
     if is_valid == 1:
-        let (delta: Uint256, _) = uint256_unsigned_div_rem(fee_amount, Uint256(cache.fee_protocol, 0))
-        let (fee_amount: Uint256) = uint256_sub(fee_amount, delta)
+        %{
+            a = ids.fee_amount.low + ids.fee_amount.high * 2 ** 128
+            print('_compute_swap_step_2:', a, ids.fee_protocol)
+        %}
+        let (delta: Uint256, _) = uint256_unsigned_div_rem(fee_amount, Uint256(fee_protocol, 0))
+        %{
+            a = ids.delta.low + ids.delta.high * 2 ** 128
+            print('_compute_swap_step_2: delta', a)
+        %}
+        let (new_fee_amount: Uint256) = uint256_sub(fee_amount, delta)
 
         #TODO: overflow?
-        let (tmp: Uint256, _) = uint256_add(Uint256(state.protocol_fee, 0), delta)
-        let protocol_fee = tmp.low
-        return (fee_amount, protocol_fee)
+        return (new_fee_amount, protocol_fee + delta.low)
     end
-    return (fee_amount, state.protocol_fee)
+    return (fee_amount, protocol_fee)
 end
 
 func _compute_swap_step_3{
@@ -485,6 +491,10 @@ func _compute_swap_step{
         state.amount_specified_remaining,
         fee,
     )
+    %{
+        a = ids.fee_amount.low + ids.fee_amount.high * 2 **128
+        print("swap compute_swap_step:", a, ids.state.liquidity)
+    %}
 
     let (state_amount_specified_remaining: Uint256, state_amount_caculated: Uint256) = _compute_swap_step_1(
         exact_input,
@@ -494,9 +504,17 @@ func _compute_swap_step{
         fee_amount,
     )
 
-    let (fee_amount: Uint256, state_protocol_fee) = _compute_swap_step_2(cache, state, fee_amount)
+    let (fee_amount: Uint256, state_protocol_fee) = _compute_swap_step_2(cache.fee_protocol, state.protocol_fee, fee_amount)
+    %{
+        a = ids.fee_amount.low + ids.fee_amount.high * 2 **128
+        print("swap fee_amount:", a, ids.state_protocol_fee)
+    %}
     
     let (state_fee_growth_global_x128: Uint256) = _compute_swap_step_3(state, fee_amount)
+    %{
+        a = ids.state_fee_growth_global_x128.low + ids.state_fee_growth_global_x128.high * 2 **128
+        print("swap state_fee_growth_global_x128:", a)
+    %}
 
     let (state_liquidity, state_tick) = _compute_swap_step_4(state, state_sqrt_price_x96, sqrt_price_start_x96, sqrt_price_next_x96, state_fee_growth_global_x128, tick_next, zero_for_one, initialized)
 
@@ -547,25 +565,39 @@ func _swap_2{
         syscall_ptr: felt*,
         pedersen_ptr: HashBuiltin*,
         range_check_ptr
-    }(state: SwapState, zero_for_one: felt):
+    }(state_fee_growth_global_x128: Uint256, protocol_fee: felt, zero_for_one: felt):
     alloc_locals
     if zero_for_one == 1:
-        _fee_growth_global0_x128.write(state.fee_growth_global_x128)
+        _fee_growth_global0_x128.write(state_fee_growth_global_x128)
+        %{
+            a = ids.state_fee_growth_global_x128.low + ids.state_fee_growth_global_x128.high * 2 ** 128
+            print('_swap_2 11:', a)
+        %}
 
-        let (is_valid) = Utils.is_gt(state.protocol_fee, 0)
+        let (is_valid) = Utils.is_gt(protocol_fee, 0)
         if is_valid == 1:
-            let (protocol_fee_token0 ) = _protocol_fee_token0.read()
-            _protocol_fee_token0.write(protocol_fee_token0 + state.protocol_fee)
+            let (protocol_fee_token0) = _protocol_fee_token0.read()
+            _protocol_fee_token0.write(protocol_fee_token0 + protocol_fee)
+            %{
+                print('_swap_2 1 protocol_fee_token0:', ids.protocol_fee_token0, ids.protocol_fee)
+            %}
             return ()
         end
         return ()
     end
 
-    _fee_growth_global1_x128.write(state.fee_growth_global_x128)
-    let (is_valid) = Utils.is_gt(state.protocol_fee, 0)
+    _fee_growth_global1_x128.write(state_fee_growth_global_x128)
+    %{
+        a = ids.state_fee_growth_global_x128.low + ids.state_fee_growth_global_x128.high * 2 ** 128
+        print('_swap_2 22:', a)
+    %}
+    let (is_valid) = Utils.is_gt(protocol_fee, 0)
     if is_valid == 1:
         let (protocol_fee_token1) = _protocol_fee_token1.read()
-        _protocol_fee_token1.write(protocol_fee_token1 + state.protocol_fee)
+        _protocol_fee_token1.write(protocol_fee_token1 + protocol_fee)
+        %{
+            print('_swap_2 2 protocol_fee_token1:', ids.protocol_fee_token1, ids.protocol_fee)
+        %}
         return ()
     end
     return ()
@@ -652,7 +684,7 @@ func swap{
     #end
     _liquidity.write(state.liquidity)
 
-    _swap_2(state, zero_for_one)
+    _swap_2(state.fee_growth_global_x128, state.protocol_fee, zero_for_one)
 
     let (amount0: Uint256, amount1: Uint256) = _swap_3(zero_for_one, exact_input, amount_specified, state)
 
@@ -949,6 +981,19 @@ func remove_liquidity{
     return (abs_amount0, abs_amount1)
 end
 
+func _check_fee_protocol{
+        range_check_ptr
+    }(fee_protocol):
+    if fee_protocol != 0:
+        let (flag1) = is_le(4, fee_protocol)
+        assert flag1 = 1
+        let (flag2)  = is_le(fee_protocol, 10)
+        assert flag2 = 1
+        return ()
+    end
+    return ()
+end
+
 @external
 func set_fee_protocol{
         syscall_ptr: felt*,
@@ -958,10 +1003,17 @@ func set_fee_protocol{
         fee_protocol0: felt,
         fee_protocol1: felt
     ):
-    #TODO: lock and onlyOwner
+    alloc_locals
+    #TODO: onlyOwner
+    _lock()
+
+    _check_fee_protocol(fee_protocol0)
+    _check_fee_protocol(fee_protocol1)
+
     let fee_protocol = fee_protocol0 + fee_protocol1 * 16
     _fee_protocol.write(fee_protocol)
 
+    _unlock()
     return ()
 end
 
@@ -1049,16 +1101,24 @@ func _collect_protocol_1{
         recipient: felt,
         amount: felt,
         protocol_fee_token: felt
-    ):
+    ) -> (res: felt):
     alloc_locals
     let (is_valid) = Utils.is_gt(amount, 0)
     if is_valid == 1:
+        # ensure that the slot is not cleared, for gas savings    
+        let (token0) = _token0.read()
+        if protocol_fee_token == amount:
+            let new_amount = amount - 1
+            _protocol_fee_token0.write(protocol_fee_token - new_amount) 
+            _transfer_token(token0, recipient, Uint256(new_amount, 0))
+            return (new_amount)
+        end
         _protocol_fee_token0.write(protocol_fee_token - amount) 
-        _transfer_token(0, recipient, Uint256(amount, 0))
-        return ()
+        _transfer_token(token0, recipient, Uint256(amount, 0))
+        return (amount)
     end
 
-    return ()
+    return (amount)
 end
 
 func _collect_protocol_2{
@@ -1069,16 +1129,24 @@ func _collect_protocol_2{
         recipient: felt,
         amount: felt,
         protocol_fee_token: felt
-    ):
+    ) -> (res: felt):
     alloc_locals
     let (is_valid) = Utils.is_gt(amount, 0)
     if is_valid == 1:
+        # ensure that the slot is not cleared, for gas savings    
+        let (token1) = _token1.read()
+        if protocol_fee_token == amount:
+            let new_amount = amount - 1
+            _protocol_fee_token1.write(protocol_fee_token - new_amount) 
+            _transfer_token(token1, recipient, Uint256(new_amount, 0))
+            return (new_amount)
+        end
         _protocol_fee_token1.write(protocol_fee_token - amount) 
-        _transfer_token(1, recipient, Uint256(amount, 0))
-        return ()
+        _transfer_token(token1, recipient, Uint256(amount, 0))
+        return (amount)
     end
 
-    return ()
+    return (amount)
 end
 
 @external
@@ -1104,11 +1172,11 @@ func collect_protocol{
     let (is_valid) = Utils.is_gt(amount1_requested, protocol_fee_token1)
     let (amount1) = Utils.cond_assign(is_valid, protocol_fee_token1, amount1_requested)
 
-    _collect_protocol_1(recipient, amount0, protocol_fee_token0)
-    _collect_protocol_2(recipient, amount1, protocol_fee_token1)
+    let (new_amount0) = _collect_protocol_1(recipient, amount0, protocol_fee_token0)
+    let (new_amount1) = _collect_protocol_2(recipient, amount1, protocol_fee_token1)
 
     _unlock()
-    CollectProtocol.emit(recipient, amount0_requested, amount1_requested, amount0, amount1)
+    CollectProtocol.emit(recipient, amount0_requested, amount1_requested, new_amount0, new_amount1)
 
-    return (amount0, amount1)
+    return (new_amount0, new_amount1)
 end
