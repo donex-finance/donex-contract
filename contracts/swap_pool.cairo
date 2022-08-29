@@ -299,6 +299,28 @@ func _transfer_token_cond{
     return ()
 end
 
+func _lock{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr,
+    }():
+    let (slot_unlocked) = _slot_unlocked.read()
+    with_attr error_message("swap is locked"):
+        assert slot_unlocked = 1
+    end
+    _slot_unlocked.write(0)
+    return ()
+end
+
+func _unlock{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr,
+    }():
+    _slot_unlocked.write(1)
+    return ()
+end
+
 func _compute_swap_step_1{
         range_check_ptr
     }(
@@ -568,28 +590,6 @@ func _swap_3{
     let amount0: Uint256 = state.amount_caculated
     let (amount1: Uint256) = uint256_sub(amount_specified, state.amount_specified_remaining)
     return (amount0, amount1)
-end
-
-func _lock{
-        syscall_ptr: felt*,
-        pedersen_ptr: HashBuiltin*,
-        range_check_ptr,
-    }():
-    let (slot_unlocked) = _slot_unlocked.read()
-    with_attr error_message("swap is locked"):
-        assert slot_unlocked = 1
-    end
-    _slot_unlocked.write(0)
-    return ()
-end
-
-func _unlock{
-        syscall_ptr: felt*,
-        pedersen_ptr: HashBuiltin*,
-        range_check_ptr,
-    }():
-    _slot_unlocked.write(1)
-    return ()
 end
 
 @external
