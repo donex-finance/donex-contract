@@ -37,6 +37,9 @@ namespace TickBitmap:
         alloc_locals
 
         let (key, rem) = signed_div_rem(tick, tick_spacing, bound)
+        %{
+            print('flip_tick:', ids.tick, ids.tick_spacing, ids.key, ids.rem)
+        %}
         with_attr error_message("tick must be multiples of tick_spacing"):
             assert rem = 0
         end

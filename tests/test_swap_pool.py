@@ -1192,3 +1192,192 @@ class SwapPoolTest(TestCase):
         token1_fee = res.call_info.result[1] 
         self.assertEqual(token0_fee, 166666666666666)
         self.assertEqual(token1_fee, 0)
+
+    @pytest.mark.asyncio
+    async def test_tick_spacing(self):
+        tick_spacing = 12
+        contract_def, contract = await init_contract(CONTRACT_FILE, [tick_spacing, FeeAmount.MEDIUM, token0, token1])
+        min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
+        await contract.initialize(encode_price_sqrt(1, 1)).invoke()
+
+        # mint can only be called for multiples of 12
+        await assert_revert(
+            contract.add_liquidity(address, -6, 0, 1).invoke(),
+            'tick must be multiples of tick_spacing'
+        )
+        await assert_revert(
+            contract.add_liquidity(address, 0, 6, 1).invoke(),
+            'tick must be multiples of tick_spacing'
+        )
+
+        # mint can be called with multiples of 12
+        new_contract = cached_contract(contract.state.copy(), contract_def, contract)
+        await new_contract.add_liquidity(address, 12, 24, 1).invoke()
+        await new_contract.add_liquidity(address, -144, -120, 1).invoke()
+
+        #TODO: swapping across gaps works in 1 for 0 direction
+        #new_contract = cached_contract(contract.state.copy(), contract_def, contract)
+        #liquidity_amount = expand_to_18decimals(1) // 4
+        #await new_contract.add_liquidity(address, 120000, 121200, liquidity_amount).invoke()
+        #await swap_exact1_for0(contract, expand_to_18decimals(1), address)
+        #res = await new_contract.remove_liquidity(address, 120000, 121200, liquidity_amount).invoke()
+        #await assert_event_emitted(
+        #    res,
+        #    from_address=new_contract.contract_address,
+        #    name='RemoveLiquidity',
+        #    data=[
+        #        address,
+        #        120000, 
+        #        121200,
+        #        liquidity_amount,
+        #        30027458295511,
+        #        0,
+        #        996999999999999999,
+        #        0
+        #    ]
+        #)
+        #res = await new_contract.get_cur_slot().call()
+        #tick = felt_to_int(res.call_info.result[2])
+        #self.assertEqual(tick, 120196)
+
+        # swapping across gaps works in 0 for 1 direction
+        #new_contract = cached_contract(contract.state.copy(), contract_def, contract)
+        #liquidity_amount = expand_to_18decimals(1) // 4
+        #await new_contract.add_liquidity(address, -121200, 120000, liquidity_amount).invoke()
+        #await swap_exact0_for1(contract, expand_to_18decimals(1), address)
+        #res = await new_contract.remove_liquidity(address, -121200, 120000, liquidity_amount).invoke()
+        #await assert_event_emitted(
+        #    res,
+        #    from_address=new_contract.contract_address,
+        #    name='RemoveLiquidity',
+        #    data=[
+        #        address,
+        #        120000, 
+        #        121200,
+        #        liquidity_amount,
+        #        996999999999999999,
+        #        0,
+        #        30027458295511,
+        #        0,
+        #    ]
+        #)
+        #res = await new_contract.get_cur_slot().call()
+        #tick = felt_to_int(res.call_info.result[2])
+        #self.assertEqual(tick, -120197)
+
+    '''
+    @pytest.mark.asyncio
+    async def test_issue(self):
+
+        # tick transition cannot run twice if zero for one swap ends at fractional price just below tick
+        tick_spacing = 1
+        contract_def, contract = await init_contract(CONTRACT_FILE, [tick_spacing, FeeAmount.MEDIUM, token0, token1])
+        min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
+        await contract.initialize(encode_price_sqrt(1, 1)).invoke()
+
+        # mint can only be called for multiples of 12
+
+        it('tick transition cannot run twice if zero for one swap ends at fractional price just below tick', async () => {
+    pool = await createPool(FeeAmount.MEDIUM, 1)
+    const sqrtTickMath = (await (await ethers.getContractFactory('TickMathTest')).deploy()) as TickMathTest
+    const swapMath = (await (await ethers.getContractFactory('SwapMathTest')).deploy()) as SwapMathTest
+    const p0 = (await sqrtTickMath.getSqrtRatioAtTick(-24081)).add(1)
+    // initialize at a price of ~0.3 token1/token0
+    // meaning if you swap in 2 token0, you should end up getting 0 token1
+    await pool.initialize(p0)
+    expect(await pool.liquidity(), 'current pool liquidity is 1').to.eq(0)
+    expect((await pool.slot0()).tick, 'pool tick is -24081').to.eq(-24081)
+
+    // add a bunch of liquidity around current price
+    const liquidity = expandTo18Decimals(1000)
+    await mint(wallet.address, -24082, -24080, liquidity)
+    expect(await pool.liquidity(), 'current pool liquidity is now liquidity + 1').to.eq(liquidity)
+
+    await mint(wallet.address, -24082, -24081, liquidity)
+    expect(await pool.liquidity(), 'current pool liquidity is still liquidity + 1').to.eq(liquidity)
+
+    // check the math works out to moving the price down 1, sending no amount out, and having some amount remaining
+    {
+      const { feeAmount, amountIn, amountOut, sqrtQ } = await swapMath.computeSwapStep(
+        p0,
+        p0.sub(1),
+        liquidity,
+        3,
+        FeeAmount.MEDIUM
+      )
+      expect(sqrtQ, 'price moves').to.eq(p0.sub(1))
+      expect(feeAmount, 'fee amount is 1').to.eq(1)
+      expect(amountIn, 'amount in is 1').to.eq(1)
+      expect(amountOut, 'zero amount out').to.eq(0)
+    }
+
+    // swap 2 amount in, should get 0 amount out
+    await expect(swapExact0For1(3, wallet.address))
+      .to.emit(token0, 'Transfer')
+      .withArgs(wallet.address, pool.address, 3)
+      .to.not.emit(token1, 'Transfer')
+
+    const { tick, sqrtPriceX96 } = await pool.slot0()
+
+    expect(tick, 'pool is at the next tick').to.eq(-24082)
+    expect(sqrtPriceX96, 'pool price is still on the p0 boundary').to.eq(p0.sub(1))
+    expect(await pool.liquidity(), 'pool has run tick transition and liquidity changed').to.eq(liquidity.mul(2))
+  })
+    '''
+
+    @pytest.mark.asyncio
+    async def test_set_fee_protocol(self):
+        contract = await self.get_state_contract()
+        constract = await initialize_at_zero_tick(contract)
+
+        # fails if fee is lt 4 or gt 10
+        await assert_revert(
+            contract.set_fee_protocol(3, 3).invoke(),
+            ""
+        )
+        await assert_revert(
+            contract.set_fee_protocol(6, 3).invoke(),
+            ""
+        )
+        await assert_revert(
+            contract.set_fee_protocol(3, 6).invoke(),
+            ""
+        )
+        await assert_revert(
+            contract.set_fee_protocol(11, 11).invoke(),
+            ""
+        )
+        await assert_revert(
+            contract.set_fee_protocol(6, 11).invoke(),
+            ""
+        )
+        await assert_revert(
+            contract.set_fee_protocol(11, 6).invoke(),
+            ""
+        )
+
+        await contract.set_fee_protocol(10, 10).invoke()
+
+        await contract.set_fee_protocol(7, 7).invoke()
+        res = await contract.get_fee_protocol().call()
+        self.assertEqual(res.call_info.result[0], 119)
+
+        await contract.set_fee_protocol(5, 8).invoke()
+        res = await contract.get_fee_protocol().call()
+        self.assertEqual(res.call_info.result[0], 133)
+
+        await contract.set_fee_protocol(0, 0).invoke()
+        res = await contract.get_fee_protocol().call()
+        self.assertEqual(res.call_info.result[0], 0)
+
+        res = await contract.set_fee_protocol(5, 8).invoke()
+        assert_event_emitted(
+            res,
+            from_address=contract.contract_address,
+            name='SetFeeProtocol',
+            data=[
+                5,
+                8,
+                133
+            ]
+        )

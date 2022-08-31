@@ -131,6 +131,10 @@ end
 func TransferToken(token_contract: felt, to: felt, amount: Uint256):
 end
 
+@event
+func SetFeeProtocol(fee_protocol0: felt, fee_protocol1: felt, fee_protocol: felt):
+end
+
 @constructor
 func constructor{
         syscall_ptr: felt*,
@@ -1014,6 +1018,8 @@ func set_fee_protocol{
     _fee_protocol.write(fee_protocol)
 
     _unlock()
+
+    SetFeeProtocol.emit(fee_protocol0, fee_protocol1, fee_protocol)
     return ()
 end
 
