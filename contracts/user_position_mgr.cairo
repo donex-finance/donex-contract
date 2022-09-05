@@ -7,6 +7,7 @@ from library.openzeppelin.token.erc721.IERC721 import IERC721
 
 from contracts.interface.IERC721Mintable import IERC721Mintable
 from contracts.interface.ISwapPool import ISwapPool
+from contracts.tickmath import TickMath
 
 struct UserPosition:
     member pool_address: felt
@@ -98,8 +99,21 @@ func _get_mint_liuqidity{
         amount0_desired: Uint256, 
         amount1_desired: Uint256
     ) -> (liquidity: felt):
-    #TODO:
-    return (0)
+    alloc_locals
+
+    let (sqrt_price_x96: Uint256, _) = IswapPool.get_cur_slot(contract_address=pool_address)
+    let (sqrtRatioA: Uint256) = TickMath.get_sqrt_ratio_at_tick(tick_lower)
+    let (sqrtRatioB: Uint256) = TickMath.get_sqrt_ratio_at_tick(tick_upper)
+
+    let (liquidity) = LiquidityAmounts.get_liquidity_for_amounts(
+        sqrt_price_x96,
+        sqrtRatioA,
+        sqrtRatioB,
+        amount0_desired,
+        amount1_desired
+    )
+
+    return (liquidity)
 end
 
 @external
@@ -125,12 +139,11 @@ func add_liquidity{
     let (new_token_id: Uint256, _) = uint256_add(cur_token_id, Uint256(1, 0))
     _token_id.write(new_token_id)
 
-    #TODO: mint position
-    # 1 get the pool address
+    # mint position
+    # get the pool address
     let (pool_address) = _get_pool_address(token0, token1, fee)
 
-    # 2 call the add_liquidity function
-    #TODO: how to count amount
+    # remote call the add_liquidity function
     let (liquidity) = _get_mint_liuqidity(pool_address, tick_lower, tick_upper, amount0_desired, amount1_desired)
 
     let (amount0: Uint256, amount1: Uint256) = ISwapPool.add_liquidity(

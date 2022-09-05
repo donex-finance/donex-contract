@@ -99,4 +99,24 @@ namespace Utils:
 
         return (res)
     end
+
+    func min{
+            range_check_ptr
+        }(a: felt, b: felt) -> (res: felt):
+        let (is_valid) = is_le(a, b)
+        if is_valid == 1:
+            return (a)
+        end
+        return (b)
+    end
+
+    func max{
+            range_check_ptr
+        }(a: felt, b: felt) -> (res: felt):
+        let (is_valid) = is_le(a, b)
+        if is_valid == 1:
+            return (b)
+        end
+        return (a)
+    end
 end

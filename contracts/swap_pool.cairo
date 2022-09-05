@@ -175,10 +175,10 @@ func get_cur_slot{
         syscall_ptr: felt*,
         pedersen_ptr: HashBuiltin*,
         range_check_ptr
-    }() -> (slot: SlotState):
+    }() -> (sqrt_price_x96: Uint256, tick: felt):
 
     let (slot: SlotState) = _slot0.read()
-    return (slot)
+    return (slot.sqrt_price_x96, slot.tick)
 end
 
 @view

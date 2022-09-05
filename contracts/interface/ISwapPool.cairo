@@ -4,6 +4,9 @@ from starkware.cairo.common.uint256 import Uint256
 
 @contract_interface
 namespace ISwapPool:
+    func get_cur_slot() -> (sqrt_price_x96: Uint256, tick: felt):
+    end
+
     func add_liquidity(
         recipient: felt,
         tick_lower: felt,
