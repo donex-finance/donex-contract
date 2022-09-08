@@ -1,6 +1,7 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import (HashBuiltin, BitwiseBuiltin)
+from starkware.starknet.common.syscalls import get_caller_address
 from starkware.cairo.common.uint256 import (Uint256, uint256_mul, uint256_shr, uint256_shl, uint256_lt, uint256_le, uint256_add, uint256_unsigned_div_rem, uint256_or, uint256_sub, uint256_and, uint256_eq, uint256_signed_lt, uint256_neg, uint256_signed_nn)
 from starkware.cairo.common.bool import (FALSE, TRUE)
 from starkware.cairo.common.math import unsigned_div_rem
@@ -956,7 +957,6 @@ func remove_liquidity{
         range_check_ptr,
         bitwise_ptr: BitwiseBuiltin*
     }(
-        recipient: felt,
         tick_lower: felt,
         tick_upper: felt,
         amount: felt,
@@ -965,7 +965,7 @@ func remove_liquidity{
 
     _lock()
 
-    #TODO: let (recipient) = get_caller_address(msg.sender)
+    let (recipient) = get_caller_address()
 
     let (position: PositionInfo, amount0: Uint256, amount1: Uint256) = _modify_position(
         ModifyPositionParams(

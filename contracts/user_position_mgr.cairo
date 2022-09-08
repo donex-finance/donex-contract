@@ -3,8 +3,6 @@
 from starkware.cairo.common.cairo_builtins import (HashBuiltin, BitwiseBuiltin)
 from starkware.cairo.common.uint256 import (Uint256, uint256_le, uint256_add, uint256_lt, uint256_sub)
 
-from library.openzeppelin.token.erc721.IERC721 import IERC721
-
 from contracts.interface.IERC721Mintable import IERC721Mintable
 from contracts.interface.ISwapPool import ISwapPool
 from contracts.tickmath import TickMath

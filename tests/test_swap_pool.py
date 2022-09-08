@@ -13,10 +13,14 @@ from utils import (
     mul_uint, div_rem_uint, to_uint, contract_path,
     felt_to_int, int_to_felt, from_uint, cached_contract, encode_price_sqrt,
     get_max_tick, get_min_tick, TICK_SPACINGS, FeeAmount, init_contract,
-    expand_to_18decimals, assert_event_emitted
+    expand_to_18decimals, assert_event_emitted, Account
 )
 
 from test_tickmath import (MIN_SQRT_RATIO, MAX_SQRT_RATIO)
+from signers import MockSigner
+
+signer = MockSigner(123456789987654321)
+other_signer = MockSigner(2343424234234)
 
 Q128 = to_uint(2 ** 128)
 MaxUint256 = to_uint(2 ** 256 - 1)
@@ -29,8 +33,8 @@ tick_spacing = TICK_SPACINGS[FEE]
 min_tick = get_min_tick(tick_spacing)
 max_tick = get_max_tick(tick_spacing)
 
-address = 111
-other_address = 222
+address = None
+other_address = None
 
 token0 = 0
 token1 = 1
@@ -57,7 +61,14 @@ class SwapPoolTest(TestCase):
 
     @classmethod
     async def setUp(cls):
-        pass
+        if not hasattr(cls, 'account'):
+            account_cls = Account.get_class
+            cls.account = await Account.deploy(signer.public_key)
+            cls.other_account = await Account.deploy(other_signer.public_key)
+            global address, other_address
+            address = cls.account.contract_address
+            other_address = cls.other_account.contract_address
+            print('setUp:', signer.public_key, address, other_signer.public_key, other_address)
 
     async def get_state_contract(self):
         if not hasattr(self, 'contract'):
@@ -235,7 +246,7 @@ class SwapPoolTest(TestCase):
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
         res = await new_contract.add_liquidity(address, int_to_felt(-240), 0, 10000).invoke()
         print('add_liquidity:', res.call_info.result)
-        res = await new_contract.remove_liquidity(address, int_to_felt(-240), 0, 10000).invoke()
+        res = await new_contract.remove_liquidity(int_to_felt(-240), 0, 10000).invoke(caller_address=address)
         print('remove_liquidity:', res.call_info.result)
         res = await new_contract.collect(address, int_to_felt(-240), 0, MAX_UINT128, MAX_UINT128).invoke()
         print('collect:', res.call_info.result)
@@ -292,7 +303,7 @@ class SwapPoolTest(TestCase):
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
         res = await new_contract.add_liquidity(address, int_to_felt(-240), 0, 100).invoke()
         res = await new_contract.add_liquidity(address, int_to_felt(-240), 0, 40).invoke()
-        res = await new_contract.remove_liquidity(address, int_to_felt(-240), 0, 90).invoke()
+        res = await new_contract.remove_liquidity(int_to_felt(-240), 0, 90).invoke(caller_address=address)
         res = await new_contract.get_tick(int_to_felt(-240)).call()
         liquidity_gross = res.call_info.result[0]
         self.assertEqual(liquidity_gross, 50)
@@ -304,7 +315,7 @@ class SwapPoolTest(TestCase):
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
         res = await new_contract.add_liquidity(address, int_to_felt(-240), 0, 100).invoke()
         res = await new_contract.add_liquidity(address, int_to_felt(-240), 0, 40).invoke()
-        res = await new_contract.remove_liquidity(address, int_to_felt(-240), 0, 90).invoke()
+        res = await new_contract.remove_liquidity(int_to_felt(-240), 0, 90).invoke(caller_address=address)
         res = await new_contract.get_tick(int_to_felt(-240)).call()
         liquidity_gross = res.call_info.result[0]
         self.assertEqual(liquidity_gross, 50)
@@ -315,7 +326,7 @@ class SwapPoolTest(TestCase):
         # clears tick upper if last position is removed
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
         res = await new_contract.add_liquidity(address, int_to_felt(-240), 0, 100).invoke()
-        res = await new_contract.remove_liquidity(address, int_to_felt(-240), 0, 100).invoke()
+        res = await new_contract.remove_liquidity(int_to_felt(-240), 0, 100).invoke(caller_address=address)
         res = await new_contract.get_tick(int_to_felt(0)).call()
         liquidity_gross = res.call_info.result[0]
         fee_growth_outside0 = from_uint(res.call_info.result[2: 4])
@@ -328,7 +339,7 @@ class SwapPoolTest(TestCase):
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
         res = await new_contract.add_liquidity(address, int_to_felt(-240), 0, 100).invoke()
         res = await new_contract.add_liquidity(address, int_to_felt(-tick_spacing), 0, 250).invoke()
-        res = await new_contract.remove_liquidity(address, int_to_felt(-240), 0, 100).invoke()
+        res = await new_contract.remove_liquidity(int_to_felt(-240), 0, 100).invoke(caller_address=address)
         res = await new_contract.get_tick(int_to_felt(-240)).call()
         liquidity_gross = res.call_info.result[0]
         fee_growth_outside0 = from_uint(res.call_info.result[2: 4])
@@ -371,7 +382,7 @@ class SwapPoolTest(TestCase):
         # removing works
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
         res = await new_contract.add_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 100).invoke()
-        res = await new_contract.remove_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 100).invoke()
+        res = await new_contract.remove_liquidity(int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 100).invoke(caller_address=address)
         res = await new_contract.collect(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, MAX_UINT128, MAX_UINT128).invoke()
         amount0 = res.call_info.result[0]
         amount1 = res.call_info.result[1]
@@ -405,7 +416,7 @@ class SwapPoolTest(TestCase):
         # removing works
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
         res = await new_contract.add_liquidity(address, int_to_felt(-46080), int_to_felt(-46020), 10000).invoke()
-        res = await new_contract.remove_liquidity(address, int_to_felt(-46080), int_to_felt(-46020), 10000).invoke()
+        res = await new_contract.remove_liquidity(int_to_felt(-46080), int_to_felt(-46020), 10000).invoke(caller_address=address)
         res = await new_contract.collect(address, int_to_felt(-46080), int_to_felt(-46020), MAX_UINT128, MAX_UINT128).invoke()
         amount0 = res.call_info.result[0]
         amount1 = res.call_info.result[1]
@@ -430,8 +441,8 @@ class SwapPoolTest(TestCase):
         res = await swap_exact1_for0(new_contract, expand_to_18decimals(1) // 100, address)
         print('swap_exact1_for0', res.call_info.result)
         res = await new_contract.get_protocol_fees().call()
-        token0_fee = from_uint(res.call_info.result[0: 2])
-        token1_fee = from_uint(res.call_info.result[2: 4]) 
+        token0_fee = res.call_info.result[0]
+        token1_fee = res.call_info.result[1]
         self.assertEqual(token0_fee, 50000000000000)
         self.assertEqual(token1_fee, 5000000000000)
 
@@ -441,15 +452,15 @@ class SwapPoolTest(TestCase):
         res = await swap_exact0_for1(new_contract, expand_to_18decimals(1) // 10, address)
         res = await swap_exact1_for0(new_contract, expand_to_18decimals(1) // 100, address)
         res = await new_contract.get_protocol_fees().call()
-        token0_fee = from_uint(res.call_info.result[0: 2])
-        token1_fee = from_uint(res.call_info.result[2: 4]) 
+        token0_fee = res.call_info.result[0]
+        token1_fee = res.call_info.result[1]
         self.assertEqual(token0_fee, 0)
         self.assertEqual(token1_fee, 0)
 
         await new_contract.set_fee_protocol(6, 6).invoke()
         res = await new_contract.get_protocol_fees().call()
-        token0_fee = from_uint(res.call_info.result[0: 2])
-        token1_fee = from_uint(res.call_info.result[2: 4]) 
+        token0_fee = res.call_info.result[0]
+        token1_fee = res.call_info.result[1]
         self.assertEqual(token0_fee, 0)
         self.assertEqual(token1_fee, 0)
 
@@ -460,7 +471,7 @@ class SwapPoolTest(TestCase):
         res = await swap_exact1_for0(new_contract, expand_to_18decimals(1) // 100, address)
 
         await assert_revert(
-            new_contract.remove_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 0).invoke(),
+            new_contract.remove_liquidity(int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 0).invoke(caller_address=address),
             ""
         )
         res = await new_contract.add_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 1).invoke()
@@ -477,7 +488,7 @@ class SwapPoolTest(TestCase):
         self.assertEqual(tokens_owed0, 0)
         self.assertEqual(tokens_owed1, 0)
 
-        await new_contract.remove_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 1).invoke()
+        await new_contract.remove_liquidity(int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 1).invoke(caller_address=address)
         res = await new_contract.get_position(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing).call()
         liquidity = res.call_info.result[0]
         fee_growth_inside0_x128 = from_uint(res.call_info.result[1: 3])
@@ -524,7 +535,7 @@ class SwapPoolTest(TestCase):
         res = await swap_exact1_for0(new_contract, expand_to_18decimals(1), address)
         print('swap_exact1_for0:', res.call_info.result)
 
-        res = await new_contract.remove_liquidity(other_address, int_to_felt(min_tick), max_tick, expand_to_18decimals(1)).invoke()
+        res = await new_contract.remove_liquidity(int_to_felt(min_tick), max_tick, expand_to_18decimals(1)).invoke(caller_address=other_address)
         res = await new_contract.get_position(other_address, int_to_felt(min_tick), max_tick).call()
         liquidity = res.call_info.result[0]
         fee_growth_inside0_x128 = from_uint(res.call_info.result[1: 3])
@@ -542,7 +553,7 @@ class SwapPoolTest(TestCase):
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
         res = await new_contract.add_liquidity(address, tick_lower, tick_upper, 1).invoke()
         res = await swap_exact0_for1(new_contract, expand_to_18decimals(1), address)
-        res = await new_contract.remove_liquidity(address, tick_lower, tick_upper, 1).invoke()
+        res = await new_contract.remove_liquidity(tick_lower, tick_upper, 1).invoke(caller_address=address)
         await self.check_tick_is_clear(new_contract, tick_lower)
         await self.check_tick_is_clear(new_contract, tick_upper)
 
@@ -551,7 +562,7 @@ class SwapPoolTest(TestCase):
         res = await new_contract.add_liquidity(address, tick_lower, tick_upper, 1).invoke()
         res = await new_contract.add_liquidity(address, tick_lower + tick_spacing, tick_upper, 1).invoke()
         res = await swap_exact0_for1(new_contract, expand_to_18decimals(1), address)
-        res = await new_contract.remove_liquidity(address, tick_lower, tick_upper, 1).invoke()
+        res = await new_contract.remove_liquidity(tick_lower, tick_upper, 1).invoke(caller_address=address)
         await self.check_tick_is_clear(new_contract, tick_lower)
         await self.check_tick_is_not_clear(new_contract, tick_upper)
 
@@ -560,7 +571,7 @@ class SwapPoolTest(TestCase):
         res = await new_contract.add_liquidity(address, tick_lower, tick_upper, 1).invoke()
         res = await new_contract.add_liquidity(address, tick_lower, tick_upper - tick_spacing, 1).invoke()
         res = await swap_exact0_for1(new_contract, expand_to_18decimals(1), address)
-        res = await new_contract.remove_liquidity(address, tick_lower, tick_upper, 1).invoke()
+        res = await new_contract.remove_liquidity(tick_lower, tick_upper, 1).invoke(caller_address=address)
         await self.check_tick_is_not_clear(new_contract, tick_lower)
         await self.check_tick_is_clear(new_contract, tick_upper)
 
@@ -628,7 +639,7 @@ class SwapPoolTest(TestCase):
         res = await new_contract.add_liquidity(address, tick_lower, tick_upper, expand_to_18decimals(1000)).invoke()
 
         await assert_revert(
-            new_contract.remove_liquidity(address, tick_lower, tick_upper, expand_to_18decimals(1001)).invoke(), 
+            new_contract.remove_liquidity(tick_lower, tick_upper, expand_to_18decimals(1001)).invoke(caller_address=address), 
             ""
         )
 
@@ -650,10 +661,10 @@ class SwapPoolTest(TestCase):
         liquidity_after = res.call_info.result[0]
         self.assertEqual(liquidity_after >= liquidity_before, True)
 
-        res = await new_contract.remove_liquidity(address, tick_lower, tick_upper, 0).invoke()
+        res = await new_contract.remove_liquidity(tick_lower, tick_upper, 0).invoke(caller_address=address)
         res = await new_contract.collect(address, tick_lower, tick_upper, MAX_UINT128, MAX_UINT128).invoke()
 
-        res = await new_contract.remove_liquidity(address, tick_lower, tick_upper, 0).invoke()
+        res = await new_contract.remove_liquidity(tick_lower, tick_upper, 0).invoke(caller_address=address)
 
         res = await new_contract.collect(address, int_to_felt(-46080), int_to_felt(-46020), MAX_UINT128, MAX_UINT128).invoke()
         amount0 = res.call_info.result[0]
@@ -753,7 +764,7 @@ class SwapPoolTest(TestCase):
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
         res = await new_contract.add_liquidity(address, 0, 120, expand_to_18decimals(1)).invoke()
         res = await swap_exact1_for0(new_contract, expand_to_18decimals(2), other_address)
-        res = await new_contract.remove_liquidity(address, 0, 120, expand_to_18decimals(1)).invoke()
+        res = await new_contract.remove_liquidity(0, 120, expand_to_18decimals(1)).invoke(caller_address=address)
         assert_event_emitted(
             res,
             from_address=new_contract.contract_address,
@@ -795,7 +806,7 @@ class SwapPoolTest(TestCase):
 
         res = await swap_exact0_for1(new_contract, expand_to_18decimals(2), other_address)
 
-        res = await new_contract.remove_liquidity(address, -120, 0, expand_to_18decimals(1)).invoke()
+        res = await new_contract.remove_liquidity(-120, 0, expand_to_18decimals(1)).invoke(caller_address=address)
         assert_event_emitted(
             res,
             from_address=new_contract.contract_address,
@@ -839,7 +850,7 @@ class SwapPoolTest(TestCase):
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
         res = await new_contract.add_liquidity(address, 0, 120, expand_to_18decimals(1)).invoke()
         res = await swap_exact1_for0(new_contract, expand_to_18decimals(2), other_address)
-        res = await new_contract.remove_liquidity(address, 0, 120, expand_to_18decimals(1)).invoke()
+        res = await new_contract.remove_liquidity(0, 120, expand_to_18decimals(1)).invoke(caller_address=address)
         assert_event_emitted(
             res,
             from_address=new_contract.contract_address,
@@ -881,7 +892,7 @@ class SwapPoolTest(TestCase):
 
         res = await swap_exact0_for1(new_contract, expand_to_18decimals(2), other_address)
 
-        res = await new_contract.remove_liquidity(address, -120, 0, expand_to_18decimals(1)).invoke()
+        res = await new_contract.remove_liquidity(-120, 0, expand_to_18decimals(1)).invoke(caller_address=address)
         assert_event_emitted(
             res,
             from_address=new_contract.contract_address,
@@ -932,8 +943,8 @@ class SwapPoolTest(TestCase):
         res = await new_contract.add_liquidity(address, min_tick + tick_spacing, max_tick - tick_spacing, expand_to_18decimals(2)).invoke()
 
         res = await swap_exact0_for1(new_contract, expand_to_18decimals(1), address)
-        res = await new_contract.remove_liquidity(address, min_tick, max_tick, 0).invoke()
-        res = await new_contract.remove_liquidity(address, min_tick + tick_spacing, max_tick - tick_spacing, 0).invoke()
+        res = await new_contract.remove_liquidity(min_tick, max_tick, 0).invoke(caller_address=address)
+        await new_contract.remove_liquidity(min_tick + tick_spacing, max_tick - tick_spacing, 0).invoke(caller_address=address)
 
         res = await new_contract.get_position(address, int_to_felt(min_tick), max_tick).call()
         print(res.call_info.result, tick_spacing, min_tick, max_tick)
@@ -957,7 +968,7 @@ class SwapPoolTest(TestCase):
         #TODO: set_fee
         res = await new_contract.set_fee_growth_global0_x128(to_uint(magic_num)).invoke()
 
-        res = await new_contract.remove_liquidity(address, min_tick, max_tick, 0).invoke()
+        res = await new_contract.remove_liquidity(min_tick, max_tick, 0).invoke(caller_address=address)
 
         res = await new_contract.get_position(address, int_to_felt(min_tick ), max_tick).call()
         tokens_owed0 = res.call_info.result[5]
@@ -970,7 +981,7 @@ class SwapPoolTest(TestCase):
         #TODO: set_fee
         res = await new_contract.set_fee_growth_global0_x128(to_uint(magic_num + 1)).invoke()
 
-        res = await new_contract.remove_liquidity(address, min_tick, max_tick, 0).invoke()
+        res = await new_contract.remove_liquidity(min_tick, max_tick, 0).invoke(caller_address=address)
 
         res = await new_contract.get_position(address, int_to_felt(min_tick ), max_tick).call()
         tokens_owed0 = res.call_info.result[5]
@@ -983,7 +994,7 @@ class SwapPoolTest(TestCase):
         #TODO: set_fee
         res = await new_contract.set_fee_growth_global0_x128(to_uint(2 ** 256 - 1)).invoke()
 
-        res = await new_contract.remove_liquidity(address, min_tick, max_tick, 0).invoke()
+        res = await new_contract.remove_liquidity(min_tick, max_tick, 0).invoke(caller_address=address)
 
         res = await new_contract.get_position(address, int_to_felt(min_tick ), max_tick).call()
         tokens_owed0 = res.call_info.result[5]
@@ -999,7 +1010,7 @@ class SwapPoolTest(TestCase):
             await swap_exact1_for0(contract, amount, address)
 
         if poke:
-            await contract.remove_liquidity(address, min_tick, max_tick, 0).invoke()
+            await contract.remove_liquidity(min_tick, max_tick, 0).invoke(caller_address=address)
 
         new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
         res = await new_contract.collect(address, min_tick, max_tick, MAX_UINT128, MAX_UINT128).invoke()
@@ -1044,6 +1055,7 @@ class SwapPoolTest(TestCase):
         #it('cannot be changed by addresses that are not owner', async () => {
         #  await expect(pool.connect(other).setFeeProtocol(6, 6)).to.be.reverted
         #})
+        # cannot be changed by addresses that are not owner
 
         # position owner gets full fees when protocol fee is off
         # swap fees accumulate as expected (0 for 1)
@@ -1173,7 +1185,7 @@ class SwapPoolTest(TestCase):
         self.assertEqual(token0_fee, 166666666666666)
         self.assertEqual(token1_fee, 0)
 
-        await new_contract.remove_liquidity(address, min_tick, max_tick, 0).invoke()
+        await new_contract.remove_liquidity(min_tick, max_tick, 0).invoke(caller_address=address)
         res = await new_contract.collect(address, min_tick, max_tick, MAX_UINT128, MAX_UINT128).invoke()
         assert_event_emitted(
             res,
@@ -1220,7 +1232,7 @@ class SwapPoolTest(TestCase):
         #liquidity_amount = expand_to_18decimals(1) // 4
         #await new_contract.add_liquidity(address, 120000, 121200, liquidity_amount).invoke()
         #await swap_exact1_for0(contract, expand_to_18decimals(1), address)
-        #res = await new_contract.remove_liquidity(address, 120000, 121200, liquidity_amount).invoke()
+        #res = await new_contract.remove_liquidity(120000, 121200, liquidity_amount).invoke(caller_address=address)
         #await assert_event_emitted(
         #    res,
         #    from_address=new_contract.contract_address,
@@ -1245,7 +1257,7 @@ class SwapPoolTest(TestCase):
         #liquidity_amount = expand_to_18decimals(1) // 4
         #await new_contract.add_liquidity(address, -121200, 120000, liquidity_amount).invoke()
         #await swap_exact0_for1(contract, expand_to_18decimals(1), address)
-        #res = await new_contract.remove_liquidity(address, -121200, 120000, liquidity_amount).invoke()
+        #res = await new_contract.remove_liquidity(-121200, 120000, liquidity_amount).invoke(caller_address=address)
         #await assert_event_emitted(
         #    res,
         #    from_address=new_contract.contract_address,
