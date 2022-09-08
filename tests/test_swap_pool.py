@@ -72,7 +72,7 @@ class SwapPoolTest(TestCase):
 
     async def get_state_contract(self):
         if not hasattr(self, 'contract'):
-            self.contract_def, self.contract = await init_contract(CONTRACT_FILE, [tick_spacing, FEE, token0, token1])
+            self.contract_def, self.contract = await init_contract(CONTRACT_FILE, [tick_spacing, FEE, token0, token1, address])
 
         _state = self.contract.state.copy()
         new_contract = cached_contract(_state, self.contract_def, self.contract)
@@ -80,7 +80,7 @@ class SwapPoolTest(TestCase):
 
     async def get_state_contract_low(self):
         if not hasattr(self, 'contract_low'):
-            self.contract_def, self.contract_low = await init_contract(CONTRACT_FILE, [TICK_SPACINGS[FeeAmount.LOW], FeeAmount.LOW, token0, token1])
+            self.contract_def, self.contract_low = await init_contract(CONTRACT_FILE, [TICK_SPACINGS[FeeAmount.LOW], FeeAmount.LOW, token0, token1, address])
         _state = self.contract_low.state.copy()
         new_contract = cached_contract(_state, self.contract_def, self.contract_low)
         return new_contract
@@ -433,7 +433,7 @@ class SwapPoolTest(TestCase):
 
         # protocol fees accumulate as expected during swap
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
-        await new_contract.set_fee_protocol(6, 6).invoke()
+        await new_contract.set_fee_protocol(6, 6).invoke(caller_address=address)
         res = await new_contract.add_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, expand_to_18decimals(1)).invoke()
         print('add_liquidity', res.call_info.result)
         res = await swap_exact0_for1(new_contract, expand_to_18decimals(1) // 10, address)
@@ -457,7 +457,7 @@ class SwapPoolTest(TestCase):
         self.assertEqual(token0_fee, 0)
         self.assertEqual(token1_fee, 0)
 
-        await new_contract.set_fee_protocol(6, 6).invoke()
+        await new_contract.set_fee_protocol(6, 6).invoke(caller_address=address)
         res = await new_contract.get_protocol_fees().call()
         token0_fee = res.call_info.result[0]
         token1_fee = res.call_info.result[1]
@@ -844,7 +844,7 @@ class SwapPoolTest(TestCase):
         self.assertEqual(tick < -120, True)
 
         # fee is on
-        res = await contract.set_fee_protocol(6, 6).invoke()
+        res = await contract.set_fee_protocol(6, 6).invoke(caller_address=address)
 
         # limit selling 0 for 1 at tick 0 thru 1
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
@@ -1036,26 +1036,32 @@ class SwapPoolTest(TestCase):
 
         # can be changed by the owner
         new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
-        res = await new_contract.set_fee_protocol(6, 6).invoke()
+        res = await new_contract.set_fee_protocol(6, 6).invoke(caller_address=address)
         res = await new_contract.get_fee_protocol().call()
         self.assertEqual(res.call_info.result[0], 102)
 
         # can be changed by the owner
         new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
         await assert_revert(
-            new_contract.set_fee_protocol(3, 3).invoke(),
+            new_contract.set_fee_protocol(3, 3).invoke(caller_address=address),
             ''
         )
         await assert_revert(
-            new_contract.set_fee_protocol(11, 11).invoke(),
+            new_contract.set_fee_protocol(11, 11).invoke(caller_address=address),
             ''
         )
 
-        # TODO:cannot be changed by addresses that are not owner
-        #it('cannot be changed by addresses that are not owner', async () => {
-        #  await expect(pool.connect(other).setFeeProtocol(6, 6)).to.be.reverted
-        #})
         # cannot be changed by addresses that are not owner
+        await assert_revert(
+            new_contract.set_fee_protocol(6, 6).invoke(caller_address=other_address),
+            ''
+        )
+
+        # cannot be collect by addresses that are not owner
+        await assert_revert(
+            new_contract.collect_protocol(address, MAX_UINT128, MAX_UINT128).invoke(caller_address=other_address),
+            ''
+        )
 
         # position owner gets full fees when protocol fee is off
         # swap fees accumulate as expected (0 for 1)
@@ -1089,7 +1095,7 @@ class SwapPoolTest(TestCase):
 
         # position owner gets partial fees when protocol fee is on
         new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
-        res = await new_contract.set_fee_protocol(6, 6).invoke()
+        res = await new_contract.set_fee_protocol(6, 6).invoke(caller_address=address)
         token0_fees, token1_fees = await self.swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, True, min_tick, max_tick)
         self.assertEqual(token0_fees, 416666666666666)
         self.assertEqual(token1_fees, 0)
@@ -1097,17 +1103,17 @@ class SwapPoolTest(TestCase):
         # collectProtocol
         # returns 0 if no fees
         new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
-        res = await new_contract.set_fee_protocol(6, 6).invoke()
-        res = await new_contract.collect_protocol(address, MAX_UINT128, MAX_UINT128).invoke()
+        res = await new_contract.set_fee_protocol(6, 6).invoke(caller_address=address)
+        res = await new_contract.collect_protocol(address, MAX_UINT128, MAX_UINT128).invoke(caller_address=address)
         self.assertEqual(res.call_info.result[0], 0)
         self.assertEqual(res.call_info.result[1], 0)
 
         # can collect fees
         new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
-        res = await new_contract.set_fee_protocol(6, 6).invoke()
+        res = await new_contract.set_fee_protocol(6, 6).invoke(caller_address=address)
         res = await self.swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, True, min_tick, max_tick)
 
-        res = await new_contract.collect_protocol(other_address, MAX_UINT128, MAX_UINT128).invoke()
+        res = await new_contract.collect_protocol(other_address, MAX_UINT128, MAX_UINT128).invoke(caller_address=address)
         print(res.raw_events)
         assert_event_emitted(
             res,
@@ -1123,10 +1129,10 @@ class SwapPoolTest(TestCase):
 
         # fees collected can differ between token0 and token1
         new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
-        res = await new_contract.set_fee_protocol(8, 5).invoke()
+        res = await new_contract.set_fee_protocol(8, 5).invoke(caller_address=address)
         await self.swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, False, min_tick, max_tick)
         await self.swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), False, False, min_tick, max_tick)
-        res = await new_contract.collect_protocol(other_address, MAX_UINT128, MAX_UINT128).invoke()
+        res = await new_contract.collect_protocol(other_address, MAX_UINT128, MAX_UINT128).invoke(caller_address=address)
         print(res.raw_events)
         assert_event_emitted(
             res,
@@ -1162,14 +1168,14 @@ class SwapPoolTest(TestCase):
         new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
         await self.swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, False, min_tick, max_tick)
 
-        await new_contract.set_fee_protocol(6, 6).invoke()
+        await new_contract.set_fee_protocol(6, 6).invoke(caller_address=address)
         res = await self.swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, True, min_tick, max_tick)
         self.assertEqual(res[0], 916666666666666)
         self.assertEqual(res[1], 0)
 
         # fees collected by lp after two swaps with intermediate withdrawal
         new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
-        await new_contract.set_fee_protocol(6, 6).invoke()
+        await new_contract.set_fee_protocol(6, 6).invoke(caller_address=address)
         res = await self.swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, True, min_tick, max_tick)
         self.assertEqual(res[0], 416666666666666)
         self.assertEqual(res[1], 0)
@@ -1208,7 +1214,7 @@ class SwapPoolTest(TestCase):
     @pytest.mark.asyncio
     async def test_tick_spacing(self):
         tick_spacing = 12
-        contract_def, contract = await init_contract(CONTRACT_FILE, [tick_spacing, FeeAmount.MEDIUM, token0, token1])
+        contract_def, contract = await init_contract(CONTRACT_FILE, [tick_spacing, FeeAmount.MEDIUM, token0, token1, address])
         min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
         await contract.initialize(encode_price_sqrt(1, 1)).invoke()
 
@@ -1344,45 +1350,50 @@ class SwapPoolTest(TestCase):
 
         # fails if fee is lt 4 or gt 10
         await assert_revert(
-            contract.set_fee_protocol(3, 3).invoke(),
+            contract.set_fee_protocol(3, 3).invoke(caller_address=address),
             ""
         )
         await assert_revert(
-            contract.set_fee_protocol(6, 3).invoke(),
+            contract.set_fee_protocol(6, 3).invoke(caller_address=address),
             ""
         )
         await assert_revert(
-            contract.set_fee_protocol(3, 6).invoke(),
+            contract.set_fee_protocol(3, 6).invoke(caller_address=address),
             ""
         )
         await assert_revert(
-            contract.set_fee_protocol(11, 11).invoke(),
+            contract.set_fee_protocol(11, 11).invoke(caller_address=address),
             ""
         )
         await assert_revert(
-            contract.set_fee_protocol(6, 11).invoke(),
+            contract.set_fee_protocol(6, 11).invoke(caller_address=address),
             ""
         )
         await assert_revert(
-            contract.set_fee_protocol(11, 6).invoke(),
+            contract.set_fee_protocol(11, 6).invoke(caller_address=address),
             ""
         )
 
-        await contract.set_fee_protocol(10, 10).invoke()
+        await assert_revert(
+            contract.set_fee_protocol(6, 6).invoke(caller_address=other_address),
+            ""
+        )
 
-        await contract.set_fee_protocol(7, 7).invoke()
+        await contract.set_fee_protocol(10, 10).invoke(caller_address=address)
+
+        await contract.set_fee_protocol(7, 7).invoke(caller_address=address)
         res = await contract.get_fee_protocol().call()
         self.assertEqual(res.call_info.result[0], 119)
 
-        await contract.set_fee_protocol(5, 8).invoke()
+        await contract.set_fee_protocol(5, 8).invoke(caller_address=address)
         res = await contract.get_fee_protocol().call()
         self.assertEqual(res.call_info.result[0], 133)
 
-        await contract.set_fee_protocol(0, 0).invoke()
+        await contract.set_fee_protocol(0, 0).invoke(caller_address=address)
         res = await contract.get_fee_protocol().call()
         self.assertEqual(res.call_info.result[0], 0)
 
-        res = await contract.set_fee_protocol(5, 8).invoke()
+        res = await contract.set_fee_protocol(5, 8).invoke(caller_address=address)
         assert_event_emitted(
             res,
             from_address=contract.contract_address,

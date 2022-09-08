@@ -7,6 +7,8 @@ from starkware.cairo.common.bool import (FALSE, TRUE)
 from starkware.cairo.common.math import unsigned_div_rem
 from starkware.cairo.common.math_cmp import is_le
 
+from openzeppelin.access.ownable.library import Ownable
+
 from contracts.tick_mgr import (TickMgr, TickInfo)
 from contracts.tick_bitmap import TickBitmap
 from contracts.position_mgr import (PositionMgr, PositionInfo)
@@ -145,7 +147,8 @@ func constructor{
         tick_spacing: felt, 
         fee: felt,
         token0: felt,
-        token1: felt
+        token1: felt,
+        owner: felt
     ):
     alloc_locals
 
@@ -157,6 +160,8 @@ func constructor{
 
     let (max_liquidity_per_tick) = TickMgr.get_max_liquidity_per_tick(tick_spacing)
     _max_liquidity_per_tick.write(max_liquidity_per_tick)
+
+    Ownable.initializer(owner)
     return ()
 end
 
@@ -1010,7 +1015,9 @@ func set_fee_protocol{
         fee_protocol1: felt
     ):
     alloc_locals
-    #TODO: onlyOwner
+
+    Ownable.assert_only_owner()
+
     _lock()
 
     _check_fee_protocol(fee_protocol0)
@@ -1168,7 +1175,8 @@ func collect_protocol{
         amount1_requested: felt
     ) -> (amount0: felt, amount1: felt):
     alloc_locals
-    #TODO: onlyFactorOwner
+
+    Ownable.assert_only_owner()
 
     _lock()
 
@@ -1187,4 +1195,24 @@ func collect_protocol{
     CollectProtocol.emit(recipient, amount0_requested, amount1_requested, new_amount0, new_amount1)
 
     return (new_amount0, new_amount1)
+end
+
+@external
+func transfer_ownership{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(newOwner: felt):
+    Ownable.transfer_ownership(newOwner)
+    return ()
+end
+
+@external
+func renounce_ownership{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }():
+    Ownable.renounce_ownership()
+    return ()
 end
