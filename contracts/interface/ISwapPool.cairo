@@ -2,9 +2,14 @@
 
 from starkware.cairo.common.uint256 import Uint256
 
+from contracts.position_mgr import PositionInfo
+
 @contract_interface
 namespace ISwapPool:
     func get_cur_slot() -> (sqrt_price_x96: Uint256, tick: felt):
+    end
+
+    func get_position(owner: felt, tick_lower: felt, tick_upper: felt) -> (position: PositionInfo):
     end
 
     func add_liquidity(
@@ -15,7 +20,6 @@ namespace ISwapPool:
     end
 
     func remove_liquidity(
-        recipient: felt,
         tick_lower: felt,
         tick_upper: felt,
         liquidity: felt,

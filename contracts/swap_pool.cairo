@@ -965,6 +965,8 @@ func remove_liquidity{
 
     _lock()
 
+    #TODO: let (recipient) = get_caller_address(msg.sender)
+
     let (position: PositionInfo, amount0: Uint256, amount1: Uint256) = _modify_position(
         ModifyPositionParams(
             owner = recipient,
