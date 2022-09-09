@@ -15,7 +15,7 @@ struct PositionInfo {
 }
 
 @storage_var
-func _positions(address: felt, tick_lower: felt, tick_upper: felt) -> (position: PositionInfo) {
+func PositionMgr_data(address: felt, tick_lower: felt, tick_upper: felt) -> (position: PositionInfo) {
 }
 
 namespace PositionMgr {
@@ -80,7 +80,7 @@ namespace PositionMgr {
                 tokens_owed0=position.tokens_owed0 + tokens_owed0,
                 tokens_owed1=position.tokens_owed1 + tokens_owed1,
             );
-            _positions.write(address, tick_lower, tick_upper, position);
+            PositionMgr_data.write(address, tick_lower, tick_upper, position);
             return (position,);
         }
 
@@ -91,21 +91,21 @@ namespace PositionMgr {
             tokens_owed0=position.tokens_owed0,
             tokens_owed1=position.tokens_owed1,
         );
-        _positions.write(address, tick_lower, tick_upper, position);
+        PositionMgr_data.write(address, tick_lower, tick_upper, position);
         return (position,);
     }
 
     func get{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         address: felt, tick_lower: felt, tick_upper: felt
     ) -> (position: PositionInfo) {
-        let (position: PositionInfo) = _positions.read(address, tick_lower, tick_upper);
+        let (position: PositionInfo) = PositionMgr_data.read(address, tick_lower, tick_upper);
         return (position,);
     }
 
     func set{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         address: felt, tick_lower: felt, tick_upper: felt, position: PositionInfo
     ) {
-        _positions.write(address, tick_lower, tick_upper, position);
+        PositionMgr_data.write(address, tick_lower, tick_upper, position);
         return ();
     }
 }
