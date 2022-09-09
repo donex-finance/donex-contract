@@ -52,13 +52,15 @@ func constructor{
     return ()
 end
 
-#@view
-#func get_user_positions{
-#        syscall_ptr: felt*,
-#        pedersen_ptr: HashBuiltin*,
-#        range_check_ptr
-#    }(address: felt):
-#end
+@view
+func get_token_positions{
+        syscall_ptr: felt*,
+        pedersen_ptr: HashBuiltin*,
+        range_check_ptr
+    }(token_id: felt) -> (position: UserPosition):
+    let (position: UserPosition) = _positions.read(token_id)
+    return (position)
+end
 
 @view
 func get_erc721_contract{
