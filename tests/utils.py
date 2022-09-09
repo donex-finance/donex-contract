@@ -147,7 +147,7 @@ def cached_contract(state, definition, deployed):
         state=state,
         abi=definition.abi,
         contract_address=deployed.contract_address,
-        deploy_execution_info=deployed.deploy_execution_info
+        deploy_call_info=deployed.deploy_call_info
     )
     return contract
 
@@ -202,7 +202,7 @@ class TestSigner():
             build_calls.append(build_call)
 
         (call_array, calldata, sig_r, sig_s) = self.signer.sign_transaction(hex(account.contract_address), build_calls, nonce, max_fee)
-        return await account.__execute__(call_array, calldata, nonce).invoke(signature=[sig_r, sig_s])
+        return await account.__execute__(call_array, calldata, nonce).execute(signature=[sig_r, sig_s])
 
 #def encode_price_sqrt(reserve1, reserve2):
 #    """
@@ -255,33 +255,33 @@ async def init_contract(contract_file, constructor_calldata=None):
 
     return compiled_contract, contract
 
-class Account:
-    """
-    Utility for deploying Account contract.
-
-    Parameters
-    ----------
-
-    public_key : int
-
-    Examples
-    ----------
-
-    >>> starknet = await State.init()
-    >>> account = await Account.deploy(public_key)
-
-    """
-    #sys.path.append(os.path.join(Path(__file__).parent, 'library'))
-    path = 'openzeppelin/account/presets/Account.cairo'
-    get_class = compile_starknet_files(
-        files=[path],
-        debug_info=True
-    )
-
-    async def deploy(public_key):
-        starknet = await Starknet.empty()
-        account = await starknet.deploy(
-            contract_class=Account.get_class,
-            constructor_calldata=[public_key]
-        )
-        return account
+#class Account:
+#    """
+#    Utility for deploying Account contract.
+#
+#    Parameters
+#    ----------
+#
+#    public_key : int
+#
+#    Examples
+#    ----------
+#
+#    >>> starknet = await State.init()
+#    >>> account = await Account.deploy(public_key)
+#
+#    """
+#    #sys.path.append(os.path.join(Path(__file__).parent, 'library'))
+#    path = 'openzeppelin/account/presets/Account.cairo'
+#    get_class = compile_starknet_files(
+#        files=[path],
+#        debug_info=True
+#    )
+#
+#    async def deploy(public_key):
+#        starknet = await Starknet.empty()
+#        account = await starknet.deploy(
+#            contract_class=Account.get_class,
+#            constructor_calldata=[public_key]
+#        )
+#        return account

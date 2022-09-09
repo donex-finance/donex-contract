@@ -83,7 +83,7 @@ class CairoContractTest(TestCase):
         self.assertEqual(feeGrowthInside0X128, 0)
         self.assertEqual(feeGrowthInside1X128, 0)
 
-        res = await contract.set_tick(2, (0, 0, to_uint(2), to_uint(3), 1)).invoke()
+        res = await contract.set_tick(2, (0, 0, to_uint(2), to_uint(3), 1)).execute()
         res = await contract.get_fee_growth_inside(int_to_felt(-2), 2, int_to_felt(0), to_uint(15), to_uint(15)).call()
         feeGrowthInside0X128 = from_uint(res.call_info.result[0: 2])
         feeGrowthInside1X128 = from_uint(res.call_info.result[2: 4])
@@ -91,7 +91,7 @@ class CairoContractTest(TestCase):
         self.assertEqual(feeGrowthInside1X128, 12)
 
         contract = self.get_state_contract()
-        res = await contract.set_tick(int_to_felt(-2), (0, 0, to_uint(2), to_uint(3), 1)).invoke()
+        res = await contract.set_tick(int_to_felt(-2), (0, 0, to_uint(2), to_uint(3), 1)).execute()
         res = await contract.get_fee_growth_inside(int_to_felt(-2), 2, int_to_felt(0), to_uint(15), to_uint(15)).call()
         feeGrowthInside0X128 = from_uint(res.call_info.result[0: 2])
         feeGrowthInside1X128 = from_uint(res.call_info.result[2: 4])
@@ -99,8 +99,8 @@ class CairoContractTest(TestCase):
         self.assertEqual(feeGrowthInside1X128, 12)
 
         contract = self.get_state_contract()
-        res = await contract.set_tick(int_to_felt(-2), (0, 0, to_uint(2), to_uint(3), 1)).invoke()
-        res = await contract.set_tick(int_to_felt(2), (0, 0, to_uint(4), to_uint(1), 1)).invoke()
+        res = await contract.set_tick(int_to_felt(-2), (0, 0, to_uint(2), to_uint(3), 1)).execute()
+        res = await contract.set_tick(int_to_felt(2), (0, 0, to_uint(4), to_uint(1), 1)).execute()
         res = await contract.get_fee_growth_inside(int_to_felt(-2), 2, int_to_felt(0), to_uint(15), to_uint(15)).call()
         feeGrowthInside0X128 = from_uint(res.call_info.result[0: 2])
         feeGrowthInside1X128 = from_uint(res.call_info.result[2: 4])
@@ -108,8 +108,8 @@ class CairoContractTest(TestCase):
         self.assertEqual(feeGrowthInside1X128, 11)
 
         contract = self.get_state_contract()
-        res = await contract.set_tick(int_to_felt(-2), (0, 0, to_uint(2 ** 256 - 1 - 3), to_uint(2 ** 256 - 1 - 2), 1)).invoke()
-        res = await contract.set_tick(int_to_felt(2), (0, 0, to_uint(3), to_uint(5), 1)).invoke()
+        res = await contract.set_tick(int_to_felt(-2), (0, 0, to_uint(2 ** 256 - 1 - 3), to_uint(2 ** 256 - 1 - 2), 1)).execute()
+        res = await contract.set_tick(int_to_felt(2), (0, 0, to_uint(3), to_uint(5), 1)).execute()
         res = await contract.get_fee_growth_inside(int_to_felt(-2), 2, int_to_felt(0), to_uint(15), to_uint(15)).call()
         feeGrowthInside0X128 = from_uint(res.call_info.result[0: 2])
         feeGrowthInside1X128 = from_uint(res.call_info.result[2: 4])
@@ -119,37 +119,37 @@ class CairoContractTest(TestCase):
     @pytest.mark.asyncio
     async def test_update(self):
         contract = self.get_state_contract()
-        res = await contract.update(0, 0, 1, to_uint(0), to_uint(0), 0, 3).invoke()
+        res = await contract.update(0, 0, 1, to_uint(0), to_uint(0), 0, 3).execute()
         self.assertEqual(res.call_info.result[0], 1)
 
         contract = self.get_state_contract()
-        res = await contract.update(0, 0, 1, to_uint(0), to_uint(0), 0, 3).invoke()
-        res = await contract.update(0, 0, 1, to_uint(0), to_uint(0), 0, 3).invoke()
+        res = await contract.update(0, 0, 1, to_uint(0), to_uint(0), 0, 3).execute()
+        res = await contract.update(0, 0, 1, to_uint(0), to_uint(0), 0, 3).execute()
         self.assertEqual(res.call_info.result[0], 0)
 
         contract = self.get_state_contract()
-        res = await contract.update(0, 0, 1, to_uint(0), to_uint(0), 0, 3).invoke()
-        res = await contract.update(0, 0, int_to_felt(-1), to_uint(0), to_uint(0), 0, 3).invoke()
+        res = await contract.update(0, 0, 1, to_uint(0), to_uint(0), 0, 3).execute()
+        res = await contract.update(0, 0, int_to_felt(-1), to_uint(0), to_uint(0), 0, 3).execute()
         self.assertEqual(res.call_info.result[0], 1)
 
         contract = self.get_state_contract()
-        res = await contract.update(0, 0, 2, to_uint(0), to_uint(0), 0, 3).invoke()
-        res = await contract.update(0, 0, int_to_felt(-1), to_uint(0), to_uint(0), 0, 3).invoke()
+        res = await contract.update(0, 0, 2, to_uint(0), to_uint(0), 0, 3).execute()
+        res = await contract.update(0, 0, int_to_felt(-1), to_uint(0), to_uint(0), 0, 3).execute()
         self.assertEqual(res.call_info.result[0], 0)
 
         contract = self.get_state_contract()
-        res = await contract.update(0, 0, 2, to_uint(0), to_uint(0), 0, 3).invoke()
-        res = await contract.update(0, 0, 1, to_uint(0), to_uint(0), 1, 3).invoke()
+        res = await contract.update(0, 0, 2, to_uint(0), to_uint(0), 0, 3).execute()
+        res = await contract.update(0, 0, 1, to_uint(0), to_uint(0), 1, 3).execute()
         await assert_revert(
-            contract.update(0, 0, 1, to_uint(0), to_uint(0), 0, 3).invoke(),
+            contract.update(0, 0, 1, to_uint(0), to_uint(0), 0, 3).execute(),
             'update: liq_gross_after > max_liquidity'
         )
 
         contract = self.get_state_contract()
-        res = await contract.update(0, 0, 2, to_uint(0), to_uint(0), 0, 10).invoke()
-        res = await contract.update(0, 0, 1, to_uint(0), to_uint(0), 1, 10).invoke()
-        res = await contract.update(0, 0, 3, to_uint(0), to_uint(0), 1, 10).invoke()
-        res = await contract.update(0, 0, 1, to_uint(0), to_uint(0), 0, 10).invoke()
+        res = await contract.update(0, 0, 2, to_uint(0), to_uint(0), 0, 10).execute()
+        res = await contract.update(0, 0, 1, to_uint(0), to_uint(0), 1, 10).execute()
+        res = await contract.update(0, 0, 3, to_uint(0), to_uint(0), 1, 10).execute()
+        res = await contract.update(0, 0, 1, to_uint(0), to_uint(0), 0, 10).execute()
         res = await contract.get_tick(0).call()
         print('res', res.call_info.result)
         liquidityGross = res.call_info.result[0]
@@ -158,17 +158,17 @@ class CairoContractTest(TestCase):
         self.assertEqual(liquidityNet, 2 - 1 - 3 + 1)
 
         contract = self.get_state_contract()
-        res = await contract.update(0, 0, MAX_UINT128 // 2 - 1, to_uint(0), to_uint(0), 0, MAX_UINT128).invoke()
+        res = await contract.update(0, 0, MAX_UINT128 // 2 - 1, to_uint(0), to_uint(0), 0, MAX_UINT128).execute()
         print('res', res.call_info.result)
-        res = await contract.update(0, 0, MAX_UINT128 // 2 - 1, to_uint(0), to_uint(0), 0, MAX_UINT128).invoke()
+        res = await contract.update(0, 0, MAX_UINT128 // 2 - 1, to_uint(0), to_uint(0), 0, MAX_UINT128).execute()
         print('res', res.call_info.result)
         #TODO
         #await assert_revert(
-        #    contract.update(0, 0, MAX_UINT128 // 2 - 1, to_uint(0), to_uint(0), 0, MAX_UINT128).invoke()
+        #    contract.update(0, 0, MAX_UINT128 // 2 - 1, to_uint(0), to_uint(0), 0, MAX_UINT128).execute()
         #)
 
         contract = self.get_state_contract()
-        res = await contract.update(1, 1, 1, to_uint(1), to_uint(2), 0, MAX_UINT128).invoke()
+        res = await contract.update(1, 1, 1, to_uint(1), to_uint(2), 0, MAX_UINT128).execute()
         res = await contract.get_tick(1).call()
         liquidityGross = res.call_info.result[0]
         liquidityNet = res.call_info.result[1]
@@ -180,8 +180,8 @@ class CairoContractTest(TestCase):
         self.assertEqual(initialized, 1)
         
         contract = self.get_state_contract()
-        res = await contract.update(1, 1, 1, to_uint(1), to_uint(2), 0, MAX_UINT128).invoke()
-        res = await contract.update(1, 1, 1, to_uint(6), to_uint(7), 0, MAX_UINT128).invoke()
+        res = await contract.update(1, 1, 1, to_uint(1), to_uint(2), 0, MAX_UINT128).execute()
+        res = await contract.update(1, 1, 1, to_uint(6), to_uint(7), 0, MAX_UINT128).execute()
         res = await contract.get_tick(1).call()
         liquidityGross = res.call_info.result[0]
         liquidityNet = res.call_info.result[1]
@@ -193,7 +193,7 @@ class CairoContractTest(TestCase):
         self.assertEqual(initialized, 1)
 
         contract = self.get_state_contract()
-        res = await contract.update(2, 1, 1, to_uint(1), to_uint(2), 0, MAX_UINT128).invoke()
+        res = await contract.update(2, 1, 1, to_uint(1), to_uint(2), 0, MAX_UINT128).execute()
         res = await contract.get_tick(2).call()
         liquidityGross = res.call_info.result[0]
         liquidityNet = res.call_info.result[1]

@@ -7,22 +7,16 @@ from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
 
 @view
 func get_sqrt_ratio_at_tick{
-        syscall_ptr: felt*,
-        pedersen_ptr: HashBuiltin*,
-        range_check_ptr,
-        bitwise_ptr: BitwiseBuiltin*
-    } (tick: felt) -> (res: Uint256):
-    let (res: Uint256) = TickMath.get_sqrt_ratio_at_tick(tick)
-    return (res)
-end
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
+}(tick: felt) -> (res: Uint256) {
+    let (res: Uint256) = TickMath.get_sqrt_ratio_at_tick(tick);
+    return (res,);
+}
 
 @view
 func get_tick_at_sqrt_ratio{
-        syscall_ptr: felt*,
-        pedersen_ptr: HashBuiltin*,
-        range_check_ptr,
-        bitwise_ptr: BitwiseBuiltin*
-    } (price: Uint256) -> (res: felt):
-    let (res) = TickMath.get_tick_at_sqrt_ratio(price)
-    return (res)
-end
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
+}(price: Uint256) -> (res: felt) {
+    let (res) = TickMath.get_tick_at_sqrt_ratio(price);
+    return (res,);
+}

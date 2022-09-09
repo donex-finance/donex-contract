@@ -23,7 +23,7 @@ from starkware.cairo.common.bool import FALSE, TRUE
 from starkware.cairo.common.math import unsigned_div_rem
 from starkware.cairo.common.math_cmp import is_le
 
-//from openzeppelin.access.ownable.library import Ownable
+from contracts.ownable import Ownable
 
 from contracts.tick_mgr import TickMgr, TickInfo
 from contracts.tick_bitmap import TickBitmap
@@ -197,7 +197,7 @@ func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     let (max_liquidity_per_tick) = TickMgr.get_max_liquidity_per_tick(tick_spacing);
     _max_liquidity_per_tick.write(max_liquidity_per_tick);
 
-    //Ownable.initializer(owner);
+    Ownable.initializer(owner);
     return ();
 }
 
@@ -996,7 +996,7 @@ func set_fee_protocol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
 ) {
     alloc_locals;
 
-    //Ownable.assert_only_owner();
+    Ownable.assert_only_owner();
 
     _lock();
 
@@ -1136,7 +1136,7 @@ func collect_protocol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
 ) -> (amount0: felt, amount1: felt) {
     alloc_locals;
 
-    //Ownable.assert_only_owner();
+    Ownable.assert_only_owner();
 
     _lock();
 
@@ -1161,12 +1161,12 @@ func collect_protocol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
 func transfer_ownership{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     newOwner: felt
 ) {
-    //Ownable.transfer_ownership(newOwner);
+    Ownable.transfer_ownership(newOwner);
     return ();
 }
 
 @external
 func renounce_ownership{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
-    //Ownable.renounce_ownership();
+    Ownable.renounce_ownership();
     return ();
 }

@@ -44,7 +44,7 @@ class CairoContractTest(TestCase):
         
         contract = self.get_state_contract()
         tick = int_to_felt(-230)
-        await self.contract.flip_tick(tick).invoke()
+        await self.contract.flip_tick(tick).execute()
 
         res = await self.contract.is_initialized(tick).call()
         self.assertEqual(res.call_info.result[0], 1)
@@ -66,7 +66,7 @@ class CairoContractTest(TestCase):
         self.assertEqual(res.call_info.result[0], 0)
 
         tick = int_to_felt(-230)
-        await self.contract.flip_tick(tick).invoke()
+        await self.contract.flip_tick(tick).execute()
 
         res = await self.contract.is_initialized(tick).call()
         self.assertEqual(res.call_info.result[0], 0)
@@ -93,7 +93,7 @@ class CairoContractTest(TestCase):
 
         inits = [-200, -55, -4, 70, 78, 84, 139, 240, 535]
         for t in inits:
-            await contract.flip_tick(int_to_felt(t)).invoke()
+            await contract.flip_tick(int_to_felt(t)).execute()
 
         res = await contract.next_valid_tick_within_one_word(78, 1, 0).call()
         self.assertEqual(res.call_info.result[0], 84)
@@ -120,11 +120,11 @@ class CairoContractTest(TestCase):
         self.assertEqual(felt_to_int(res.call_info.result[0]), -200)
         self.assertEqual(res.call_info.result[1], 1)
 
-        await contract.flip_tick(int_to_felt(340)).invoke()
+        await contract.flip_tick(int_to_felt(340)).execute()
         res = await contract.next_valid_tick_within_one_word(int_to_felt(328), 1, 0).call()
         self.assertEqual(felt_to_int(res.call_info.result[0]), 340)
         self.assertEqual(res.call_info.result[1], 1)
-        await contract.flip_tick(int_to_felt(340)).invoke()
+        await contract.flip_tick(int_to_felt(340)).execute()
 
         res = await contract.next_valid_tick_within_one_word(int_to_felt(508), 1, 0).call()
         self.assertEqual(felt_to_int(res.call_info.result[0]), 511)
@@ -171,7 +171,7 @@ class CairoContractTest(TestCase):
         self.assertEqual(felt_to_int(res.call_info.result[0]), 768)
         self.assertEqual(res.call_info.result[1], 0)
 
-        await contract.flip_tick(329).invoke()
+        await contract.flip_tick(329).execute()
         res = await contract.next_valid_tick_within_one_word(int_to_felt(456), 1, 1).call()
         self.assertEqual(felt_to_int(res.call_info.result[0]), 329)
         self.assertEqual(res.call_info.result[1], 1)

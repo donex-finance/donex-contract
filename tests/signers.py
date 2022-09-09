@@ -55,7 +55,7 @@ class MockSigner():
 
         (call_array, calldata, sig_r, sig_s) = self.signer.sign_transaction(
             hex(account.contract_address), build_calls, nonce, max_fee)
-        return await account.__execute__(call_array, calldata, nonce).invoke(signature=[sig_r, sig_s])
+        return await account.__execute__(call_array, calldata, nonce).execute(signature=[sig_r, sig_s])
 
 
 class MockEthSigner():
@@ -96,6 +96,6 @@ class MockEthSigner():
         sig_s = to_uint(signature.s)
 
         # the hash and signature are returned for other tests to use
-        return await account.__execute__(call_array, calldata, nonce).invoke(
+        return await account.__execute__(call_array, calldata, nonce).execute(
             signature=[signature.v, *sig_r, *sig_s]
         ), message_hash, [signature.v, *sig_r, *sig_s]
