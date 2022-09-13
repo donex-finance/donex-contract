@@ -40,6 +40,10 @@ func IncreaseLiquidity(token_id: Uint256, liquidity: felt, amount0: Uint256, amo
 }
 
 @event
+func DecreaseLiquidity(token_id: Uint256, liquidity: felt, amount0: Uint256, amount1: Uint256) {
+}
+
+@event
 func Collect(token_id: Uint256, recipient: felt, amount0: felt, amount1: felt) {
 }
 
@@ -177,6 +181,155 @@ func add_liquidity{
     return ();
 }
 
+@external
+func increase_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
+    token_id: Uint256,
+    amount0_desired: Uint256,
+    amount1_desired: Uint256,
+    amount0_min: Uint256,
+    amount1_min: Uint256
+) -> (
+    liquidity: felt,
+    amount0: Uint256,
+    amount1: Uint256
+) {
+    alloc_locals;
+
+    let (position: UserPosition) = _positions.read(token_id);
+    let pool_address = position.pool_address;
+    let tick_lower = position.tick_lower;
+    let tick_upper = position.tick_upper;
+    let owner = position.owner;
+
+    let (liquidity) = _get_mint_liuqidity(
+        pool_address, tick_lower, tick_upper, amount0_desired, amount1_desired
+    );
+
+    let (amount0: Uint256, amount1: Uint256) = ISwapPool.add_liquidity(
+        contract_address=pool_address,
+        recipient=owner,
+        tick_lower=tick_lower,
+        tick_upper=tick_upper,
+        liquidity=liquidity,
+    );
+    let (flag1) = uint256_le(amount0_min, amount0);
+    let (flag2) = uint256_le(amount1_min, amount1);
+    let flag = flag1 + flag2;
+    with_attr error_message("price slippage check") {
+        assert flag = 2;
+    }
+
+    // update the position
+    let (slot_pos: PositionInfo) = ISwapPool.get_position(
+        contract_address=pool_address, owner=owner, tick_lower=tick_lower, tick_upper=tick_upper
+    );
+
+    let (tmp: Uint256) = uint256_sub(slot_pos.fee_growth_inside0_x128, position.fee_growth_inside0_x128);
+    let (tokens_owed0: Uint256, _) = FullMath.uint256_mul_div(
+        tmp,
+        Uint256(liquidity, 0),
+        Uint256(0, 1)
+    );
+
+    let (tmp2: Uint256) = uint256_sub(slot_pos.fee_growth_inside1_x128, position.fee_growth_inside1_x128);
+    let (tokens_owed1: Uint256, _) = FullMath.uint256_mul_div(
+        tmp2,
+        Uint256(liquidity, 0),
+        Uint256(0, 1)
+    );
+
+    let new_position = UserPosition(
+        pool_address=pool_address,
+        owner=owner,
+        tick_lower=tick_lower,
+        tick_upper=tick_upper,
+        liquidity=liquidity + position.liquidity,
+        fee_growth_inside0_x128=slot_pos.fee_growth_inside0_x128,
+        fee_growth_inside1_x128=slot_pos.fee_growth_inside1_x128,
+        tokens_owed0=position.tokens_owed0 + tokens_owed0.low,
+        tokens_owed1=position.tokens_owed1 + tokens_owed1.low,
+    );
+    _positions.write(token_id, new_position);
+
+    IncreaseLiquidity.emit(token_id, liquidity, amount0, amount1);
+
+    return (liquidity, amount0, amount1);
+}
+
+@external
+func decrease_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
+    token_id: Uint256,
+    liquidity: felt,
+    amount0_min: Uint256,
+    amount1_min: Uint256
+) -> (
+    amount0: Uint256,
+    amount1: Uint256
+) {
+    alloc_locals;
+
+    let (is_valid) = Utils.is_gt(liquidity, 0);
+    with_attr error_message("liquidity must be greater than 0") {
+        assert is_valid = 1;
+    }
+
+    let (position: UserPosition) = _positions.read(token_id);
+    let pool_address = position.pool_address;
+    let tick_lower = position.tick_lower;
+    let tick_upper = position.tick_upper;
+    let owner = position.owner;
+
+    let (amount0: Uint256, amount1: Uint256) = ISwapPool.remove_liquidity(
+        contract_address=pool_address,
+        tick_lower=tick_lower,
+        tick_upper=tick_upper,
+        liquidity=liquidity,
+    );
+    let (flag1) = uint256_le(amount0_min, amount0);
+    let (flag2) = uint256_le(amount1_min, amount1);
+    let flag = flag1 + flag2;
+    with_attr error_message("price slippage check") {
+        assert flag = 2;
+    }
+
+    // update the position
+    let (slot_pos: PositionInfo) = ISwapPool.get_position(
+        contract_address=pool_address, owner=owner, tick_lower=tick_lower, tick_upper=tick_upper
+    );
+
+    let (tmp: Uint256) = uint256_sub(slot_pos.fee_growth_inside0_x128, position.fee_growth_inside0_x128);
+    let (tmp2: Uint256, _) = FullMath.uint256_mul_div(
+        tmp,
+        Uint256(liquidity, 0),
+        Uint256(0, 1)
+    );
+    let tokens_owed0 = position.tokens_owed0 + amount0.low + tmp2.low;
+
+    let (tmp3: Uint256) = uint256_sub(slot_pos.fee_growth_inside1_x128, position.fee_growth_inside1_x128);
+    let (tmp4: Uint256, _) = FullMath.uint256_mul_div(
+        tmp3,
+        Uint256(liquidity, 0),
+        Uint256(0, 1)
+    );
+    let tokens_owed1 = position.tokens_owed1 + amount1.low + tmp4.low;
+
+    let new_position = UserPosition(
+        pool_address=pool_address,
+        owner=owner,
+        tick_lower=tick_lower,
+        tick_upper=tick_upper,
+        liquidity=position.liquidity - liquidity,
+        fee_growth_inside0_x128=slot_pos.fee_growth_inside0_x128,
+        fee_growth_inside1_x128=slot_pos.fee_growth_inside1_x128,
+        tokens_owed0=tokens_owed0,
+        tokens_owed1=tokens_owed1,
+        );
+
+    DecreaseLiquidity.emit(token_id, liquidity, amount0, amount1);
+
+    return (amount0, amount1);
+}
+    
 func _update_fees{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
 }(position: UserPosition) -> (
