@@ -112,7 +112,7 @@ func _get_mint_liuqidity{
 }
 
 @external
-func add_liquidity{
+func mint{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
 }(
     recipient: felt,

@@ -35,7 +35,7 @@ namespace LiquidityAmounts {
         return (sqrt_ratio_a, sqrt_ratio_b);
     }
 
-    func get_amount0_for_liquidity{range_check_ptr}(
+    func get_amount0_for_liquidity{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
         sqrt_ratio0: Uint256, sqrt_ratio1: Uint256, liquidity: felt
     ) -> (amount0: Uint256) {
         alloc_locals;
@@ -44,21 +44,21 @@ namespace LiquidityAmounts {
         let (tmp: Uint256) = uint256_sub(sqrt_ratio1, sqrt_ratio0);
         let (tmp2: Uint256, _) = FullMath.uint256_mul_div(new_liquidity, tmp, sqrt_ratio1);
 
-        let (amount0: Uint256, _) = unsigned_div_rem(tmp2, sqrt_ratio0);
+        let (amount0: Uint256, _) = uint256_unsigned_div_rem(tmp2, sqrt_ratio0);
         return (amount0,);
     }
 
-    func get_amount1_for_liquidity{range_check_ptr}(
+    func get_amount1_for_liquidity{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
         sqrt_ratio0: Uint256, sqrt_ratio1: Uint256, liquidity: felt
     ) -> (amount1: Uint256) {
         alloc_locals;
 
         let (tmp: Uint256) = uint256_sub(sqrt_ratio1, sqrt_ratio0);
-        let (amount1: Uint256) = FullMath.uint256_mul_div(liquidity, tmp, Uint256(2 ** 96, 0));
+        let (amount1: Uint256, _) = FullMath.uint256_mul_div(Uint256(liquidity, 0), tmp, Uint256(2 ** 96, 0));
         return (amount1,);
     }
 
-    func get_amounts_for_liquidity{range_check_ptr}(
+    func get_amounts_for_liquidity{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
         sqrt_ratio: Uint256, sqrt_ratio_a: Uint256, sqrt_ratio_b: Uint256, liquidity: felt
     ) -> (amount0: Uint256, amount1: Uint256) {
         alloc_locals;
