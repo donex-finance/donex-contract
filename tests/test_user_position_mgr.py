@@ -125,20 +125,120 @@ class UserPositionMgrTest(TestCase):
 
         user_position, swap_pool, erc721  = await self.get_user_position_contract()
         res = await user_position.mint(other_address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0)).execute()
-        print('mint res:', res)
 
+        # check nft
         res = await erc721.balanceOf(other_address).call()
         self.assertEqual(res.call_info.result[0], 1)
         res = await erc721.tokenOfOwnerByIndex(other_address, to_uint(0)).call()
         self.assertEqual(from_uint(res.call_info.result[0: 2]), 1)
 
-        #TODO: check nft
         res = await user_position.get_token_position(to_uint(1)).call()
         position = res.call_info.result
-        self.assertEqual(felt_to_int(position[1]), min_tick)
-        self.assertEqual(position[2], max_tick)
-        self.assertEqual(position[3], 15)
-        self.assertEqual(from_uint(position[4: 6]), 0)
-        self.assertEqual(from_uint(position[6: 8]), 0)
-        self.assertEqual(position[8], 0)
-        self.assertEqual(position[9], 0)
+        self.assertEqual(felt_to_int(position[1]), min_tick) # tick_lower
+        self.assertEqual(position[2], max_tick) # tick_upper
+        self.assertEqual(position[3], 15) # liquidity
+        self.assertEqual(from_uint(position[4: 6]), 0) # feeGrowthInside0LastX128
+        self.assertEqual(from_uint(position[6: 8]), 0) # feeGrowthInside1LastX128
+        self.assertEqual(position[8], 0) # tokens_owed0
+        self.assertEqual(position[9], 0) # tokens_owed1
+
+    @pytest.mark.asyncio
+    async def test_increase_liquidity(self):
+        user_position, swap_pool, erc721  = await self.get_user_position_contract()
+        res = await user_position.mint(other_address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000), to_uint(1000), to_uint(0), to_uint(0)).execute()
+
+        token_id = to_uint(1)
+
+        # increases position liquidity
+        res = await user_position.increase_liquidity(token_id, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute()
+        res = await user_position.get_token_position(to_uint(1)).call()
+        position = res.call_info.result
+        self.assertEqual(position[3], 1100) # liquidity
+
+    @pytest.mark.asyncio
+    async def test_decrease_liquidity(self):
+        user_position, swap_pool, erc721  = await self.get_user_position_contract()
+        res = await user_position.mint(other_address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute()
+
+        token_id = to_uint(1)
+
+        # cannot be called by other addresses
+        await assert_revert(
+            user_position.decrease_liquidity(token_id, 50, to_uint(0), to_uint(0)).execute(caller_address=address),
+            "_check_approverd_or_owner failed"
+        )
+
+        # cannot decrease for more than all the liquidity
+        await assert_revert(
+            user_position.decrease_liquidity(token_id, 101, to_uint(0), to_uint(0)).execute(caller_address=other_address),
+            "liquidity must be less than or equal to the position liquidity"
+        )
+
+        # decreases position liquidity
+        new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
+        res = await new_user_position.decrease_liquidity(token_id, 25, to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await new_user_position.get_token_position(to_uint(1)).call()
+        position = res.call_info.result
+        self.assertEqual(position[3], 75)
+        self.assertEqual(position[8], 24) # tokens_owed0
+        self.assertEqual(position[9], 24) # tokens_owed1
+
+        # can decrease for all the liquidity
+        new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
+        res = await new_user_position.decrease_liquidity(token_id, 100, to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await new_user_position.get_token_position(to_uint(1)).call()
+        position = res.call_info.result
+        self.assertEqual(position[3], 0)
+
+        # cannot decrease for more than the liquidity of the nft position
+        new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
+        res = await new_user_position.mint(other_address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(200), to_uint(100), to_uint(0), to_uint(0)).execute()
+        await assert_revert(
+            new_user_position.decrease_liquidity(token_id, 101, to_uint(0), to_uint(0)).execute(caller_address=other_address),
+            "liquidity must be less than or equal to the position liquidity"
+        )
+
+    @pytest.mark.asyncio
+    async def test_collect(self):
+        user_position, swap_pool, erc721  = await self.get_user_position_contract()
+        res = await user_position.mint(other_address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute()
+
+        token_id = to_uint(1)
+
+        # cannot be called by other addresses
+        await assert_revert(
+            user_position.collect(token_id, address, MAX_UINT128, MAX_UINT128).execute(caller_address=address),
+            "_check_approverd_or_owner failed"
+        )
+
+        # cannot be called with 0 for both amounts
+        await assert_revert(
+            user_position.collect(token_id, address, 0, 0).execute(caller_address=address),
+            ""
+        )
+
+        # transfers tokens owed from burn
+        res = await user_position.decrease_liquidity(token_id, 50, to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await user_position.collect(token_id, address, MAX_UINT128, MAX_UINT128).execute(caller_address=other_address)
+        assert_event_emitted(
+            res,
+            from_address=swap_pool.contract_address,
+            name='TransferToken',
+            data=[
+                token0,
+                address, 
+                49,
+                0
+            ]
+        )
+        assert_event_emitted(
+            res,
+            from_address=swap_pool.contract_address,
+            name='TransferToken',
+            data=[
+                token1,
+                address, 
+                49,
+                0
+            ]
+        )
