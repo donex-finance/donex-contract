@@ -250,8 +250,7 @@ class SwapPoolTest(TestCase):
         print('add_liquidity:', res.call_info.result)
         res = await new_contract.remove_liquidity(int_to_felt(-240), 0, 10000).execute(caller_address=address)
         print('remove_liquidity:', res.call_info.result)
-        res = await new_contract.collect(address, int_to_felt(-240), 0, MAX_UINT128, MAX_UINT128).execute()
-        print('collect:', res.call_info.result)
+        res = await new_contract.collect(address, int_to_felt(-240), 0, MAX_UINT128, MAX_UINT128).execute(caller_address=address)
         amount0 = res.call_info.result[0]
         amount1 = res.call_info.result[1]
         self.assertEqual(amount0, 120)
@@ -385,7 +384,7 @@ class SwapPoolTest(TestCase):
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
         res = await new_contract.add_liquidity(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 100).execute()
         res = await new_contract.remove_liquidity(int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, 100).execute(caller_address=address)
-        res = await new_contract.collect(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, MAX_UINT128, MAX_UINT128).execute()
+        res = await new_contract.collect(address, int_to_felt(min_tick + tick_spacing), max_tick - tick_spacing, MAX_UINT128, MAX_UINT128).execute(caller_address=address)
         amount0 = res.call_info.result[0]
         amount1 = res.call_info.result[1]
         self.assertEqual(amount0, 316)
@@ -419,7 +418,7 @@ class SwapPoolTest(TestCase):
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
         res = await new_contract.add_liquidity(address, int_to_felt(-46080), int_to_felt(-46020), 10000).execute()
         res = await new_contract.remove_liquidity(int_to_felt(-46080), int_to_felt(-46020), 10000).execute(caller_address=address)
-        res = await new_contract.collect(address, int_to_felt(-46080), int_to_felt(-46020), MAX_UINT128, MAX_UINT128).execute()
+        res = await new_contract.collect(address, int_to_felt(-46080), int_to_felt(-46020), MAX_UINT128, MAX_UINT128).execute(caller_address=address)
         amount0 = res.call_info.result[0]
         amount1 = res.call_info.result[1]
         self.assertEqual(amount0, 0)
@@ -664,11 +663,11 @@ class SwapPoolTest(TestCase):
         self.assertEqual(liquidity_after >= liquidity_before, True)
 
         res = await new_contract.remove_liquidity(tick_lower, tick_upper, 0).execute(caller_address=address)
-        res = await new_contract.collect(address, tick_lower, tick_upper, MAX_UINT128, MAX_UINT128).execute()
+        res = await new_contract.collect(address, tick_lower, tick_upper, MAX_UINT128, MAX_UINT128).execute(caller_address=address)
 
         res = await new_contract.remove_liquidity(tick_lower, tick_upper, 0).execute(caller_address=address)
 
-        res = await new_contract.collect(address, int_to_felt(-46080), int_to_felt(-46020), MAX_UINT128, MAX_UINT128).execute()
+        res = await new_contract.collect(address, int_to_felt(-46080), int_to_felt(-46020), MAX_UINT128, MAX_UINT128).execute(caller_address=address)
         amount0 = res.call_info.result[0]
         amount1 = res.call_info.result[1]
         self.assertEqual(amount0, 0)
@@ -783,12 +782,30 @@ class SwapPoolTest(TestCase):
             ]
         )
 
-        res = await new_contract.collect(address, 0, 120, MAX_UINT128, MAX_UINT128).execute()
+        res = await new_contract.collect(address, 0, 120, MAX_UINT128, MAX_UINT128).execute(caller_address=other_address)
         assert_event_emitted(
             res,
             from_address=new_contract.contract_address,
             name = 'Collect',
             data=[
+                other_address,
+                address,
+                0, 
+                120,
+                MAX_UINT128,
+                MAX_UINT128,
+                0,
+                0,
+            ]
+        )
+
+        res = await new_contract.collect(address, 0, 120, MAX_UINT128, MAX_UINT128).execute(caller_address=address)
+        assert_event_emitted(
+            res,
+            from_address=new_contract.contract_address,
+            name = 'Collect',
+            data=[
+                address,
                 address,
                 0, 
                 120,
@@ -825,13 +842,14 @@ class SwapPoolTest(TestCase):
             ]
         )
 
-        res = await new_contract.collect(address, -120, 0, MAX_UINT128, MAX_UINT128).execute()
+        res = await new_contract.collect(address, -120, 0, MAX_UINT128, MAX_UINT128).execute(caller_address=address)
         print(res.raw_events)
         assert_event_emitted(
             res,
             from_address=new_contract.contract_address,
             name = 'Collect',
             data=[
+                address,
                 address,
                 int_to_felt(-120), 
                 0,
@@ -869,12 +887,13 @@ class SwapPoolTest(TestCase):
             ]
         )
 
-        res = await new_contract.collect(address, 0, 120, MAX_UINT128, MAX_UINT128).execute()
+        res = await new_contract.collect(address, 0, 120, MAX_UINT128, MAX_UINT128).execute(caller_address=address)
         assert_event_emitted(
             res,
             from_address=new_contract.contract_address,
             name = 'Collect',
             data=[
+                address,
                 address,
                 0, 
                 120,
@@ -911,7 +930,7 @@ class SwapPoolTest(TestCase):
             ]
         )
 
-        res = await new_contract.collect(address, -120, 0, MAX_UINT128, MAX_UINT128).execute()
+        res = await new_contract.collect(other_address, -120, 0, MAX_UINT128, MAX_UINT128).execute(caller_address=address)
         print(res.raw_events)
         assert_event_emitted(
             res,
@@ -919,6 +938,7 @@ class SwapPoolTest(TestCase):
             name = 'Collect',
             data=[
                 address,
+                other_address,
                 int_to_felt(-120), 
                 0,
                 MAX_UINT128,
@@ -1015,7 +1035,7 @@ class SwapPoolTest(TestCase):
             await contract.remove_liquidity(min_tick, max_tick, 0).execute(caller_address=address)
 
         new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
-        res = await new_contract.collect(address, min_tick, max_tick, MAX_UINT128, MAX_UINT128).execute()
+        res = await new_contract.collect(address, min_tick, max_tick, MAX_UINT128, MAX_UINT128).execute(caller_address=address)
         amount0 = res.call_info.result[0]
         amount1 = res.call_info.result[1]
 
@@ -1182,7 +1202,7 @@ class SwapPoolTest(TestCase):
         self.assertEqual(res[0], 416666666666666)
         self.assertEqual(res[1], 0)
 
-        res = await new_contract.collect(address, min_tick, max_tick, MAX_UINT128, MAX_UINT128).execute()
+        res = await new_contract.collect(address, min_tick, max_tick, MAX_UINT128, MAX_UINT128).execute(caller_address=address)
         res = await self.swap_and_get_fees_owed(new_contract, expand_to_18decimals(1), True, False, min_tick, max_tick)
         self.assertEqual(res[0], 0)
         self.assertEqual(res[1], 0)
@@ -1194,7 +1214,7 @@ class SwapPoolTest(TestCase):
         self.assertEqual(token1_fee, 0)
 
         await new_contract.remove_liquidity(min_tick, max_tick, 0).execute(caller_address=address)
-        res = await new_contract.collect(address, min_tick, max_tick, MAX_UINT128, MAX_UINT128).execute()
+        res = await new_contract.collect(address, min_tick, max_tick, MAX_UINT128, MAX_UINT128).execute(caller_address=address)
         assert_event_emitted(
             res,
             from_address=new_contract.contract_address,

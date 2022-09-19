@@ -1,7 +1,7 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
-from starkware.starknet.common.syscalls import get_caller_address
+from starkware.starknet.common.syscalls import (get_caller_address, get_contract_address)
 from starkware.cairo.common.uint256 import (
     Uint256,
     uint256_mul,
@@ -23,7 +23,8 @@ from starkware.cairo.common.bool import FALSE, TRUE
 from starkware.cairo.common.math import unsigned_div_rem
 from starkware.cairo.common.math_cmp import is_le
 
-from contracts.ownable import Ownable
+from openzeppelin.token.erc20.IERC20 import IERC20
+from openzeppelin.access.ownable.library import Ownable
 
 from contracts.tick_mgr import TickMgr, TickInfo
 from contracts.tick_bitmap import TickBitmap
@@ -158,6 +159,7 @@ func Swap(
 
 @event
 func Collect(
+    caller: felt,
     recipient: felt,
     tick_lower: felt,
     tick_upper: felt,
@@ -263,6 +265,26 @@ func get_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
 ) {
     let (liquidity) = _liquidity.read();
     return (liquidity,);
+}
+
+@view
+func balance0{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+    balance: Uint256
+) {
+    let (token0) = _token0.read();
+    let (address) = get_contract_address();
+    let (balance) = IERC20.balanceOf(contract_address=token0, account=address);
+    return (balance,);
+}
+
+@view
+func balance1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+    balance: Uint256
+) {
+    let (token1) = _token1.read();
+    let (address) = get_contract_address();
+    let (balance) = IERC20.balanceOf(contract_address=token1, account=address);
+    return (balance,);
 }
 
 @external
@@ -637,7 +659,6 @@ func swap{
     let (is_valid) = uint256_eq(amount_specified, Uint256(0, 0));
     assert is_valid = 0;
 
-    // TODO: prevent reentry?
     _lock();
 
     let (slot0: SlotState) = _slot0.read();
@@ -880,6 +901,7 @@ func _modify_position{
     return (position, Uint256(0, 0), Uint256(0, 0));
 }
 
+// TODO: call_data
 @external
 func add_liquidity{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
@@ -1013,6 +1035,7 @@ func set_fee_protocol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
 }
 
 func _collect_1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    owner: felt,
     recipient: felt,
     tick_lower: felt,
     tick_upper: felt,
@@ -1042,7 +1065,7 @@ func _collect_1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
             tokens_owed0=tokens_owed0,
             tokens_owed1=tokens_owed1,
         );
-        PositionMgr.set(recipient, tick_lower, tick_upper, new_position);
+        PositionMgr.set(owner, tick_lower, tick_upper, new_position);
 
         let (token0) = _token0.read();
         _transfer_token_cond(flag1, token0, recipient, Uint256(amount0, 0));
@@ -1066,7 +1089,9 @@ func collect{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
 
     _lock();
 
-    let (position: PositionInfo) = PositionMgr.get(recipient, tick_lower, tick_upper);
+    let (caller_address) = get_caller_address();
+
+    let (position: PositionInfo) = PositionMgr.get(caller_address, tick_lower, tick_upper);
 
     // TODO: why collect use uint128 for amount0 and amount1
     let (is_valid) = Utils.is_gt(amount0_requested, position.tokens_owed0);
@@ -1075,12 +1100,12 @@ func collect{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     let (is_valid) = Utils.is_gt(amount1_requested, position.tokens_owed1);
     let (amount1) = Utils.cond_assign(is_valid, position.tokens_owed1, amount1_requested);
 
-    _collect_1(recipient, tick_lower, tick_upper, amount0, amount1, position);
+    _collect_1(caller_address, recipient, tick_lower, tick_upper, amount0, amount1, position);
 
     _unlock();
 
     Collect.emit(
-        recipient, tick_lower, tick_upper, amount0_requested, amount1_requested, amount0, amount1
+        caller_address, recipient, tick_lower, tick_upper, amount0_requested, amount1_requested, amount0, amount1
     );
 
     return (amount0, amount1);
