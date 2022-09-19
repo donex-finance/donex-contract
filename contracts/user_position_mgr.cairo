@@ -1,8 +1,11 @@
 %lang starknet
 
-from starkware.starknet.common.syscalls import (get_caller_address, get_contract_address)
+from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
 from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_add, uint256_lt, uint256_sub
+from starkware.cairo.common.math_cmp import is_le
+
+from openzeppelin.token.erc721.IERC721 import IERC721
 
 from contracts.interface.IERC721Mintable import IERC721Mintable
 from contracts.interface.ISwapPool import ISwapPool
@@ -299,6 +302,26 @@ func increase_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     return (liquidity, amount0, amount1);
 }
 
+func _check_approverd_or_owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr} (
+    address: felt,
+    token_id: Uint256,
+) {
+    alloc_locals;
+
+    let (erc721_contract) = _erc721_contract.read();
+    let (owner) = IERC721.ownerOf(contract_address=erc721_contract, tokenId=token_id);
+    if (owner == address) {
+        return ();
+    }
+
+    let (approver) = IERC721.getApproved(contract_address=erc721_contract, tokenId=token_id);
+
+    with_attr error_message("_check_approverd_or_owner failed") {
+        assert approver = address;
+    }
+    return ();
+}
+
 @external
 func decrease_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
     token_id: Uint256,
@@ -311,7 +334,9 @@ func decrease_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
 ) {
     alloc_locals;
 
-    //TODO: check the token_id owner
+    // check the token_id owner
+    let (caller) = get_caller_address();
+    _check_approverd_or_owner(caller, token_id);
 
     let (is_valid) = Utils.is_gt(liquidity, 0);
     with_attr error_message("liquidity must be greater than 0") {
@@ -319,7 +344,7 @@ func decrease_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     }
 
     let (position: UserPosition) = _positions.read(token_id);
-    let (is_valid) = is_le(liquidity, position.liquidity);
+    let is_valid = is_le(liquidity, position.liquidity);
     with_attr error_message("liquidity must be less than or equal to the position liquidity") {
         assert is_valid = 1;
     }
@@ -447,8 +472,8 @@ func collect{
 ) {
     alloc_locals;
 
-    // TODO: check approve
-    // TODO: check token_id owner
+    let (caller) = get_caller_address();
+    _check_approverd_or_owner(caller, token_id);
 
     let (flag1) = Utils.is_lt(0, amount0_max);
     let (flag2) = Utils.is_lt(0, amount1_max);
@@ -499,6 +524,10 @@ func collect{
 
 @external
 func burn{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(token_id: Uint256) {
+    alloc_locals;
+
+    let (caller) = get_caller_address();
+    _check_approverd_or_owner(caller, token_id);
     let (position: UserPosition) = _positions.read(token_id);
 
     with_attr error_message("user_position_mgr: position not clear") {
@@ -509,7 +538,7 @@ func burn{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(token
 
     _positions.write(token_id, UserPosition(0, 0, 0, 0, Uint256(0, 0), Uint256(0, 0), 0, 0));
 
-    // TODO: delegate call for get_caller_address
+    // TODO: get approved
     let (erc721_contract) = _erc721_contract.read();
     IERC721Mintable.burn(contract_address=erc721_contract, tokenId=token_id);
 
