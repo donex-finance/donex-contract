@@ -134,7 +134,7 @@ namespace LiquidityAmounts {
         if (is_valid == 1) {
             let (liquidity0) = get_liquidity_for_amount0(sqrt_ratio, sqrt_ratio1, amount0);
             let (liquidity1) = get_liquidity_for_amount1(sqrt_ratio0, sqrt_ratio, amount1);
-            let (liquidity) = Utils.min(liquidity0, liquidity1);
+            let liquidity = Utils.min(liquidity0, liquidity1);
             return (liquidity,);
         }
 

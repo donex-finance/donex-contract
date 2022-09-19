@@ -91,19 +91,19 @@ namespace Utils {
         return (res,);
     }
 
-    func min{range_check_ptr}(a: felt, b: felt) -> (res: felt) {
+    func min{range_check_ptr}(a: felt, b: felt) -> felt {
         let is_valid = is_le(a, b);
         if (is_valid == 1) {
-            return (a,);
+            return a;
         }
-        return (b,);
+        return b;
     }
 
-    func max{range_check_ptr}(a: felt, b: felt) -> (res: felt) {
+    func max{range_check_ptr}(a: felt, b: felt) -> felt {
         let is_valid = is_le(a, b);
         if (is_valid == 1) {
-            return (b,);
+            return b;
         }
-        return (a,);
+        return a;
     }
 }

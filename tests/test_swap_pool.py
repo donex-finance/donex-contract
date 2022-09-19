@@ -526,6 +526,13 @@ class SwapPoolTest(TestCase):
         await contract.initialize(price).execute()
         res = await contract.add_liquidity(address, int_to_felt(min_tick), max_tick, expand_to_18decimals(2)).execute()
 
+        # remove more liquidity more than have
+        new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
+        await assert_revert(
+            new_contract.remove_liquidity(int_to_felt(min_tick), max_tick, expand_to_18decimals(3)).execute(caller_address=address),
+            "safe_add: minus result"
+        )
+
         # does not clear the position fee growth snapshot if no more liquidity
         new_contract = cached_contract(contract.state.copy(), self.contract_def, self.contract)
         res = await new_contract.add_liquidity(other_address, int_to_felt(min_tick), max_tick, expand_to_18decimals(1)).execute()
