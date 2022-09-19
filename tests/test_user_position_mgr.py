@@ -201,7 +201,8 @@ class UserPositionMgrTest(TestCase):
     @pytest.mark.asyncio
     async def test_collect(self):
         user_position, swap_pool, erc721  = await self.get_user_position_contract()
-        res = await user_position.mint(other_address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute()
+        res = await user_position.mint(other_address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0)).execute()
+        res = await user_position.mint(address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0)).execute()
 
         token_id = to_uint(1)
 
@@ -241,4 +242,49 @@ class UserPositionMgrTest(TestCase):
                 49,
                 0
             ]
+        )
+
+    @pytest.mark.asyncio
+    async def test_burn(self):
+        user_position, swap_pool, erc721  = await self.get_user_position_contract()
+        res = await user_position.mint(other_address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute()
+
+        token_id = to_uint(1)
+
+        # cannot be called by other addresses
+        await assert_revert(
+            user_position.burn(token_id).execute(caller_address=address),
+            "_check_approverd_or_owner failed"
+        )
+
+        # cannot be called while there is still liquidity
+        await assert_revert(
+            user_position.burn(token_id).execute(caller_address=other_address),
+            "user_position_mgr: position not clear"
+        )
+
+        # cannot be called while there is still partial liquidity
+        new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
+        res = await new_user_position.decrease_liquidity(token_id, 50, to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        await assert_revert(
+            new_user_position.burn(token_id).execute(caller_address=other_address),
+            "user_position_mgr: position not clear"
+        )
+
+        # cannot be called while there is still tokens owed
+        new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
+        res = await new_user_position.decrease_liquidity(token_id, 100, to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        await assert_revert(
+            new_user_position.burn(token_id).execute(caller_address=other_address),
+            "user_position_mgr: position not clear"
+        )
+
+        # cannot be called while there is still tokens owed
+        res = await user_position.decrease_liquidity(token_id, 100, to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await user_position.collect(token_id, address, MAX_UINT128, MAX_UINT128).execute(caller_address=other_address)
+        #await erc721.approve(user_position.contract_address, token_id).execute(caller_address=other_address)
+        res = await user_position.burn(token_id).execute(caller_address=other_address)
+        await assert_revert(
+            user_position.get_token_position(token_id).call(),
+            "invalid token id"
         )

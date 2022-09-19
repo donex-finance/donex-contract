@@ -70,6 +70,10 @@ func get_token_position{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     token_id: Uint256
 ) -> (position: UserPosition) {
     let (position: UserPosition) = _positions.read(token_id);
+    let (is_valid) = Utils.is_eq(position.pool_address, 0);
+    with_attr error_message("invalid token id") {
+        assert is_valid = 0;
+    }
     return (position,);
 }
 
@@ -538,9 +542,9 @@ func burn{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(token
 
     _positions.write(token_id, UserPosition(0, 0, 0, 0, Uint256(0, 0), Uint256(0, 0), 0, 0));
 
-    // TODO: get approved
-    let (erc721_contract) = _erc721_contract.read();
-    IERC721Mintable.burn(contract_address=erc721_contract, tokenId=token_id);
+    // TODO: cannot remove from
+    //let (erc721_contract) = _erc721_contract.read();
+    //IERC721Mintable.burn(contract_address=erc721_contract, tokenId=token_id);
 
     return ();
 }
