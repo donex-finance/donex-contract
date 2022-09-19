@@ -123,7 +123,7 @@ func register_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range
 }
 
 @external
-func intialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func initialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     erc721_contract: felt
 ) {
     // only can be initilize once
@@ -205,7 +205,7 @@ func mint{
 
     // mint the erc721
     let (erc721_contract) = _erc721_contract.read();
-    IERC721Mintable.mint(contract_address=erc721_contract, to=recipient, tokenId=cur_token_id);
+    IERC721Mintable.mint(contract_address=erc721_contract, to=recipient, tokenId=new_token_id);
 
     let (slot_pos: PositionInfo) = ISwapPool.get_position(
         contract_address=pool_address, owner=this_address, tick_lower=tick_lower, tick_upper=tick_upper
