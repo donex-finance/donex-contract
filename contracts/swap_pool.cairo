@@ -1,7 +1,7 @@
 %lang starknet
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
-from starkware.starknet.common.syscalls import (get_caller_address, get_contract_address)
+from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
 from starkware.cairo.common.uint256 import (
     Uint256,
     uint256_mul,
@@ -34,6 +34,7 @@ from contracts.tickmath import TickMath
 from contracts.math_utils import Utils
 from contracts.fullmath import FullMath
 from contracts.sqrt_price_math import SqrtPriceMath
+from contracts.interface.ISwapPoolCallback import ISwapPoolCallback
 
 struct SlotState {
     sqrt_price_x96: Uint256,
@@ -310,11 +311,12 @@ func initialize{
 }
 
 func _transfer_token{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    token_contract: felt, to: felt, value: Uint256
+    token_contract: felt, recipient: felt, amount: Uint256
 ) {
     alloc_locals;
-    // TODO: transfer token
-    TransferToken.emit(token_contract, to, value);
+    // transfer token
+    IERC20.transfer(contract_address=token_contract, recipient=recipient, amount=amount);
+    TransferToken.emit(token_contract, recipient, amount);
     return ();
 }
 
@@ -901,11 +903,70 @@ func _modify_position{
     return (position, Uint256(0, 0), Uint256(0, 0));
 }
 
-// TODO: call_data
+func _add_liquidity_callback_1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(flag: felt) -> (res: Uint256) {
+    if (flag == 1) {
+        let (balance: Uint256) = balance0();
+        return (balance,);
+    }
+    return (Uint256(0, 0),);
+}
+
+func _add_liquidity_callback_2{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(flag: felt) -> (res: Uint256) {
+    if (flag == 1) {
+        let (balance: Uint256) = balance1();
+        return (balance,);
+    }
+    return (Uint256(0, 0),);
+}
+
+func _add_liquidity_callback_3{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(flag: felt, balance0_before: Uint256, amount0: Uint256) {
+    if (flag == 1) {
+        let (balance0_after) = balance0();
+        let (tmp: Uint256) = Utils.uint256_safe_add(balance0_before, amount0);
+        let (is_valid) = uint256_le(tmp, balance0_after);
+        with_attr error_message("token0 balance illegal") {
+            assert is_valid = 1;
+        }
+        return ();
+    }
+    return ();
+}
+
+func _add_liquidity_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    amount0: Uint256,
+    amount1: Uint256,
+    data: felt
+) {
+    alloc_locals;
+
+    let (flag1) = uint256_lt(Uint256(0, 0), amount0);
+    let (flag2) = uint256_lt(Uint256(0, 0), amount1);
+
+    let (balance0_before: Uint256) = _add_liquidity_callback_1(flag1);
+    let (balance1_before: Uint256) = _add_liquidity_callback_2(flag2);
+
+    let (caller) = get_caller_address();
+    ISwapPoolCallback.add_liquidity_callback(contract_address=caller, amount0=amount0, amount1=amount1, data=data);
+
+    _add_liquidity_callback_3(flag1, balance0_before, amount0);
+
+    if (flag2 == 1) {
+        let (balance1_after) = balance1();
+        let (tmp: Uint256) = Utils.uint256_safe_add(balance1_before, amount1);
+        let (is_valid) = uint256_le(tmp, balance1_after);
+        with_attr error_message("token1 balance illegal") {
+            assert is_valid = 1;
+        }
+        return ();
+    }
+
+    return ();
+}
+
 @external
 func add_liquidity{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
-}(recipient: felt, tick_lower: felt, tick_upper: felt, amount: felt) -> (
+}(recipient: felt, tick_lower: felt, tick_upper: felt, amount: felt, data: felt) -> (
     amount0: Uint256, amount1: Uint256
 ) {
     alloc_locals;
@@ -924,10 +985,9 @@ func add_liquidity{
         ),
     );
 
-    // TODO: transfer
-
-    // TODO: data
-    // TODO: callback for contract
+    // transfer callback
+    // check balance
+    _add_liquidity_callback(amount0, amount1, data);
 
     _unlock();
 

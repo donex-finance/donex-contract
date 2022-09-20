@@ -8,6 +8,7 @@ from starkware.cairo.common.uint256 import (
     uint256_sub,
     uint256_add,
     uint256_signed_nn,
+    uint256_lt,
 )
 
 namespace Utils {
@@ -88,6 +89,14 @@ namespace Utils {
             return (res2,);
         }
 
+        return (res,);
+    }
+
+    func uint256_safe_add{range_check_ptr}(a: Uint256, b: Uint256) -> (res: Uint256) {
+        let (res: Uint256, is_overflow) = uint256_add(a, b);
+        with_attr error_message("uint256_safe_add: overflow") {
+            assert is_overflow = 0;
+        }
         return (res,);
     }
 

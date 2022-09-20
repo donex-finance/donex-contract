@@ -234,10 +234,9 @@ def get_min_tick(tick_spacing):
 def get_max_tick(tick_spacing):
     return math.floor(887272 / tick_spacing) * tick_spacing
 
-async def init_contract(contract_file, constructor_calldata=None):
-    begin = time.time()
-    starknet = await Starknet.empty()
-    print('create starknet time:', time.time() - begin)
+async def init_contract(contract_file, constructor_calldata=None, starknet=None):
+    if not starknet:
+        starknet = await Starknet.empty()
     begin = time.time()
     compiled_contract = compile_starknet_files(
         [contract_file], debug_info=True, disable_hint_validation=True
