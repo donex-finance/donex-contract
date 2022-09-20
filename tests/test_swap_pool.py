@@ -232,6 +232,10 @@ class SwapPoolTest(TestCase):
     @pytest.mark.asyncio
     async def test_add_liquidity_succuss(self):
         contract, swap_target = await self.get_state_contract()
+        state = contract.state.copy()
+        contract, swap_target = await self.get_state_contract(state)
+        token0 = cached_contract(state, self.token0_def, self.token0)
+        token1 = cached_contract(state, self.token1_def, self.token1)
         price = to_uint(25054144837504793118650146401)
         await contract.initialize(price).execute()
         res = await self.add_liquidity(swap_target, contract, address, min_tick, max_tick, 3161)
@@ -239,6 +243,10 @@ class SwapPoolTest(TestCase):
         amount1 = from_uint(res.call_info.result[2: 4])
         self.assertEqual(amount0, 9996)
         self.assertEqual(amount1, 1000)
+        res = await token0.balanceOf(contract.contract_address).call()
+        self.assertEqual(res.call_info.result[0], 9996)
+        res = await token1.balanceOf(contract.contract_address).call()
+        self.assertEqual(res.call_info.result[0], 1000)
 
         res = await contract.get_cur_slot().call()
         tick = felt_to_int(res.call_info.result[2])
