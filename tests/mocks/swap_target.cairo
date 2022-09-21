@@ -45,8 +45,9 @@ func add_liquidity_callback{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 }(
     token0: felt,
-    amount0: Uint256, 
     token1: felt,
+    fee: felt,
+    amount0: Uint256, 
     amount1: Uint256, 
     data: felt
 ) {
@@ -69,8 +70,9 @@ func swap{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
 @external
 func swap_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     token0: felt,
-    amount0: Uint256, 
     token1: felt,
+    fee: felt,
+    amount0: Uint256, 
     amount1: Uint256, 
     data: felt
 ) {

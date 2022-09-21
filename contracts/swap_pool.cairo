@@ -661,6 +661,7 @@ func _swap_4{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
 
     let (token0) = _token0.read();
     let (token1) = _token1.read();
+    let (fee) = _fee.read();
     let (caller) = get_caller_address();
     if (zero_for_one == 1) {
         let (flag) = uint256_signed_nn(amount1);
@@ -668,7 +669,7 @@ func _swap_4{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         let (abs_amount1: Uint256) = uint256_neg(amount1);
         _transfer_token_cond(is_valid, token1, recipient, abs_amount1);
         let (balance_before) = balance0();
-        ISwapPoolCallback.swap_callback(contract_address=caller, token0=token0, amount0=amount0, token1=token1, amount1=amount1, data=data);
+        ISwapPoolCallback.swap_callback(contract_address=caller, token0=token0, token1=token1, fee=fee, amount0=amount0, amount1=amount1, data=data);
         let (balance_after: Uint256) = balance0();
         let (tmp: Uint256) = Utils.uint256_safe_add(balance_before, amount0);
         let (is_valid) = uint256_le(tmp, balance_after);
@@ -683,7 +684,7 @@ func _swap_4{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     let (abs_amount0: Uint256) = uint256_neg(amount0);
     _transfer_token_cond(is_valid, token0, recipient, abs_amount0);
     let (balance1_before) = balance1();
-    ISwapPoolCallback.swap_callback(contract_address=caller, token0=token0, amount0=amount0, token1=token1, amount1=amount1, data=data);
+    ISwapPoolCallback.swap_callback(contract_address=caller, token0=token0, token1=token1, fee=fee, amount0=amount0, amount1=amount1, data=data);
     let (balance_after: Uint256) = balance1();
     let (tmp: Uint256) = Utils.uint256_safe_add(balance1_before, amount1);
     let (is_valid) = uint256_le(tmp, balance_after);
@@ -995,7 +996,8 @@ func _add_liquidity_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ran
     let (caller) = get_caller_address();
     let (token0) = _token0.read();
     let (token1) = _token1.read();
-    ISwapPoolCallback.add_liquidity_callback(contract_address=caller, token0=token0, amount0=amount0, token1=token1, amount1=amount1, data=data);
+    let (fee) = _fee.read();
+    ISwapPoolCallback.add_liquidity_callback(contract_address=caller, token0=token0, token1=token1, fee=fee, amount0=amount0, amount1=amount1, data=data);
 
     _add_liquidity_callback_3(flag1, balance0_before, amount0);
 

@@ -327,12 +327,17 @@ func add_liquidity_callback{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 }(
     token0: felt,
-    amount0: Uint256, 
     token1: felt,
+    fee: felt,
+    amount0: Uint256, 
     amount1: Uint256, 
     data: felt
 ) {
     let (caller_address) = get_caller_address();
+    // verify callback
+    let (pool_address) = get_pool_address(token0, token1, fee);
+    assert caller_address = pool_address;
+
     IERC20.transferFrom(contract_address=token0, sender=data, recipient=caller_address, amount=amount0);
     IERC20.transferFrom(contract_address=token1, sender=data, recipient=caller_address, amount=amount1);
 
