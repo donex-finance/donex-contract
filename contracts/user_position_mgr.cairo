@@ -6,6 +6,7 @@ from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_add, uin
 from starkware.cairo.common.math_cmp import is_le
 
 from openzeppelin.token.erc721.IERC721 import IERC721
+from openzeppelin.token.erc20.IERC20 import IERC20
 
 from contracts.interface.IERC721Mintable import IERC721Mintable
 from contracts.interface.ISwapPool import ISwapPool
@@ -26,6 +27,12 @@ struct UserPosition {
     tokens_owed1: felt,
 }
 
+struct PoolInfo {
+    token0: felt,
+    token1: felt,
+    fee: felt,
+}
+
 // storage
 
 @storage_var
@@ -42,6 +49,10 @@ func _erc721_contract() -> (address: felt) {
 
 @storage_var
 func _swap_pools(token0: felt, token1: felt, fee: felt) -> (address: felt) {
+}
+
+@storage_var
+func _pool_infos(pool_address: felt) -> (info: PoolInfo) {
 }
 
 // event
@@ -106,6 +117,7 @@ func _write_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
     let token_a = Utils.min(token0, token1);
     let token_b = Utils.max(token0, token1);
     _swap_pools.write(token_a, token_b, fee, address);
+    _pool_infos.write(address, PoolInfo(token_a, token_b, fee));
     return ();
 }
 
@@ -193,12 +205,14 @@ func mint{
     );
 
     let (this_address) = get_contract_address();
+    let (caller) = get_caller_address();
     let (amount0: Uint256, amount1: Uint256) = ISwapPool.add_liquidity(
         contract_address=pool_address,
         recipient=this_address,
         tick_lower=tick_lower,
         tick_upper=tick_upper,
         liquidity=liquidity,
+        data=caller
     );
     let (flag1) = uint256_le(amount0_min, amount0);
     let (flag2) = uint256_le(amount1_min, amount1);
@@ -255,13 +269,15 @@ func increase_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
         pool_address, tick_lower, tick_upper, amount0_desired, amount1_desired
     );
 
-    let(this_address) = get_contract_address();
+    let (this_address) = get_contract_address();
+    let (caller) = get_caller_address();
     let (amount0: Uint256, amount1: Uint256) = ISwapPool.add_liquidity(
         contract_address=pool_address,
         recipient=this_address,
         tick_lower=tick_lower,
         tick_upper=tick_upper,
         liquidity=liquidity,
+        data=caller
     );
     let (flag1) = uint256_le(amount0_min, amount0);
     let (flag2) = uint256_le(amount1_min, amount1);
@@ -304,6 +320,23 @@ func increase_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     IncreaseLiquidity.emit(token_id, liquidity, amount0, amount1);
 
     return (liquidity, amount0, amount1);
+}
+
+@external
+func add_liquidity_callback{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
+}(
+    token0: felt,
+    amount0: Uint256, 
+    token1: felt,
+    amount1: Uint256, 
+    data: felt
+) {
+    let (caller_address) = get_caller_address();
+    IERC20.transferFrom(contract_address=token0, sender=data, recipient=caller_address, amount=amount0);
+    IERC20.transferFrom(contract_address=token1, sender=data, recipient=caller_address, amount=amount1);
+
+    return ();
 }
 
 func _check_approverd_or_owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr} (

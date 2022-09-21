@@ -34,9 +34,6 @@ max_tick = get_max_tick(tick_spacing)
 address = 11111111111111
 other_address = 222222222222222
 
-token0 = 0
-token1 = 1
-
 async def init_user_position_contract(starknet):
     begin = time.time()
     compiled_contract = compile_starknet_files(
@@ -55,7 +52,7 @@ async def init_user_position_contract(starknet):
 
     return compiled_contract, contract
 
-async def init_swap_pool(starknet):
+async def init_swap_pool(starknet, token0, token1):
     begin = time.time()
     compiled_contract = compile_starknet_files(
         ['contracts/swap_pool.cairo'], debug_info=True, disable_hint_validation=True
@@ -97,9 +94,19 @@ class UserPositionMgrTest(TestCase):
     async def setUp(cls):
         pass
 
-    async def get_user_position_contract(self):
-        if not hasattr(self, 'user_position'):
+    async def check_starknet(self):
+        if not hasattr(self, 'starknet'):
             self.starknet = await Starknet.empty()
+            self.token0_def, self.token0 = await init_contract(os.path.join("tests", "mocks/ERC20_mock.cairo"), [1, 1, 18, MAX_UINT128, MAX_UINT128, address], starknet=self.starknet)
+            await self.token0.transfer(other_address, (MAX_UINT128, 2 ** 127)).execute(caller_address=address)
+            self.token1_def, self.token1 = await init_contract(os.path.join("tests", "mocks/ERC20_mock.cairo"), [2, 2, 18, MAX_UINT128, MAX_UINT128, address], starknet=self.starknet)
+            await self.token1.transfer(other_address, (MAX_UINT128, 2 ** 127)).execute(caller_address=address)
+
+
+    async def get_user_position_contract(self):
+        await self.check_starknet()
+
+        if not hasattr(self, 'user_position'):
             self.user_position_def, self.user_position = await init_user_position_contract(self.starknet)
 
             # erc721
@@ -107,9 +114,15 @@ class UserPositionMgrTest(TestCase):
             await self.user_position.initialize(self.erc721.contract_address).execute(caller_address=address)
 
             # swap pool
-            self.swap_pool_def, self.swap_pool = await init_swap_pool(self.starknet)
+            self.swap_pool_def, self.swap_pool = await init_swap_pool(self.starknet, self.token0.contract_address, self.token1.contract_address)
             await self.swap_pool.initialize(encode_price_sqrt(1, 1)).execute()
-            await self.user_position.register_pool_address(token0, token1, FeeAmount.MEDIUM, self.swap_pool.contract_address).execute(caller_address=address)
+            await self.user_position.register_pool_address(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, self.swap_pool.contract_address).execute(caller_address=address)
+
+            await self.token0.approve(self.user_position.contract_address, to_uint(2 ** 256 - 1)).execute(caller_address=address)
+            await self.token1.approve(self.user_position.contract_address, to_uint(2 ** 256 - 1)).execute(caller_address=address)
+
+            await self.token0.approve(self.user_position.contract_address, to_uint(2 ** 256 - 1)).execute(caller_address=other_address)
+            await self.token1.approve(self.user_position.contract_address, to_uint(2 ** 256 - 1)).execute(caller_address=other_address)
 
         state = self.user_position.state.copy()
         user_position = cached_contract(state, self.user_position_def, self.user_position)
@@ -124,7 +137,7 @@ class UserPositionMgrTest(TestCase):
     async def test_mint(self):
 
         user_position, swap_pool, erc721  = await self.get_user_position_contract()
-        res = await user_position.mint(other_address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0)).execute()
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0)).execute(caller_address=other_address)
 
         # check nft
         res = await erc721.balanceOf(other_address).call()
@@ -145,12 +158,12 @@ class UserPositionMgrTest(TestCase):
     @pytest.mark.asyncio
     async def test_increase_liquidity(self):
         user_position, swap_pool, erc721  = await self.get_user_position_contract()
-        res = await user_position.mint(other_address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000), to_uint(1000), to_uint(0), to_uint(0)).execute()
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000), to_uint(1000), to_uint(0), to_uint(0)).execute(caller_address=other_address)
 
         token_id = to_uint(1)
 
         # increases position liquidity
-        res = await user_position.increase_liquidity(token_id, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute()
+        res = await user_position.increase_liquidity(token_id, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute(caller_address=other_address)
         res = await user_position.get_token_position(to_uint(1)).call()
         position = res.call_info.result
         self.assertEqual(position[3], 1100) # liquidity
@@ -158,7 +171,7 @@ class UserPositionMgrTest(TestCase):
     @pytest.mark.asyncio
     async def test_decrease_liquidity(self):
         user_position, swap_pool, erc721  = await self.get_user_position_contract()
-        res = await user_position.mint(other_address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute()
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute(caller_address=other_address)
 
         token_id = to_uint(1)
 
@@ -192,7 +205,7 @@ class UserPositionMgrTest(TestCase):
 
         # cannot decrease for more than the liquidity of the nft position
         new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
-        res = await new_user_position.mint(other_address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(200), to_uint(100), to_uint(0), to_uint(0)).execute()
+        res = await new_user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(200), to_uint(100), to_uint(0), to_uint(0)).execute(caller_address=other_address)
         await assert_revert(
             new_user_position.decrease_liquidity(token_id, 101, to_uint(0), to_uint(0)).execute(caller_address=other_address),
             "liquidity must be less than or equal to the position liquidity"
@@ -201,8 +214,8 @@ class UserPositionMgrTest(TestCase):
     @pytest.mark.asyncio
     async def test_collect(self):
         user_position, swap_pool, erc721  = await self.get_user_position_contract()
-        res = await user_position.mint(other_address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0)).execute()
-        res = await user_position.mint(address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0)).execute()
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await user_position.mint(address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0)).execute(caller_address=address)
 
         token_id = to_uint(1)
 
@@ -226,7 +239,7 @@ class UserPositionMgrTest(TestCase):
             from_address=swap_pool.contract_address,
             name='TransferToken',
             data=[
-                token0,
+                self.token0.contract_address,
                 address, 
                 49,
                 0
@@ -237,7 +250,7 @@ class UserPositionMgrTest(TestCase):
             from_address=swap_pool.contract_address,
             name='TransferToken',
             data=[
-                token1,
+                self.token1.contract_address,
                 address, 
                 49,
                 0
@@ -247,7 +260,7 @@ class UserPositionMgrTest(TestCase):
     @pytest.mark.asyncio
     async def test_burn(self):
         user_position, swap_pool, erc721  = await self.get_user_position_contract()
-        res = await user_position.mint(other_address, token0, token1, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute()
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute(caller_address=other_address)
 
         token_id = to_uint(1)
 

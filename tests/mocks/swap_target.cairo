@@ -44,12 +44,12 @@ func add_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
 func add_liquidity_callback{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 }(
+    token0: felt,
     amount0: Uint256, 
+    token1: felt,
     amount1: Uint256, 
     data: felt
 ) {
-    let (token0) = _token0.read();
-    let (token1) = _token1.read();
     let (caller_address) = get_caller_address();
     IERC20.transferFrom(contract_address=token0, sender=data, recipient=caller_address, amount=amount0);
     IERC20.transferFrom(contract_address=token1, sender=data, recipient=caller_address, amount=amount1);
@@ -68,7 +68,9 @@ func swap{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
 
 @external
 func swap_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    token0: felt,
     amount0: Uint256, 
+    token1: felt,
     amount1: Uint256, 
     data: felt
 ) {
@@ -78,14 +80,12 @@ func swap_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
     let (caller_address) = get_caller_address();
     let (flag1) = uint256_signed_lt(Uint256(0, 0), amount0);
     if (flag1 == 1) {
-        let (token0) = _token0.read();
         IERC20.transferFrom(contract_address=token0, sender=data, recipient=caller_address, amount=amount0);
         return ();
     }
 
     let (flag2) = uint256_signed_lt(Uint256(0, 0), amount1);
     if (flag2 == 1) {
-        let (token1) = _token1.read();
         IERC20.transferFrom(contract_address=token1, sender=data, recipient=caller_address, amount=amount1);
         return ();
     }
