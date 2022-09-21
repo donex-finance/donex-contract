@@ -21,7 +21,7 @@ from starkware.cairo.common.uint256 import (
 )
 from starkware.cairo.common.bool import FALSE, TRUE
 from starkware.cairo.common.math import unsigned_div_rem
-from starkware.cairo.common.math_cmp import is_le
+from starkware.cairo.common.math_cmp import is_le, is_nn
 
 from openzeppelin.token.erc20.IERC20 import IERC20
 from openzeppelin.access.ownable.library import Ownable
@@ -650,11 +650,55 @@ func _swap_3{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     return (amount0, amount1);
 }
 
+func _swap_4{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    zero_for_one: felt, 
+    amount0: Uint256, 
+    amount1: Uint256, 
+    recipient: felt, 
+    data: felt
+) {
+    alloc_locals;
+
+    let (caller) = get_caller_address();
+    if (zero_for_one == 1) {
+        let (flag) = uint256_signed_nn(amount1);
+        let (is_valid) = Utils.is_eq(flag, 0);
+        let (token1) = _token1.read();
+        let (abs_amount1: Uint256) = uint256_neg(amount1);
+        _transfer_token_cond(is_valid, token1, recipient, abs_amount1);
+        let (balance_before) = balance0();
+        ISwapPoolCallback.swap_callback(contract_address=caller, amount0=amount0, amount1=amount1, data=data);
+        let (balance_after: Uint256) = balance0();
+        let (tmp: Uint256) = Utils.uint256_safe_add(balance_before, amount0);
+        let (is_valid) = uint256_le(tmp, balance_after);
+        with_attr error_message("transfer token0 failed") {
+            assert is_valid = 1;
+        }
+        return ();
+    }
+
+    let (flag) = uint256_signed_nn(amount0);
+    let (is_valid) = Utils.is_eq(flag, 0);
+    let (token0) = _token0.read();
+    let (abs_amount0: Uint256) = uint256_neg(amount0);
+    _transfer_token_cond(is_valid, token0, recipient, abs_amount0);
+    let (balance1_before) = balance1();
+    ISwapPoolCallback.swap_callback(contract_address=caller, amount0=amount0, amount1=amount1, data=data);
+    let (balance_after: Uint256) = balance1();
+    let (tmp: Uint256) = Utils.uint256_safe_add(balance1_before, amount1);
+    let (is_valid) = uint256_le(tmp, balance_after);
+    with_attr error_message("transfer token1 failed") {
+        assert is_valid = 1;
+    }
+    return ();
+}
+
+// @params amount_specified: int256
 @external
 func swap{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
 }(
-    recipient: felt, zero_for_one: felt, amount_specified: Uint256, sqrt_price_limit_x96: Uint256
+    recipient: felt, zero_for_one: felt, amount_specified: Uint256, sqrt_price_limit_x96: Uint256, data: felt
 ) -> (amount0: Uint256, amount1: Uint256) {
     alloc_locals;
 
@@ -668,7 +712,7 @@ func swap{
 
     let (liquidity_start) = _liquidity.read();
 
-    let (exact_input) = uint256_lt(Uint256(0, 0), amount_specified);
+    let (exact_input) = uint256_signed_lt(Uint256(0, 0), amount_specified);
 
     if (zero_for_one == 1) {
         let (fee_growth: Uint256) = _fee_growth_global0_x128.read();
@@ -706,6 +750,9 @@ func swap{
     let (amount0: Uint256, amount1: Uint256) = _swap_3(
         zero_for_one, exact_input, amount_specified, state
     );
+
+    // transfer and check balance
+    _swap_4(zero_for_one, amount0, amount1, recipient, data);
 
     _unlock();
 
@@ -1038,6 +1085,11 @@ func remove_liquidity{
     alloc_locals;
 
     _lock();
+
+    let is_valid = is_nn(amount);
+    with_attr error_message("remove_liquidity amount illegal") {
+        assert is_valid = 1;
+    }
 
     let (recipient) = get_caller_address();
 

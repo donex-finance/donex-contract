@@ -9,5 +9,6 @@ namespace ISwapPoolCallback {
     func add_liquidity_callback(amount0: Uint256, amount1: Uint256, data: felt) {
     }
 
-    
+    func swap_callback(amount0: Uint256, amount1: Uint256, data: felt) {
+    } 
 }
