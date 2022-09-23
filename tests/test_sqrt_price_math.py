@@ -21,7 +21,7 @@ MAXUint128 = to_uint(2 ** 128 - 1)
 # The path to the contract source code.
 CONTRACT_FILE = os.path.join("tests", "mocks/sqrt_price_math_mock.cairo")
 
-class FullMathTest(TestCase):
+class SqrtPriceMathTest(TestCase):
     @classmethod
     async def setUp(cls):
         cls.starknet = await Starknet.empty()
@@ -112,13 +112,15 @@ class FullMathTest(TestCase):
             "liquidity must be greater than 0"
         )
 
+        # fails if input amount overflows the price
         price = 2 ** 160 - 1
         res = await self.contract.get_next_sqrt_price_from_input(to_uint(price), 1024, to_uint(1024), 0).call()
         print(f'res = {res.call_info.result}')
 
-        #TODO:
+        #TODO: not possible
         #await assert_revert(
         #    self.contract.get_next_sqrt_price_from_input(to_uint(price), 1024, to_uint(1024), 0).call(),
+        #    ""
         #)
 
         res = await self.contract.get_next_sqrt_price_from_input(to_uint(1), 1, to_uint(2 ** 255), 1).call()
@@ -141,16 +143,16 @@ class FullMathTest(TestCase):
             price
         )
 
-        #TODO:
-        #price = 2 ** 160 - 1
-        #liquidity = 2 ** 128 - 1
-        #amount = 2 ** 256 -  (liquidity * 2 ** 96 // price)
-        #res = await self.contract.get_next_sqrt_price_from_input(to_uint(price), 2 ** 128 - 1, to_uint(amount), 1).call()
-        #self.assertEqual(
-        #    tuple(res.call_info.result),
-        #    to_uint(1),
-        #    "returns the minimum price for max inputs"
-        #)
+        # returns the minimum price for max inputs
+        price = 2 ** 160 - 1
+        liquidity = 2 ** 128 - 1
+        amount = 2 ** 256 - 1 - (liquidity * 2 ** 96 // price)
+        res = await self.contract.get_next_sqrt_price_from_input(to_uint(price), 2 ** 128 - 1, to_uint(amount), 1).call()
+        self.assertEqual(
+            tuple(res.call_info.result),
+            to_uint(1),
+            "returns the minimum price for max inputs"
+        )
 
         price = encode_price_sqrt(1, 1)
         print('price: ', from_uint(price))
