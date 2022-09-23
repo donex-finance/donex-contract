@@ -172,7 +172,8 @@ namespace SqrtPriceMath {
 
         // in both cases, avoid a mulDiv for most inputs
         if (add == TRUE) {
-            let (is_valid) = uint256_le(amount, Uint256(0, 0));
+            // amount <= 2 ** 160 - 1
+            let (is_valid) = uint256_le(amount, Uint256(2 ** 128 - 1, 2 ** 32 - 1));
             if (is_valid == 1) {
                 let (tmp: Uint256) = uint256_shl(amount, Uint256(96, 0));
                 let (quotient: Uint256, _) = uint256_unsigned_div_rem(tmp, Uint256(liquidity, 0));
@@ -187,7 +188,8 @@ namespace SqrtPriceMath {
         }
 
         local quotient: Uint256;
-        let (is_valid) = uint256_le(amount, Uint256(0, 0));
+        // amount <= 2 ** 160 - 1
+        let (is_valid) = uint256_le(amount, Uint256(2 ** 128 - 1, 2 ** 32 - 1));
         if (is_valid == 1) {
             let (tmp: Uint256) = uint256_shl(amount, Uint256(96, 0));
             let (quotient: Uint256) = FullMath.uint256_div_roundingup(tmp, Uint256(liquidity, 0));
