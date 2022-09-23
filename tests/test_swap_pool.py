@@ -59,7 +59,6 @@ class SwapPoolTest(TestCase):
             if self.token0.contract_address > self.token1.contract_address:
                 self.token0, self.token1 = self.token1, self.token0
                 self.token0_def, self.token1_def = self.token1_def, self.token0_def
-                print('!!!!!!!!!!!!!!!!!!!!!!!!!!change address', self.token0.contract_address, self.token1.contract_address)
 
             self.swap_target_def, self.swap_target = await init_contract("tests/mocks/swap_target.cairo", [self.token0.contract_address, self.token1.contract_address], starknet=self.starknet)
 
@@ -1304,57 +1303,63 @@ class SwapPoolTest(TestCase):
         res = await self.add_liquidity(new_swap_target, new_contract, address, 12, 24, 1)
         res = await self.add_liquidity(new_swap_target, new_contract, address, -144, -120, 1)
 
-        #TODO: swapping across gaps works in 1 for 0 direction
-        #new_contract = cached_contract(contract.state.copy(), contract_def, contract)
-        #liquidity_amount = expand_to_18decimals(1) // 4
-        #await new_contract.add_liquidity(address, 120000, 121200, liquidity_amount).execute()
-        #await self.swap_exact1_for0(contract, expand_to_18decimals(1), address)
-        #res = await new_contract.remove_liquidity(120000, 121200, liquidity_amount).execute(caller_address=address)
-        #await assert_event_emitted(
-        #    res,
-        #    from_address=new_contract.contract_address,
-        #    name='RemoveLiquidity',
-        #    data=[
-        #        address,
-        #        120000, 
-        #        121200,
-        #        liquidity_amount,
-        #        30027458295511,
-        #        0,
-        #        996999999999999999,
-        #        0
-        #    ]
-        #)
-        #res = await new_contract.get_cur_slot().call()
-        #tick = felt_to_int(res.call_info.result[2])
-        #self.assertEqual(tick, 120196)
+        # swapping across gaps works in 1 for 0 direction
+        state = contract.state.copy()
+        new_contract = cached_contract(state, contract_def, contract)
+        new_swap_target = cached_contract(state, self.swap_target_def, self.swap_target)
+        liquidity_amount = expand_to_18decimals(1) // 4
+        res = await self.add_liquidity(new_swap_target, new_contract, address, 120000, 121200, liquidity_amount)
+        await self.swap_exact1_for0(new_contract, expand_to_18decimals(1), address)
+        res = await new_contract.remove_liquidity(120000, 121200, liquidity_amount).execute(caller_address=address)
+        assert_event_emitted(
+            res,
+            from_address=new_contract.contract_address,
+            name='RemoveLiquidity',
+            data=[
+                address,
+                120000, 
+                121200,
+                liquidity_amount,
+                30027458295511,
+                0,
+                996999999999999999,
+                0
+            ]
+        )
+        res = await new_contract.get_cur_slot().call()
+        tick = felt_to_int(res.call_info.result[2])
+        self.assertEqual(tick, 120196)
 
         # swapping across gaps works in 0 for 1 direction
-        #new_contract = cached_contract(contract.state.copy(), contract_def, contract)
-        #liquidity_amount = expand_to_18decimals(1) // 4
-        #await new_contract.add_liquidity(address, -121200, 120000, liquidity_amount).execute()
-        #await self.swap_exact0_for1(contract, expand_to_18decimals(1), address)
-        #res = await new_contract.remove_liquidity(-121200, 120000, liquidity_amount).execute(caller_address=address)
-        #await assert_event_emitted(
-        #    res,
-        #    from_address=new_contract.contract_address,
-        #    name='RemoveLiquidity',
-        #    data=[
-        #        address,
-        #        120000, 
-        #        121200,
-        #        liquidity_amount,
-        #        996999999999999999,
-        #        0,
-        #        30027458295511,
-        #        0,
-        #    ]
-        #)
-        #res = await new_contract.get_cur_slot().call()
-        #tick = felt_to_int(res.call_info.result[2])
-        #self.assertEqual(tick, -120197)
+        state = contract.state.copy()
+        new_contract = cached_contract(state, contract_def, contract)
+        new_swap_target = cached_contract(state, self.swap_target_def, self.swap_target)
+        liquidity_amount = expand_to_18decimals(1) // 4
+        res = await self.add_liquidity(new_swap_target, new_contract, address, -121200, -120000, liquidity_amount)
+        await self.swap_exact0_for1(new_contract, expand_to_18decimals(1), address)
+        res = await new_contract.remove_liquidity(-121200, -120000, liquidity_amount).execute(caller_address=address)
+        print('res events: ', res.raw_events)
+        assert_event_emitted(
+            res,
+            from_address=new_contract.contract_address,
+            name='RemoveLiquidity',
+            data=[
+                address,
+                int_to_felt(-121200), 
+                int_to_felt(-120000),
+                liquidity_amount,
+                996999999999999999,
+                0,
+                30027458295511,
+                0,
+            ]
+        )
+        res = await new_contract.get_cur_slot().call()
+        tick = felt_to_int(res.call_info.result[2])
+        self.assertEqual(tick, -120197)
 
     '''
+    TODO
     @pytest.mark.asyncio
     async def test_issue(self):
 

@@ -18,7 +18,7 @@ from decimal import *
 # The path to the contract source code.
 CONTRACT_FILE = os.path.join("tests", "mocks/tick_mgr_mock.cairo")
 
-class CairoContractTest(TestCase):
+class TickMgrTest(TestCase):
     @classmethod
     async def setUp(cls):
         cls.starknet = await Starknet.empty()
@@ -162,10 +162,9 @@ class CairoContractTest(TestCase):
         print('res', res.call_info.result)
         res = await contract.update(0, 0, MAX_UINT128 // 2 - 1, to_uint(0), to_uint(0), 0, MAX_UINT128).execute()
         print('res', res.call_info.result)
-        #TODO
-        #await assert_revert(
-        #    contract.update(0, 0, MAX_UINT128 // 2 - 1, to_uint(0), to_uint(0), 0, MAX_UINT128).execute()
-        #)
+        await assert_revert(
+            contract.update(0, 0, MAX_UINT128 // 2 - 1, to_uint(0), to_uint(0), 0, MAX_UINT128).execute()
+        )
 
         contract = self.get_state_contract()
         res = await contract.update(1, 1, 1, to_uint(1), to_uint(2), 0, MAX_UINT128).execute()
