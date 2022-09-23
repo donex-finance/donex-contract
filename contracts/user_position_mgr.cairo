@@ -2,8 +2,8 @@
 
 from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
-from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_add, uint256_lt, uint256_sub
-from starkware.cairo.common.math_cmp import is_le
+from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_add, uint256_lt, uint256_sub, uint256_neg, uint256_eq, uint256_signed_lt
+from starkware.cairo.common.math_cmp import is_le, is_le_felt
 
 from openzeppelin.token.erc721.IERC721 import IERC721
 from openzeppelin.token.erc20.IERC20 import IERC20
@@ -584,5 +584,133 @@ func burn{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(token
     //let (erc721_contract) = _erc721_contract.read();
     //IERC721Mintable.burn(contract_address=erc721_contract, tokenId=token_id);
 
+    return ();
+}
+
+func _get_limit_price{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr} (
+    sqrt_price_limit: Uint256, 
+    zero_for_one: felt
+) -> (res: Uint256) {
+
+    alloc_locals;
+
+    let (flag) = uint256_eq(sqrt_price_limit, Uint256(0, 0));
+    if (flag == 1) {
+        if (zero_for_one == 1) {
+            let res: Uint256 = Uint256(TickMath.MIN_SQRT_RATIO + 1, 0);
+            return (res,);
+        }
+        let (res: Uint256) = uint256_sub(Uint256(TickMath.MAX_SQRT_RATIO_LOW, TickMath.MAX_SQRT_RATIO_HIGH), Uint256(1, 0));
+        return (res,);
+    }
+
+    return (sqrt_price_limit,);
+}
+
+
+@external
+func exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    token_in: felt,
+    token_out: felt,
+    fee: felt,
+    recipient: felt,
+    amount_in: Uint256, 
+    sqrt_price_limit: Uint256,
+    amount_out_min: Uint256
+) -> (amount_out: Uint256) {
+    alloc_locals;
+
+    let (pool_address) = get_pool_address(token_in, token_out, fee);
+    let (caller) = get_caller_address();
+
+    let zero_for_one = is_le_felt(token_in, token_out);
+
+    let (limit_price: Uint256) = _get_limit_price(sqrt_price_limit, zero_for_one);
+
+    let (amount0: Uint256, amount1: Uint256) = ISwapPool.swap(contract_address=pool_address, recipient=recipient, zero_for_one=zero_for_one, amount_specified=amount_in, sqrt_price_limit_x96=limit_price, data=caller);
+
+    if (zero_for_one == 1) {
+        let (neg_amount1: Uint256) = uint256_neg(amount1);
+        let (is_valid) = uint256_le(amount_out_min, neg_amount1);
+        with_attr error_message("too little received") {
+            assert is_valid = 1;
+        }
+        return (neg_amount1,);
+    }
+
+    let (neg_amount0) = uint256_neg(amount0);
+    let (is_valid) = uint256_le(amount_out_min, neg_amount0);
+    with_attr error_message("too little received") {
+        assert is_valid = 1;
+    }
+    return (neg_amount0,);
+}
+
+@external
+func exact_output{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    token_in: felt,
+    token_out: felt,
+    fee: felt,
+    recipient: felt,
+    amount_out: Uint256, 
+    sqrt_price_limit: Uint256,
+    amount_in_max: Uint256
+) -> (amount_in: Uint256) {
+    alloc_locals;
+
+    let (pool_address) = get_pool_address(token_in, token_out, fee);
+    let (caller) = get_caller_address();
+
+    // unsined int
+    let zero_for_one = is_le_felt(token_in, token_out);
+     
+    let (amount_specified: Uint256) = uint256_neg(amount_out);
+
+    let (limit_price: Uint256) = _get_limit_price(sqrt_price_limit, zero_for_one);
+
+    let (amount0: Uint256, amount1: Uint256) = ISwapPool.swap(contract_address=pool_address, recipient=recipient, zero_for_one=zero_for_one, amount_specified=amount_specified, sqrt_price_limit_x96=limit_price, data=caller);
+
+    if (zero_for_one == 1) {
+        let (is_valid) = uint256_le(amount0, amount_in_max);
+        with_attr error_message("too much requested") {
+            assert is_valid = 1;
+        }
+        return (amount0,);
+    }
+    let (is_valid) = uint256_le(amount1, amount_in_max);
+    with_attr error_message("too much requested") {
+        assert is_valid = 1;
+    }
+    return (amount1,);
+}
+
+@external
+func swap_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    token0: felt,
+    token1: felt,
+    fee: felt,
+    amount0: Uint256, 
+    amount1: Uint256, 
+    data: felt
+) {
+    
+    alloc_locals;
+
+    let (caller_address) = get_caller_address();
+    // verify callback
+    let (pool_address) = get_pool_address(token0, token1, fee);
+    assert caller_address = pool_address;
+
+    let (flag1) = uint256_signed_lt(Uint256(0, 0), amount0);
+    if (flag1 == 1) {
+        IERC20.transferFrom(contract_address=token0, sender=data, recipient=caller_address, amount=amount0);
+        return ();
+    }
+
+    let (flag2) = uint256_signed_lt(Uint256(0, 0), amount1);
+    if (flag2 == 1) {
+        IERC20.transferFrom(contract_address=token1, sender=data, recipient=caller_address, amount=amount1);
+        return ();
+    }
     return ();
 }

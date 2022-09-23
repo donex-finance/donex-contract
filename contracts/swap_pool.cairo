@@ -187,13 +187,15 @@ func SetFeeProtocol(fee_protocol0: felt, fee_protocol1: felt, fee_protocol: felt
 
 @constructor
 func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    tick_spacing: felt, fee: felt, token0: felt, token1: felt, owner: felt
+    tick_spacing: felt, fee: felt, token_a: felt, token_b: felt, owner: felt
 ) {
     alloc_locals;
 
     _tick_spacing.write(tick_spacing);
     _fee.write(fee);
 
+    let token0 = Utils.min(token_a, token_b); 
+    let token1 = Utils.max(token_a, token_b);
     _token0.write(token0);
     _token1.write(token1);
 

@@ -301,3 +301,137 @@ class UserPositionMgrTest(TestCase):
             user_position.get_token_position(token_id).call(),
             "invalid token id"
         )
+
+    async def get_balance(self, token0, token1, address):
+        balance0 = from_uint((await token0.balanceOf(address).call()).call_info.result[0: 2])
+        balance1 = from_uint((await token1.balanceOf(address).call()).call_info.result[0: 2])
+        return balance0, balance1
+
+    @pytest.mark.asyncio
+    async def test_exact_input(self):
+        user_position, swap_pool, erc721  = await self.get_user_position_contract()
+
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0)).execute(caller_address=address)
+
+        amount_in = 3
+        amount_out_min = 1
+
+        price = 4295128740
+        if self.token0.contract_address > self.token1.contract_address:
+            price = 1461446703485210103287273052203988822378723970341
+
+        # token0 -> token1
+        new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
+        token0 = cached_contract(new_user_position.state, self.token0_def, self.token0)
+        token1 = cached_contract(new_user_position.state, self.token1_def, self.token1)
+        pool_before = await self.get_balance(token0, token1, swap_pool.contract_address)
+        trader_before = await self.get_balance(token0, token1, address)
+        print('balance:', pool_before, trader_before)
+
+        await assert_revert(
+            new_user_position.exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min + 1)).execute(caller_address=address),
+            "too little received"
+        )
+
+        res = await new_user_position.exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min)).execute(caller_address=address)
+
+        pool_after = await self.get_balance(token0, token1, swap_pool.contract_address)
+        trader_after = await self.get_balance(token0, token1, address)
+        print('balance after:', pool_after, trader_after)
+
+        self.assertEqual(trader_after[0], trader_before[0] - 3)
+        self.assertEqual(trader_after[1], trader_before[1] + 1)
+        self.assertEqual(pool_after[0], pool_before[0] + 3)
+        self.assertEqual(pool_after[1], pool_before[1] - 1)
+
+        # token1 -> token0
+        new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
+        token0 = cached_contract(new_user_position.state, self.token0_def, self.token0)
+        token1 = cached_contract(new_user_position.state, self.token1_def, self.token1)
+        pool_before = await self.get_balance(token0, token1, swap_pool.contract_address)
+        trader_before = await self.get_balance(token0, token1, address)
+        print('balance:', pool_before, trader_before)
+
+        price = 4295128740
+        if self.token1.contract_address > self.token0.contract_address:
+            price = 1461446703485210103287273052203988822378723970341
+
+        await assert_revert(
+            new_user_position.exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min + 1)).execute(caller_address=address),
+            "too little received"
+        )
+
+        res = await new_user_position.exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min)).execute(caller_address=address)
+
+        pool_after = await self.get_balance(token0, token1, swap_pool.contract_address)
+        trader_after = await self.get_balance(token0, token1, address)
+        print('balance after:', pool_after, trader_after)
+
+        self.assertEqual(trader_after[0], trader_before[0] + 1)
+        self.assertEqual(trader_after[1], trader_before[1] - 3)
+        self.assertEqual(pool_after[0], pool_before[0] - 1)
+        self.assertEqual(pool_after[1], pool_before[1] + 3)
+
+    @pytest.mark.asyncio
+    async def test_exact_output(self):
+        user_position, swap_pool, erc721  = await self.get_user_position_contract()
+
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0)).execute(caller_address=address)
+
+        amount_out = 1
+        amount_in_max = 3
+
+        # token0-> token1
+        new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
+        token0 = cached_contract(new_user_position.state, self.token0_def, self.token0)
+        token1 = cached_contract(new_user_position.state, self.token1_def, self.token1)
+        pool_before = await self.get_balance(token0, token1, swap_pool.contract_address)
+        trader_before = await self.get_balance(token0, token1, address)
+        print('balance:', pool_before, trader_before)
+
+        price = 4295128740
+        if self.token0.contract_address > self.token1.contract_address:
+            price = 1461446703485210103287273052203988822378723970341
+        await assert_revert(
+            new_user_position.exact_output(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max - 1)).execute(caller_address=address),
+            "too much requested"
+        )
+
+        res = await new_user_position.exact_output(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max)).execute(caller_address=address),
+
+        pool_after = await self.get_balance(token0, token1, swap_pool.contract_address)
+        trader_after = await self.get_balance(token0, token1, address)
+        print('balance after:', pool_after, trader_after)
+
+        self.assertEqual(trader_after[0], trader_before[0] - 3)
+        self.assertEqual(trader_after[1], trader_before[1] + 1)
+        self.assertEqual(pool_after[0], pool_before[0] + 3)
+        self.assertEqual(pool_after[1], pool_before[1] - 1)
+
+        # token1 -> token0
+        new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
+        token0 = cached_contract(new_user_position.state, self.token0_def, self.token0)
+        token1 = cached_contract(new_user_position.state, self.token1_def, self.token1)
+        pool_before = await self.get_balance(token0, token1, swap_pool.contract_address)
+        trader_before = await self.get_balance(token0, token1, address)
+        print('balance:', pool_before, trader_before)
+
+        price = 4295128740
+        if self.token1.contract_address > self.token0.contract_address:
+            price = 1461446703485210103287273052203988822378723970341
+
+        await assert_revert(
+            new_user_position.exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max - 1)).execute(caller_address=address),
+            "too much requested"
+        )
+
+        res = await new_user_position.exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max)).execute(caller_address=address),
+
+        pool_after = await self.get_balance(token0, token1, swap_pool.contract_address)
+        trader_after = await self.get_balance(token0, token1, address)
+        print('balance after:', pool_after, trader_after)
+
+        self.assertEqual(trader_after[0], trader_before[0] + 1)
+        self.assertEqual(trader_after[1], trader_before[1] - 3)
+        self.assertEqual(pool_after[0], pool_before[0] - 1)
+        self.assertEqual(pool_after[1], pool_before[1] + 3)

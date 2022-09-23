@@ -1,6 +1,6 @@
 %lang starknet
 
-from starkware.cairo.common.math_cmp import is_nn, is_le
+from starkware.cairo.common.math_cmp import is_nn, is_le, is_le_felt
 from starkware.cairo.common.uint256 import (
     Uint256,
     uint256_shr,
@@ -101,7 +101,7 @@ namespace Utils {
     }
 
     func min{range_check_ptr}(a: felt, b: felt) -> felt {
-        let is_valid = is_le(a, b);
+        let is_valid = is_le_felt(a, b);
         if (is_valid == 1) {
             return a;
         }
@@ -109,7 +109,7 @@ namespace Utils {
     }
 
     func max{range_check_ptr}(a: felt, b: felt) -> felt {
-        let is_valid = is_le(a, b);
+        let is_valid = is_le_felt(a, b);
         if (is_valid == 1) {
             return b;
         }
