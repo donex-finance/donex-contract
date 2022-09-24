@@ -996,13 +996,64 @@ class SwapPoolTest(TestCase):
         tick = felt_to_int(res.call_info.result[2])
         self.assertEqual(tick < -120, True)
 
-    #TODO: test
+    '''
+    TODO:
+    describe('works across overflow boundaries', () => {
+      beforeEach(async () => {
+        await pool.setFeeGrowthGlobal0X128(constants.MaxUint256)
+        await pool.setFeeGrowthGlobal1X128(constants.MaxUint256)
+        await mint(wallet.address, minTick, maxTick, expandTo18Decimals(10))
+      })
+
+      it('token0', async () => {
+        await swapExact0For1(expandTo18Decimals(1), wallet.address)
+        await pool.burn(minTick, maxTick, 0)
+        const { amount0, amount1 } = await pool.callStatic.collect(
+          wallet.address,
+          minTick,
+          maxTick,
+          MaxUint128,
+          MaxUint128
+        )
+        expect(amount0).to.be.eq('499999999999999')
+        expect(amount1).to.be.eq(0)
+      })
+      it('token1', async () => {
+        await swapExact1For0(expandTo18Decimals(1), wallet.address)
+        await pool.burn(minTick, maxTick, 0)
+        const { amount0, amount1 } = await pool.callStatic.collect(
+          wallet.address,
+          minTick,
+          maxTick,
+          MaxUint128,
+          MaxUint128
+        )
+        expect(amount0).to.be.eq(0)
+        expect(amount1).to.be.eq('499999999999999')
+      })
+      it('token0 and token1', async () => {
+        await swapExact0For1(expandTo18Decimals(1), wallet.address)
+        await swapExact1For0(expandTo18Decimals(1), wallet.address)
+        await pool.burn(minTick, maxTick, 0)
+        const { amount0, amount1 } = await pool.callStatic.collect(
+          wallet.address,
+          minTick,
+          maxTick,
+          MaxUint128,
+          MaxUint128
+        )
+        expect(amount0).to.be.eq('499999999999999')
+        expect(amount1).to.be.eq('500000000000000')
+      })
+    })
+    '''
+
     @pytest.mark.asyncio
     async def test_collect(self):
         tick_spacing = TICK_SPACINGS[FeeAmount.LOW]
         min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
         contract, swap_target = await self.get_state_contract_low()
-        constract = await self.initialize_at_zero_tick(contract, swap_target)
+        await contract.initialize(encode_price_sqrt(1, 1)).execute()
 
         # works with multiple LPs
         new_contract, new_swap_target = await self.get_state_contract_low(contract.state.copy())
@@ -1023,16 +1074,14 @@ class SwapPoolTest(TestCase):
         tokens_owed0 = res.call_info.result[5]
         self.assertEqual(tokens_owed0, 333333333333334)
 
-        #TODO: works across large increases
-        '''
-        res = await contract.add_liquidity(address, min_tick, max_tick, expand_to_18decimals(1)).execute()
+        # works across large increases
+        res = await self.add_liquidity(swap_target, contract, address, min_tick, max_tick, expand_to_18decimals(1))
 
         magic_num = 115792089237316195423570985008687907852929702298719625575994
 
         # works just before the cap binds
-        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
-        res = await new_contract.add_liquidity(address, min_tick, max_tick, expand_to_18decimals(1)).execute()
-        #TODO: set_fee
+        new_contract, new_swap_target = await self.get_state_contract_low(contract.state.copy())
+        # set_fee
         res = await new_contract.set_fee_growth_global0_x128(to_uint(magic_num)).execute()
 
         res = await new_contract.remove_liquidity(min_tick, max_tick, 0).execute(caller_address=address)
@@ -1044,8 +1093,8 @@ class SwapPoolTest(TestCase):
         self.assertEqual(tokens_owed1, 0)
 
         # works just after the cap binds
-        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
-        #TODO: set_fee
+        new_contract, new_swap_target = await self.get_state_contract_low(contract.state.copy())
+        # set_fee
         res = await new_contract.set_fee_growth_global0_x128(to_uint(magic_num + 1)).execute()
 
         res = await new_contract.remove_liquidity(min_tick, max_tick, 0).execute(caller_address=address)
@@ -1058,7 +1107,7 @@ class SwapPoolTest(TestCase):
 
         # worksworks well after the cap binds
         new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
-        #TODO: set_fee
+        # set_fee
         res = await new_contract.set_fee_growth_global0_x128(to_uint(2 ** 256 - 1)).execute()
 
         res = await new_contract.remove_liquidity(min_tick, max_tick, 0).execute(caller_address=address)
@@ -1068,7 +1117,6 @@ class SwapPoolTest(TestCase):
         tokens_owed1 = res.call_info.result[6]
         self.assertEqual(tokens_owed0, MAX_UINT128)
         self.assertEqual(tokens_owed1, 0)
-        '''
 
     async def swap_and_get_fees_owed(self, contract, amount, zeroForOne, poke, min_tick, max_tick):
         if zeroForOne:
@@ -1422,7 +1470,7 @@ class SwapPoolTest(TestCase):
     @pytest.mark.asyncio
     async def test_set_fee_protocol(self):
         contract, swap_target = await self.get_state_contract()
-        constract = await self.initialize_at_zero_tick(contract, swap_target)
+        await self.initialize_at_zero_tick(contract, swap_target)
 
         # fails if fee is lt 4 or gt 10
         await assert_revert(
