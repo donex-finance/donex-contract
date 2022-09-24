@@ -381,15 +381,7 @@ func _compute_swap_step_2{range_check_ptr}(
 ) -> (new_fee_amount: Uint256, new_protocol_fee: felt) {
     let (is_valid) = Utils.is_gt(fee_protocol, 0);
     if (is_valid == 1) {
-        %{
-            a = ids.fee_amount.low + ids.fee_amount.high * 2 ** 128
-            print('_compute_swap_step_2:', a, ids.fee_protocol)
-        %}
         let (delta: Uint256, _) = uint256_unsigned_div_rem(fee_amount, Uint256(fee_protocol, 0));
-        %{
-            a = ids.delta.low + ids.delta.high * 2 ** 128
-            print('_compute_swap_step_2: delta', a)
-        %}
         let (new_fee_amount: Uint256) = uint256_sub(fee_amount, delta);
 
         // TODO: overflow?
@@ -525,10 +517,6 @@ func _compute_swap_step{
         state.amount_specified_remaining,
         fee,
     );
-    %{
-        a = ids.fee_amount.low + ids.fee_amount.high * 2 **128
-        print("swap compute_swap_step:", a, ids.state.liquidity)
-    %}
 
     let (
         state_amount_specified_remaining: Uint256, state_amount_caculated: Uint256
@@ -537,16 +525,8 @@ func _compute_swap_step{
     let (fee_amount: Uint256, state_protocol_fee) = _compute_swap_step_2(
         fee_protocol, state.protocol_fee, fee_amount
     );
-    %{
-        a = ids.fee_amount.low + ids.fee_amount.high * 2 **128
-        print("swap fee_amount:", a, ids.state_protocol_fee)
-    %}
 
     let (state_fee_growth_global_x128: Uint256) = _compute_swap_step_3(state, fee_amount);
-    %{
-        a = ids.state_fee_growth_global_x128.low + ids.state_fee_growth_global_x128.high * 2 **128
-        print("swap state_fee_growth_global_x128:", a)
-    %}
 
     let (state_liquidity, state_tick) = _compute_swap_step_4(
         state,
@@ -608,31 +588,21 @@ func _swap_2{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     alloc_locals;
     if (zero_for_one == 1) {
         _fee_growth_global0_x128.write(state_fee_growth_global_x128);
-        %{
-            a = ids.state_fee_growth_global_x128.low + ids.state_fee_growth_global_x128.high * 2 ** 128
-            print('_swap_2 11:', a)
-        %}
 
         let (is_valid) = Utils.is_gt(protocol_fee, 0);
         if (is_valid == 1) {
             let (protocol_fee_token0) = _protocol_fee_token0.read();
             _protocol_fee_token0.write(protocol_fee_token0 + protocol_fee);
-            %{ print('_swap_2 1 protocol_fee_token0:', ids.protocol_fee_token0, ids.protocol_fee) %}
             return ();
         }
         return ();
     }
 
     _fee_growth_global1_x128.write(state_fee_growth_global_x128);
-    %{
-        a = ids.state_fee_growth_global_x128.low + ids.state_fee_growth_global_x128.high * 2 ** 128
-        print('_swap_2 22:', a)
-    %}
     let (is_valid) = Utils.is_gt(protocol_fee, 0);
     if (is_valid == 1) {
         let (protocol_fee_token1) = _protocol_fee_token1.read();
         _protocol_fee_token1.write(protocol_fee_token1 + protocol_fee);
-        %{ print('_swap_2 2 protocol_fee_token1:', ids.protocol_fee_token1, ids.protocol_fee) %}
         return ();
     }
     return ();
