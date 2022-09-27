@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts for Cairo v0.4.0b (token/erc20/presets/ERC20.cairo)
+// OpenZeppelin Contracts for Cairo v0.4.0b (token/erc20/presets/ERC20Mintable.cairo)
 
 %lang starknet
 
@@ -97,4 +97,12 @@ func decreaseAllowance{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_che
     spender: felt, subtracted_value: Uint256
 ) -> (success: felt) {
     return ERC20.decrease_allowance(spender, subtracted_value);
+}
+
+@external
+func mint{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    to: felt, amount: Uint256
+) {
+    ERC20._mint(to, amount);
+    return ();
 }

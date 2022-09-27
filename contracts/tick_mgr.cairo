@@ -236,7 +236,6 @@ namespace TickMgr {
     }
 
     func clear{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(tick: felt) {
-        // TODO: clear
         TickMgr_data.write(
             tick,
             TickInfo(

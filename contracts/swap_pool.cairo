@@ -666,6 +666,18 @@ func _swap_4{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     return ();
 }
 
+func _update_liquidity_cond{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    old_liqudity: felt,
+    liquidity: felt
+) {
+    // write operation cost more gas than if?
+    if (old_liqudity != liquidity) {
+        _liquidity.write(liquidity);
+        return ();
+    }
+    return ();
+}
+
 // @params amount_specified: int256
 @external
 func swap{
@@ -712,11 +724,7 @@ func swap{
         tick=state.tick,
         ));
 
-    // TODO: use if to save gas?
-    // if liquidity_start != state.liquidity:
-    //    _liquidity.write(state.liquidity)
-    // end
-    _liquidity.write(state.liquidity);
+    _update_liquidity_cond(liquidity_start, state.liquidity);
 
     _swap_2(state.fee_growth_global_x128, state.protocol_fee, zero_for_one);
 

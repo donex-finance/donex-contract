@@ -34,6 +34,7 @@ max_tick = get_max_tick(tick_spacing)
 address = 11111111111111
 other_address = 222222222222222
 
+#TODO: check two diferent address with same position tick, burn and collect
 async def init_user_position_contract(starknet):
     begin = time.time()
     compiled_contract = compile_starknet_files(
@@ -43,7 +44,7 @@ async def init_user_position_contract(starknet):
 
     kwargs = {
         "contract_class": compiled_contract,
-        "constructor_calldata": []
+        "constructor_calldata": [address]
         }
 
     begin = time.time()

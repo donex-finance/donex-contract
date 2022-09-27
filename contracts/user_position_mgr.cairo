@@ -7,6 +7,7 @@ from starkware.cairo.common.math_cmp import is_le, is_le_felt
 
 from openzeppelin.token.erc721.IERC721 import IERC721
 from openzeppelin.token.erc20.IERC20 import IERC20
+from openzeppelin.access.ownable.library import Ownable
 
 from contracts.interface.IERC721Mintable import IERC721Mintable
 from contracts.interface.ISwapPool import ISwapPool
@@ -70,7 +71,8 @@ func Collect(token_id: Uint256, recipient: felt, amount0: felt, amount1: felt) {
 }
 
 @constructor
-func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
+func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(owner: felt) {
+    Ownable.initializer(owner);
     return ();
 }
 
@@ -108,6 +110,11 @@ func get_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     return (address,);
 }
 
+@view
+func owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (owner: felt) {
+    return Ownable.owner();
+}
+
 func _write_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     token0: felt,
     token1: felt,
@@ -129,7 +136,8 @@ func register_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range
     fee: felt,
     pool_address: felt
 ) {
-    // TODO: only owner
+    Ownable.assert_only_owner();
+
     let (address) = get_pool_address(token0, token1, fee);
     with_attr error_message("pool already exist") {
         assert address = 0;
@@ -712,5 +720,19 @@ func swap_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
         IERC20.transferFrom(contract_address=token1, sender=data, recipient=caller_address, amount=amount1);
         return ();
     }
+    return ();
+}
+
+@external
+func transferOwnership{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    newOwner: felt
+) {
+    Ownable.transfer_ownership(newOwner);
+    return ();
+}
+
+@external
+func renounceOwnership{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
+    Ownable.renounce_ownership();
     return ();
 }
