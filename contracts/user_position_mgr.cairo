@@ -91,13 +91,16 @@ func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 @view
 func get_token_position{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     token_id: Uint256
-) -> (position: UserPosition) {
+) -> (position: UserPosition, pool_info: PoolInfo) {
     let (position: UserPosition) = _positions.read(token_id);
     let (is_valid) = Utils.is_eq(position.pool_address, 0);
     with_attr error_message("invalid token id") {
         assert is_valid = 0;
     }
-    return (position,);
+
+    let (pool_info: PoolInfo) = _pool_infos.read(position.pool_address);
+
+    return (position, pool_info);
 }
 
 @view
@@ -581,6 +584,7 @@ func collect{
 
     //TODO: is_le(amount0_max, 2 ** 128 - 1)
     //TODO: check all uint128
+    //TODO: check all external arg type
     let (flag1) = Utils.is_lt(0, amount0_max);
     let (flag2) = Utils.is_lt(0, amount1_max);
     let (is_valid) = Utils.is_gt(flag1 + flag2, 0);
