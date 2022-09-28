@@ -1,6 +1,7 @@
 %lang starknet
 
-from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
+from starkware.starknet.common.syscalls import get_caller_address, get_contract_address, deploy
+from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
 from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_add, uint256_lt, uint256_sub, uint256_neg, uint256_eq, uint256_signed_lt
 from starkware.cairo.common.math_cmp import is_le, is_le_felt
@@ -56,6 +57,10 @@ func _swap_pools(token0: felt, token1: felt, fee: felt) -> (address: felt) {
 func _pool_infos(pool_address: felt) -> (info: PoolInfo) {
 }
 
+@storage_var
+func _swap_pool_hash() -> (hash: felt) {
+}
+
 // event
 
 @event
@@ -70,9 +75,14 @@ func DecreaseLiquidity(token_id: Uint256, liquidity: felt, amount0: Uint256, amo
 func Collect(token_id: Uint256, recipient: felt, amount0: felt, amount1: felt) {
 }
 
+@event
+func CreateNewPool(token0: felt, token1: felt, fee: felt, pool_address: felt) {
+}
+
 @constructor
-func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(owner: felt) {
+func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(owner: felt, swap_pool_hash: felt) {
     Ownable.initializer(owner);
+    _swap_pool_hash.write(swap_pool_hash);
     return ();
 }
 
@@ -115,6 +125,20 @@ func owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() ->
     return Ownable.owner();
 }
 
+@external
+func initialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    erc721_contract: felt
+) {
+    // only can be initilize once
+    let (old) = _erc721_contract.read();
+    with_attr error_message("user_position_mgr: only can be initilize once") {
+        assert old = 0;
+    }
+
+    _erc721_contract.write(erc721_contract);
+    return ();
+}
+
 func _write_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     token0: felt,
     token1: felt,
@@ -128,36 +152,66 @@ func _write_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
     return ();
 }
 
-// TODO: create_new_pool
-@external
-func register_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    token0: felt,
-    token1: felt,
-    fee: felt,
-    pool_address: felt
-) {
-    Ownable.assert_only_owner();
+func _get_tickSpacing{range_check_ptr}(
+    fee: felt
+) -> felt {
 
-    let (address) = get_pool_address(token0, token1, fee);
-    with_attr error_message("pool already exist") {
-        assert address = 0;
+    if (fee == 500) {
+        return 10;
+    } 
+    if (fee == 3000) {
+        return 60;
+    } 
+    if (fee == 10000) {
+        return 200;
     }
-    _write_pool_address(token0, token1, fee, pool_address);
-    return ();
+
+    with_attr error_message("invalid fee") {
+        assert 0 = 1;
+    }
+    return 0;
 }
 
 @external
-func initialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    erc721_contract: felt
-) {
-    // only can be initilize once
-    let (old) = _erc721_contract.read();
-    with_attr error_message("user_position_mgr: only can be initilize once") {
-        assert old = 0;
+func create_and_initialize_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    token0: felt,
+    token1: felt,
+    fee: felt,
+    sqrt_price_x96: Uint256
+) -> (pool_address: felt) {
+    alloc_locals;
+
+    let (pool_address) = get_pool_address(token0, token1, fee);
+    let (is_valid) = Utils.is_eq(pool_address, 0);
+    with_attr error_message("pool already exists") {
+        assert is_valid = 1;
     }
 
-    _erc721_contract.write(erc721_contract);
-    return ();
+    let tick_spacing = _get_tickSpacing(fee);
+    let (swap_pool_hash) = _swap_pool_hash.read();
+    let (owner) = Ownable.owner();
+
+    let (local calldata: felt*) = alloc();
+    assert calldata[0] = tick_spacing;
+    assert calldata[1] = fee;
+    assert calldata[2] = token0;
+    assert calldata[3] = token1;
+    assert calldata[4] = owner;
+    // deploy contract
+    let (pool_address) = deploy(
+        class_hash=swap_pool_hash,
+        contract_address_salt=tick_spacing,
+        constructor_calldata_size=5,
+        constructor_calldata=calldata,
+        deploy_from_zero=1,
+    );
+
+    ISwapPool.initialize(contract_address=pool_address, sqrt_price_x96=sqrt_price_x96);
+
+    _write_pool_address(token0, token1, fee, pool_address);
+
+    CreateNewPool.emit(token0, token1, fee, pool_address);
+    return (pool_address,);
 }
 
 func _get_mint_liuqidity{
@@ -525,6 +579,8 @@ func collect{
     let (caller) = get_caller_address();
     _check_approverd_or_owner(caller, token_id);
 
+    //TODO: is_le(amount0_max, 2 ** 128 - 1)
+    //TODO: check all uint128
     let (flag1) = Utils.is_lt(0, amount0_max);
     let (flag2) = Utils.is_lt(0, amount1_max);
     let (is_valid) = Utils.is_gt(flag1 + flag2, 0);
@@ -734,5 +790,14 @@ func transferOwnership{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_che
 @external
 func renounceOwnership{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
     Ownable.renounce_ownership();
+    return ();
+}
+
+@external
+func update_swap_pool_hash{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    swap_pool_hash: felt
+) {
+    Ownable.assert_only_owner();
+    _swap_pool_hash.write(swap_pool_hash);
     return ();
 }

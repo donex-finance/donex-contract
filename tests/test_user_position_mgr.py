@@ -9,11 +9,10 @@ from starkware.starknet.compiler.compile import compile_starknet_files
 from inspect import signature
 from starkware.starknet.testing.starknet import Starknet
 from utils import (
-    MAX_UINT256, MAX_UINT128, assert_revert, add_uint, sub_uint,
-    mul_uint, div_rem_uint, to_uint, contract_path,
-    felt_to_int, int_to_felt, from_uint, cached_contract, encode_price_sqrt,
+    MAX_UINT128, assert_revert, to_uint,
+    felt_to_int, from_uint, cached_contract, encode_price_sqrt,
     get_max_tick, get_min_tick, TICK_SPACINGS, FeeAmount, init_contract,
-    expand_to_18decimals, assert_event_emitted
+    assert_event_emitted
 )
 
 from test_tickmath import (MIN_SQRT_RATIO, MAX_SQRT_RATIO)
@@ -35,7 +34,7 @@ address = 11111111111111
 other_address = 222222222222222
 
 #TODO: check two diferent address with same position tick, burn and collect
-async def init_user_position_contract(starknet):
+async def init_user_position_contract(starknet, swap_pool_hash):
     begin = time.time()
     compiled_contract = compile_starknet_files(
         ['contracts/user_position_mgr.cairo'], debug_info=True, disable_hint_validation=True
@@ -44,7 +43,7 @@ async def init_user_position_contract(starknet):
 
     kwargs = {
         "contract_class": compiled_contract,
-        "constructor_calldata": [address]
+        "constructor_calldata": [address, swap_pool_hash]
         }
 
     begin = time.time()
@@ -53,23 +52,20 @@ async def init_user_position_contract(starknet):
 
     return compiled_contract, contract
 
-async def init_swap_pool(starknet, token0, token1):
+async def init_swap_pool_class(starknet):
+
     begin = time.time()
     compiled_contract = compile_starknet_files(
         ['contracts/swap_pool.cairo'], debug_info=True, disable_hint_validation=True
     )
     print('compile swap_pool time:', time.time() - begin)
 
-    kwargs = {
-        "contract_class": compiled_contract,
-        "constructor_calldata": [tick_spacing, FeeAmount.MEDIUM, token0, token1, address]
-        }
-
     begin = time.time()
-    contract = await starknet.deploy(**kwargs)
-    print('deploy swap_pool time:', time.time() - begin)
-
-    return compiled_contract, contract
+    res = await starknet.declare(
+        contract_class=compiled_contract,
+    )
+    print('declare swap_pool time:', time.time() - begin)
+    return res
 
 async def init_erc721(starknet, owner):
     begin = time.time()
@@ -108,16 +104,18 @@ class UserPositionMgrTest(TestCase):
         await self.check_starknet()
 
         if not hasattr(self, 'user_position'):
-            self.user_position_def, self.user_position = await init_user_position_contract(self.starknet)
+            # swap pool
+            self.swap_pool_class = await init_swap_pool_class(self.starknet)
+
+            self.user_position_def, self.user_position = await init_user_position_contract(self.starknet, self.swap_pool_class.class_hash)
 
             # erc721
             self.erc721_def, self.erc721 = await init_erc721(self.starknet, self.user_position.contract_address)
             await self.user_position.initialize(self.erc721.contract_address).execute(caller_address=address)
 
-            # swap pool
-            self.swap_pool_def, self.swap_pool = await init_swap_pool(self.starknet, self.token0.contract_address, self.token1.contract_address)
-            await self.swap_pool.initialize(encode_price_sqrt(1, 1)).execute()
-            await self.user_position.register_pool_address(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, self.swap_pool.contract_address).execute(caller_address=address)
+            res = await self.user_position.create_and_initialize_pool(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, encode_price_sqrt(1, 1)).execute()
+
+            self.swap_pool_address = res.call_info.result[0]
 
             await self.token0.approve(self.user_position.contract_address, to_uint(2 ** 256 - 1)).execute(caller_address=address)
             await self.token1.approve(self.user_position.contract_address, to_uint(2 ** 256 - 1)).execute(caller_address=address)
@@ -128,16 +126,16 @@ class UserPositionMgrTest(TestCase):
         state = self.user_position.state.copy()
         user_position = cached_contract(state, self.user_position_def, self.user_position)
 
-        swap_pool = cached_contract(state, self.swap_pool_def, self.swap_pool)
+        #swap_pool = cached_contract(state, self.swap_pool_def, self.swap_pool)
 
         erc721 = cached_contract(state, self.erc721_def, self.erc721)
 
-        return user_position, swap_pool, erc721 
+        return user_position, erc721 
 
     @pytest.mark.asyncio
     async def test_mint(self):
 
-        user_position, swap_pool, erc721  = await self.get_user_position_contract()
+        user_position, erc721  = await self.get_user_position_contract()
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0)).execute(caller_address=other_address)
 
         # check nft
@@ -158,7 +156,7 @@ class UserPositionMgrTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_increase_liquidity(self):
-        user_position, swap_pool, erc721  = await self.get_user_position_contract()
+        user_position, erc721  = await self.get_user_position_contract()
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000), to_uint(1000), to_uint(0), to_uint(0)).execute(caller_address=other_address)
 
         token_id = to_uint(1)
@@ -171,7 +169,7 @@ class UserPositionMgrTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_decrease_liquidity(self):
-        user_position, swap_pool, erc721  = await self.get_user_position_contract()
+        user_position, erc721  = await self.get_user_position_contract()
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute(caller_address=other_address)
 
         token_id = to_uint(1)
@@ -214,7 +212,7 @@ class UserPositionMgrTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_collect(self):
-        user_position, swap_pool, erc721  = await self.get_user_position_contract()
+        user_position, erc721  = await self.get_user_position_contract()
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0)).execute(caller_address=other_address)
         res = await user_position.mint(address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0)).execute(caller_address=address)
 
@@ -237,7 +235,7 @@ class UserPositionMgrTest(TestCase):
         res = await user_position.collect(token_id, address, MAX_UINT128, MAX_UINT128).execute(caller_address=other_address)
         assert_event_emitted(
             res,
-            from_address=swap_pool.contract_address,
+            from_address=self.swap_pool_address,
             name='TransferToken',
             data=[
                 self.token0.contract_address,
@@ -248,7 +246,7 @@ class UserPositionMgrTest(TestCase):
         )
         assert_event_emitted(
             res,
-            from_address=swap_pool.contract_address,
+            from_address=self.swap_pool_address,
             name='TransferToken',
             data=[
                 self.token1.contract_address,
@@ -260,7 +258,7 @@ class UserPositionMgrTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_burn(self):
-        user_position, swap_pool, erc721  = await self.get_user_position_contract()
+        user_position, erc721  = await self.get_user_position_contract()
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute(caller_address=other_address)
 
         token_id = to_uint(1)
@@ -310,7 +308,7 @@ class UserPositionMgrTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_exact_input(self):
-        user_position, swap_pool, erc721  = await self.get_user_position_contract()
+        user_position, erc721  = await self.get_user_position_contract()
 
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0)).execute(caller_address=address)
 
@@ -325,7 +323,7 @@ class UserPositionMgrTest(TestCase):
         new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
         token0 = cached_contract(new_user_position.state, self.token0_def, self.token0)
         token1 = cached_contract(new_user_position.state, self.token1_def, self.token1)
-        pool_before = await self.get_balance(token0, token1, swap_pool.contract_address)
+        pool_before = await self.get_balance(token0, token1, self.swap_pool_address)
         trader_before = await self.get_balance(token0, token1, address)
         print('balance:', pool_before, trader_before)
 
@@ -336,7 +334,7 @@ class UserPositionMgrTest(TestCase):
 
         res = await new_user_position.exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min)).execute(caller_address=address)
 
-        pool_after = await self.get_balance(token0, token1, swap_pool.contract_address)
+        pool_after = await self.get_balance(token0, token1, self.swap_pool_address)
         trader_after = await self.get_balance(token0, token1, address)
         print('balance after:', pool_after, trader_after)
 
@@ -349,7 +347,7 @@ class UserPositionMgrTest(TestCase):
         new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
         token0 = cached_contract(new_user_position.state, self.token0_def, self.token0)
         token1 = cached_contract(new_user_position.state, self.token1_def, self.token1)
-        pool_before = await self.get_balance(token0, token1, swap_pool.contract_address)
+        pool_before = await self.get_balance(token0, token1, self.swap_pool_address)
         trader_before = await self.get_balance(token0, token1, address)
         print('balance:', pool_before, trader_before)
 
@@ -364,7 +362,7 @@ class UserPositionMgrTest(TestCase):
 
         res = await new_user_position.exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min)).execute(caller_address=address)
 
-        pool_after = await self.get_balance(token0, token1, swap_pool.contract_address)
+        pool_after = await self.get_balance(token0, token1, self.swap_pool_address)
         trader_after = await self.get_balance(token0, token1, address)
         print('balance after:', pool_after, trader_after)
 
@@ -375,7 +373,7 @@ class UserPositionMgrTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_exact_output(self):
-        user_position, swap_pool, erc721  = await self.get_user_position_contract()
+        user_position, erc721  = await self.get_user_position_contract()
 
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0)).execute(caller_address=address)
 
@@ -386,7 +384,7 @@ class UserPositionMgrTest(TestCase):
         new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
         token0 = cached_contract(new_user_position.state, self.token0_def, self.token0)
         token1 = cached_contract(new_user_position.state, self.token1_def, self.token1)
-        pool_before = await self.get_balance(token0, token1, swap_pool.contract_address)
+        pool_before = await self.get_balance(token0, token1, self.swap_pool_address)
         trader_before = await self.get_balance(token0, token1, address)
         print('balance:', pool_before, trader_before)
 
@@ -400,7 +398,7 @@ class UserPositionMgrTest(TestCase):
 
         res = await new_user_position.exact_output(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max)).execute(caller_address=address),
 
-        pool_after = await self.get_balance(token0, token1, swap_pool.contract_address)
+        pool_after = await self.get_balance(token0, token1, self.swap_pool_address)
         trader_after = await self.get_balance(token0, token1, address)
         print('balance after:', pool_after, trader_after)
 
@@ -413,7 +411,7 @@ class UserPositionMgrTest(TestCase):
         new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
         token0 = cached_contract(new_user_position.state, self.token0_def, self.token0)
         token1 = cached_contract(new_user_position.state, self.token1_def, self.token1)
-        pool_before = await self.get_balance(token0, token1, swap_pool.contract_address)
+        pool_before = await self.get_balance(token0, token1, self.swap_pool_address)
         trader_before = await self.get_balance(token0, token1, address)
         print('balance:', pool_before, trader_before)
 
@@ -428,7 +426,7 @@ class UserPositionMgrTest(TestCase):
 
         res = await new_user_position.exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max)).execute(caller_address=address),
 
-        pool_after = await self.get_balance(token0, token1, swap_pool.contract_address)
+        pool_after = await self.get_balance(token0, token1, self.swap_pool_address)
         trader_after = await self.get_balance(token0, token1, address)
         print('balance after:', pool_after, trader_after)
 

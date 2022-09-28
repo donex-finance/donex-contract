@@ -12,6 +12,9 @@ namespace ISwapPool {
     func get_position(owner: felt, tick_lower: felt, tick_upper: felt) -> (position: PositionInfo) {
     }
 
+    func initialize(sqrt_price_x96: Uint256) {
+    }
+
     func add_liquidity(recipient: felt, tick_lower: felt, tick_upper: felt, liquidity: felt, data: felt) -> (
         amount0: Uint256, amount1: Uint256
     ) {
