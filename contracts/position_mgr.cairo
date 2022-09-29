@@ -42,7 +42,7 @@ namespace PositionMgr {
         bitwise_ptr: BitwiseBuiltin*,
     }(
         position: PositionInfo,
-        liquidity_delta: felt,
+        liquidity_delta: felt, // int128
         fee_growth_inside0_x128: Uint256,
         fee_growth_inside1_x128: Uint256,
         address: felt,
@@ -75,9 +75,9 @@ namespace PositionMgr {
         );
         let tokens_owed1 = tmp256_2.low;
 
-        let (tmp) = Utils.is_lt(0, tokens_owed0);
-        let (tmp2) = Utils.is_lt(0, tokens_owed1);
-        let (is_valid) = Utils.is_lt(0, tmp + tmp2);
+        let (tmp) = Utils.is_lt_signed(0, tokens_owed0);
+        let (tmp2) = Utils.is_lt_signed(0, tokens_owed1);
+        let (is_valid) = Utils.is_lt_signed(0, tmp + tmp2);
         if (is_valid == 1) {
             // overflow is acceptable, have to withdraw before you hit type(uint128).max fees
             // ignore overflows

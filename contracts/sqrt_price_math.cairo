@@ -66,7 +66,7 @@ namespace SqrtPriceMath {
     func get_amount0_delta2{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
         sqrt_ratio0_x96: Uint256, sqrt_ratio1_x96: Uint256, liquidity: felt
     ) -> (amount0: Uint256) {
-        let (is_valid) = Utils.is_lt(liquidity, 0);
+        let (is_valid) = Utils.is_lt_signed(liquidity, 0);
         if (is_valid == 1) {
             let (tmp: Uint256) = get_amount0_delta(sqrt_ratio0_x96, sqrt_ratio1_x96, -liquidity, 0);
             let (res: Uint256) = uint256_neg(tmp);
@@ -105,7 +105,7 @@ namespace SqrtPriceMath {
     func get_amount1_delta2{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
         sqrt_ratio0_x96: Uint256, sqrt_ratio1_x96: Uint256, liquidity: felt
     ) -> (amount1: Uint256) {
-        let (is_valid) = Utils.is_lt(liquidity, 0);
+        let (is_valid) = Utils.is_lt_signed(liquidity, 0);
         if (is_valid == 1) {
             let (tmp: Uint256) = get_amount1_delta(sqrt_ratio0_x96, sqrt_ratio1_x96, -liquidity, 0);
             let (res: Uint256) = uint256_neg(tmp);

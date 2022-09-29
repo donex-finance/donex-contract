@@ -123,6 +123,19 @@ func get_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     return (address,);
 }
 
+func _check_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    token0: felt,
+    token1: felt,
+    fee: felt
+) -> felt {
+    let (address) = get_pool_address(token0, token1, fee);
+    let (is_valid) = Utils.is_eq(address, 0);
+    with_attr error_message("pool not exist") {
+        assert is_valid = 0;
+    }
+    return address;
+}
+
 @view
 func owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (owner: felt) {
     return Ownable.owner();
@@ -201,6 +214,7 @@ func create_and_initialize_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
     assert calldata[3] = token1;
     assert calldata[4] = owner;
     // deploy contract
+    // TODO: tick_spacing
     let (pool_address) = deploy(
         class_hash=swap_pool_hash,
         contract_address_salt=tick_spacing,
@@ -262,7 +276,7 @@ func mint{
 
     // mint position
     // get the pool address
-    let (pool_address) = get_pool_address(token0, token1, fee);
+    let pool_address = _check_pool_address(token0, token1, fee);
 
     // remote call the add_liquidity function
     let (liquidity) = _get_mint_liuqidity(
@@ -585,8 +599,8 @@ func collect{
     //TODO: is_le(amount0_max, 2 ** 128 - 1)
     //TODO: check all uint128
     //TODO: check all external arg type
-    let (flag1) = Utils.is_lt(0, amount0_max);
-    let (flag2) = Utils.is_lt(0, amount1_max);
+    let (flag1) = Utils.is_lt_signed(0, amount0_max);
+    let (flag2) = Utils.is_lt_signed(0, amount1_max);
     let (is_valid) = Utils.is_gt(flag1 + flag2, 0);
     with_attr error_message("user_position_mgr.collect: amount0 and amount1 can not be zero") {
         assert is_valid = 1;
@@ -688,7 +702,7 @@ func exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 ) -> (amount_out: Uint256) {
     alloc_locals;
 
-    let (pool_address) = get_pool_address(token_in, token_out, fee);
+    let pool_address = _check_pool_address(token_in, token_out, fee);
     let (caller) = get_caller_address();
 
     let zero_for_one = is_le_felt(token_in, token_out);
@@ -726,7 +740,7 @@ func exact_output{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
 ) -> (amount_in: Uint256) {
     alloc_locals;
 
-    let (pool_address) = get_pool_address(token_in, token_out, fee);
+    let pool_address = _check_pool_address(token_in, token_out, fee);
     let (caller) = get_caller_address();
 
     // unsined int
@@ -803,5 +817,45 @@ func update_swap_pool_hash{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range
 ) {
     Ownable.assert_only_owner();
     _swap_pool_hash.write(swap_pool_hash);
+    return ();
+}
+
+@external
+func collect_protocol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    token0: felt,
+    token1: felt,
+    fee: felt,
+    recipient: felt, 
+    amount0_requested: felt, 
+    amount1_requested: felt
+) -> (amount0: felt, amount1: felt) {
+    alloc_locals;
+
+    Ownable.assert_only_owner();
+
+    let pool_address = _check_pool_address(token0, token1, fee);
+
+    let (amount0, amount1) = ISwapPool.collect_protocol(contract_address=pool_address, recipient=recipient, amount0_requested=amount0_requested, amount1_requested=amount1_requested);
+
+    return (amount0, amount1);
+}
+
+@external
+func set_fee_protocol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    token0: felt,
+    token1: felt,
+    fee: felt,
+    fee_protocol0: felt, 
+    fee_protocol1: felt
+) {
+    
+    alloc_locals;
+
+    Ownable.assert_only_owner();
+
+    let pool_address = _check_pool_address(token0, token1, fee);
+
+    ISwapPool.set_fee_protocol(contract_address=pool_address, fee_protocol0=fee_protocol0, fee_protocol1=fee_protocol1);
+
     return ();
 }

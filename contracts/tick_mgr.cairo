@@ -175,7 +175,7 @@ namespace TickMgr {
 
         let (info_upper: TickInfo) = TickMgr_data.read(tick_upper);
 
-        let (is_valid) = Utils.is_lt(tick_current, tick_upper);
+        let (is_valid) = Utils.is_lt_signed(tick_current, tick_upper);
         if (is_valid == 1) {
             return (info_upper.fee_growth_outside0_x128, info_upper.fee_growth_outside1_x128);
         }

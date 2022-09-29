@@ -28,7 +28,7 @@ namespace TickBitmap {
         alloc_locals;
 
         let (word_pos, bit_pos) = signed_div_rem(tick, 256, bound);
-        let (is_valid) = Utils.is_lt(bit_pos, 0);
+        let (is_valid) = Utils.is_lt_signed(bit_pos, 0);
         if (is_valid == 1) {
             let res = 256 + bit_pos;
             return (word_pos, res);
@@ -69,7 +69,7 @@ namespace TickBitmap {
 
         let (compressed_0, rem) = signed_div_rem(tick, tick_spacing, bound);
 
-        let (is_valid) = Utils.is_lt(tick, 0);
+        let (is_valid) = Utils.is_lt_signed(tick, 0);
 
         local compressed;
         if (is_valid == 1) {

@@ -20,7 +20,7 @@ from starkware.cairo.common.uint256 import (
     uint256_signed_nn,
 )
 from starkware.cairo.common.bool import FALSE, TRUE
-from starkware.cairo.common.math import unsigned_div_rem
+from starkware.cairo.common.math import unsigned_div_rem, assert_in_range
 from starkware.cairo.common.math_cmp import is_le, is_nn
 
 from openzeppelin.token.erc20.IERC20 import IERC20
@@ -296,6 +296,8 @@ func initialize{
 }(sqrt_price_x96: Uint256) {
     alloc_locals;
 
+    Utils.assert_is_uint160(sqrt_price_x96);
+
     let (slot0) = _slot0.read();
     let (is_valid) = uint256_eq(slot0.sqrt_price_x96, Uint256(0, 0));
     with_attr error_message("initialize more than once") {
@@ -489,10 +491,10 @@ func _compute_swap_step{
 
     let sqrt_price_start_x96: Uint256 = state.sqrt_price_x96;
 
-    let (is_valid) = Utils.is_lt(tick_next, TickMath.MIN_TICK);
+    let (is_valid) = Utils.is_lt_signed(tick_next, TickMath.MIN_TICK);
     let (tick_next) = Utils.cond_assign(is_valid, TickMath.MIN_TICK, tick_next);
 
-    let (is_valid) = Utils.is_lt(TickMath.MAX_TICK, tick_next);
+    let (is_valid) = Utils.is_lt_signed(TickMath.MAX_TICK, tick_next);
     let (tick_next) = Utils.cond_assign(is_valid, TickMath.MAX_TICK, tick_next);
 
     let (sqrt_price_next_x96: Uint256) = TickMath.get_sqrt_ratio_at_tick(tick_next);
@@ -683,10 +685,17 @@ func _update_liquidity_cond{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
 func swap{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
 }(
-    recipient: felt, zero_for_one: felt, amount_specified: Uint256, sqrt_price_limit_x96: Uint256, data: felt
+    recipient: felt, 
+    zero_for_one: felt, 
+    amount_specified: Uint256, 
+    sqrt_price_limit_x96: Uint256, // uint160
+    data: felt
 ) -> (amount0: Uint256, amount1: Uint256) {
     alloc_locals;
 
+    Utils.assert_is_uint160(sqrt_price_limit_x96);
+
+    // amount_specified != 0
     let (is_valid) = uint256_eq(amount_specified, Uint256(0, 0));
     assert is_valid = 0;
 
@@ -752,7 +761,7 @@ func swap{
 }
 
 func _check_ticks{range_check_ptr}(tick_lower: felt, tick_upper: felt) {
-    let (is_valid) = Utils.is_lt(tick_lower, tick_upper);
+    let (is_valid) = Utils.is_lt_signed(tick_lower, tick_upper);
     with_attr error_message("tick lower is greater than tick upper") {
         assert is_valid = 1;
     }
@@ -870,7 +879,7 @@ func _update_position{
         tick_upper,
     );
 
-    let (is_valid) = Utils.is_lt(liquidity_delta, 0);
+    let (is_valid) = Utils.is_lt_signed(liquidity_delta, 0);
     if (is_valid == 1) {
         _clear_tick(flipped_lower, tick_lower);
         _clear_tick(flipped_upper, tick_upper);
@@ -897,7 +906,7 @@ func _modify_position{
         let (sqrt_ratio0: Uint256) = TickMath.get_sqrt_ratio_at_tick(params.tick_lower);
         let (sqrt_ratio1: Uint256) = TickMath.get_sqrt_ratio_at_tick(params.tick_upper);
 
-        let (is_valid) = Utils.is_lt(slot0.tick, params.tick_lower);
+        let (is_valid) = Utils.is_lt_signed(slot0.tick, params.tick_lower);
         if (is_valid == 1) {
             let (amount0: Uint256) = SqrtPriceMath.get_amount0_delta2(
                 sqrt_ratio0, sqrt_ratio1, params.liquidity_delta
@@ -905,7 +914,7 @@ func _modify_position{
             return (position, amount0, Uint256(0, 0));
         }
 
-        let (is_valid) = Utils.is_lt(slot0.tick, params.tick_upper);
+        let (is_valid) = Utils.is_lt_signed(slot0.tick, params.tick_upper);
         if (is_valid == 1) {
             let (amount0: Uint256) = SqrtPriceMath.get_amount0_delta2(
                 slot0.sqrt_price_x96, sqrt_ratio1, params.liquidity_delta
@@ -997,15 +1006,18 @@ func _add_liquidity_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ran
 @external
 func add_liquidity{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
-}(recipient: felt, tick_lower: felt, tick_upper: felt, amount: felt, data: felt) -> (
-    amount0: Uint256, amount1: Uint256
-) {
+}(
+    recipient: felt, 
+    tick_lower: felt, 
+    tick_upper: felt, 
+    amount: felt,  // uint128
+    data: felt
+) -> (amount0: Uint256, amount1: Uint256) {
     alloc_locals;
 
     _lock();
 
-    let (is_valid) = Utils.is_gt(amount, 0);
-    assert is_valid = 1;
+    Utils.assert_is_uint128(amount);
 
     let (_, amount0: Uint256, amount1: Uint256) = _modify_position(
         ModifyPositionParams(
@@ -1065,15 +1077,17 @@ func _remove_liquidity_1{
 @external
 func remove_liquidity{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
-}(tick_lower: felt, tick_upper: felt, amount: felt) -> (amount0: Uint256, amount1: Uint256) {
+}(
+    tick_lower: felt, 
+    tick_upper: felt, 
+    amount: felt
+) -> (amount0: Uint256, amount1: Uint256) {
     alloc_locals;
 
     _lock();
 
-    let is_valid = is_nn(amount);
-    with_attr error_message("remove_liquidity amount illegal") {
-        assert is_valid = 1;
-    }
+    // 0 <= amount < 2 ** 128
+    Utils.assert_is_uint128(amount);
 
     let (recipient) = get_caller_address();
 
@@ -1099,10 +1113,8 @@ func remove_liquidity{
 
 func _check_fee_protocol{range_check_ptr}(fee_protocol) {
     if (fee_protocol != 0) {
-        let flag1 = is_le(4, fee_protocol);
-        assert flag1 = 1;
-        let flag2 = is_le(fee_protocol, 10);
-        assert flag2 = 1;
+        // 4 <= fee_protocol <= 10
+        assert_in_range(fee_protocol, 4, 11);
         return ();
     }
     return ();
@@ -1178,12 +1190,15 @@ func collect{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     recipient: felt,
     tick_lower: felt,
     tick_upper: felt,
-    amount0_requested: felt,
-    amount1_requested: felt,
+    amount0_requested: felt, // uint128
+    amount1_requested: felt, // uint128
 ) -> (amount0: felt, amount1: felt) {
     alloc_locals;
 
     _lock();
+
+    Utils.assert_is_uint128(amount0_requested);
+    Utils.assert_is_uint128(amount1_requested);
 
     let (caller_address) = get_caller_address();
 
@@ -1253,13 +1268,19 @@ func _collect_protocol_2{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
 
 @external
 func collect_protocol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    recipient: felt, amount0_requested: felt, amount1_requested: felt
+    recipient: felt, 
+    amount0_requested: felt, // uint128
+    amount1_requested: felt // uint128
 ) -> (amount0: felt, amount1: felt) {
     alloc_locals;
 
-    Ownable.assert_only_owner();
 
     _lock();
+
+    Utils.assert_is_uint128(amount0_requested);
+    Utils.assert_is_uint128(amount1_requested);
+
+    Ownable.assert_only_owner();
 
     let (protocol_fee_token0) = _protocol_fee_token0.read();
     let (is_valid) = Utils.is_gt(amount0_requested, protocol_fee_token0);
@@ -1276,18 +1297,4 @@ func collect_protocol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     CollectProtocol.emit(recipient, amount0_requested, amount1_requested, new_amount0, new_amount1);
 
     return (new_amount0, new_amount1);
-}
-
-@external
-func transfer_ownership{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    newOwner: felt
-) {
-    Ownable.transfer_ownership(newOwner);
-    return ();
-}
-
-@external
-func renounce_ownership{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
-    Ownable.renounce_ownership();
-    return ();
 }

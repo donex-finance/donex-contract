@@ -37,7 +37,7 @@ namespace Utils {
         return (is_valid,);
     }
 
-    func is_lt{range_check_ptr}(a: felt, b: felt) -> (res: felt) {
+    func is_lt_signed{range_check_ptr}(a: felt, b: felt) -> (res: felt) {
         let is_valid = is_nn(a - b);
         if (is_valid == 0) {
             return (1,);
@@ -114,5 +114,21 @@ namespace Utils {
             return b;
         }
         return a;
+    }
+
+    func assert_is_uint128{range_check_ptr}(a: felt) {
+        let is_valid = is_le(a, MAX_UINT128);
+        with_attr error_message("assert_uint128: overflow") {
+            assert is_valid = 1;
+        }
+        return ();
+    }
+
+    func assert_is_uint160{range_check_ptr}(a: Uint256) {
+        let (is_valid) = uint256_lt(a, Uint256(0, 2 ** 32));
+        with_attr error_message("assert_uint160: overflow") {
+            assert is_valid = 1;
+        }
+        return ();
     }
 }

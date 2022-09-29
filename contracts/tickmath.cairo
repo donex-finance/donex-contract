@@ -221,7 +221,7 @@ namespace TickMath {
     ) -> (r: Uint256, log_2: Uint256) {
         alloc_locals;
 
-        let (is_valid) = Utils.is_lt(shf_bit, 50);
+        let (is_valid) = Utils.is_lt_signed(shf_bit, 50);
         if (is_valid == 1) {
             return (r_in, log_2_in);
         }
@@ -302,7 +302,7 @@ namespace TickMath {
         let (ratio: Uint256) = uint256_shl(sqrt_price_x96, Uint256(32, 0));
 
         let (msb) = most_significant_bit(ratio);
-        let (is_minus) = Utils.is_lt(msb, 128);
+        let (is_minus) = Utils.is_lt_signed(msb, 128);
 
         let (r: Uint256) = _get_tick_at_sqrt_ratio1(is_minus, ratio, msb);
 
