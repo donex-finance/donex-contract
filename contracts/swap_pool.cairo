@@ -186,8 +186,19 @@ func SetFeeProtocol(fee_protocol0: felt, fee_protocol1: felt, fee_protocol: felt
 }
 
 @constructor
-func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    tick_spacing: felt, fee: felt, token_a: felt, token_b: felt, owner: felt
+func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
+    return ();
+}
+
+@external
+func initializer{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
+}(
+    tick_spacing: felt, 
+    fee: felt, 
+    token_a: felt, 
+    token_b: felt, 
+    owner: felt 
 ) {
     alloc_locals;
 
@@ -203,6 +214,7 @@ func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     _max_liquidity_per_tick.write(max_liquidity_per_tick);
 
     Ownable.initializer(owner);
+    
     return ();
 }
 
@@ -291,11 +303,12 @@ func balance1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}()
 }
 
 @external
-func initialize{
+func initialize_price{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
-}(sqrt_price_x96: Uint256) {
+}(
+    sqrt_price_x96: Uint256 // uint160
+) {
     alloc_locals;
-
     Utils.assert_is_uint160(sqrt_price_x96);
 
     let (slot0) = _slot0.read();

@@ -60,6 +60,24 @@ class SwapPoolTest(TestCase):
                 self.token0, self.token1 = self.token1, self.token0
                 self.token0_def, self.token1_def = self.token1_def, self.token0_def
 
+            begin = time.time()
+            self.contract_def = compile_starknet_files(
+                ['contracts/swap_pool.cairo'], debug_info=True, disable_hint_validation=True
+            )
+            print('compile swap_pool time:', time.time() - begin)
+
+            begin = time.time()
+            self.declare_class = await self.starknet.declare(
+                contract_class=self.contract_def,
+            )
+            print('declare swap_pool time:', time.time() - begin)
+
+            begin = time.time()
+            self.proxy_def = compile_starknet_files(
+                ['contracts/swap_pool_proxy.cairo'], debug_info=True, disable_hint_validation=True
+            )
+            print('compile swap_pool time:', time.time() - begin)
+
             self.swap_target_def, self.swap_target = await init_contract("tests/mocks/swap_target.cairo", [self.token0.contract_address, self.token1.contract_address], starknet=self.starknet)
 
             await self.token0.approve(self.swap_target.contract_address, to_uint(2 ** 256 - 1)).execute(caller_address=address)
@@ -74,7 +92,15 @@ class SwapPoolTest(TestCase):
         if not hasattr(self, 'contract'):
             FEE = FeeAmount.MEDIUM
             tick_spacing = TICK_SPACINGS[FEE]
-            self.contract_def, self.contract = await init_contract(CONTRACT_FILE, [tick_spacing, FEE, self.token0.contract_address, self.token1.contract_address, address], starknet=self.starknet)
+            kwargs = {
+                "contract_class": self.proxy_def,
+                "constructor_calldata": [self.declare_class.class_hash, tick_spacing, FEE, self.token0.contract_address, self.token1.contract_address, address],
+            }
+            begin = time.time()
+            self.contract = await self.starknet.deploy(**kwargs)
+            print('deploy swap_pool time:', time.time() - begin)
+            # replace api
+            self.contract = self.contract.replace_abi(self.contract_def.abi)
 
         if not state:
             state = self.contract.state.copy()
@@ -86,7 +112,16 @@ class SwapPoolTest(TestCase):
         await self.check_starknet()
 
         if not hasattr(self, 'contract_low'):
-            self.contract_def, self.contract_low = await init_contract(CONTRACT_FILE, [TICK_SPACINGS[FeeAmount.LOW], FeeAmount.LOW, self.token0.contract_address, self.token1.contract_address, address], self.starknet)
+            kwargs = {
+                "contract_class": self.proxy_def,
+                "constructor_calldata": [self.declare_class.class_hash, TICK_SPACINGS[FeeAmount.LOW], FeeAmount.LOW, self.token0.contract_address, self.token1.contract_address, address],
+            }
+            begin = time.time()
+            self.contract_low = await self.starknet.deploy(**kwargs)
+            print('deploy swap_pool time:', time.time() - begin)
+
+            # replace api
+            self.contract_low = self.contract_low.replace_abi(self.contract_def.abi)
 
         if not state:
             state = self.contract_low.state.copy()
@@ -98,7 +133,7 @@ class SwapPoolTest(TestCase):
         res = await contract.get_tick_spacing().call()
         tick_spacing = res.call_info.result[0]
         min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
-        await contract.initialize(encode_price_sqrt(1, 1)).execute()
+        await contract.initialize_price(encode_price_sqrt(1, 1)).execute()
         await self.add_liquidity(swap_target, contract, address, min_tick, max_tick, expand_to_18decimals(2))
         return contract
 
@@ -116,52 +151,79 @@ class SwapPoolTest(TestCase):
         return res
 
     @pytest.mark.asyncio
+    async def test_upgrade(self):
+        contract, swap_target = await self.get_state_contract()
+
+        contract = contract.replace_abi(self.proxy_def.abi)
+
+        await assert_revert(
+            contract.upgrade(111).execute(caller_address=other_address),
+            ""
+        )
+
+        # upgrade wrong class_hash
+        await contract.upgrade(111).execute(caller_address=address)
+
+        contract = contract.replace_abi(self.contract_def.abi)
+        await assert_revert(
+            contract.initialize_price(encode_price_sqrt(1, 1)).execute(),
+            ''
+        )
+
+        # upgrade right class_hash
+        contract = contract.replace_abi(self.proxy_def.abi)
+        await contract.upgrade(self.declare_class.class_hash).execute(caller_address=address)
+
+        contract = contract.replace_abi(self.contract_def.abi)
+        await contract.initialize_price(encode_price_sqrt(1, 1)).execute(),
+
+    @pytest.mark.asyncio
     async def test_initialize(self):
 
         contract, swap_target = await self.get_state_contract()
         begin = time.time()
-        await contract.initialize(encode_price_sqrt(1, 1)).execute()
+        await contract.initialize_price(encode_price_sqrt(1, 1)).execute()
         print('initial call time:', time.time() - begin)
         await assert_revert(
-            contract.initialize(encode_price_sqrt(1, 1)).execute(),
+            contract.initialize_price(encode_price_sqrt(1, 1)).execute(),
             "initialize more than once"
         )
 
         contract, swap_target = await self.get_state_contract()
         await assert_revert(
-            contract.initialize(to_uint(1)).execute(),
+            contract.initialize_price(to_uint(1)).execute(),
             "tick is too low"
         )
         await assert_revert(
-            contract.initialize(to_uint(MIN_SQRT_RATIO - 1)).execute(),
+            contract.initialize_price(to_uint(MIN_SQRT_RATIO - 1)).execute(),
             "tick is too low"
         )
 
         await assert_revert(
-            contract.initialize(to_uint(MAX_SQRT_RATIO)).execute(),
+            contract.initialize_price(to_uint(MAX_SQRT_RATIO)).execute(),
             "tick is too high"
         )
         await assert_revert(
-            contract.initialize(to_uint(2 ** 160 - 1)).execute(),
+            contract.initialize_price(to_uint(2 ** 160 - 1)).execute(),
             "tick is too high"
         )
 
         # can be initialized at MIN_SQRT_RATIO
         contract, swap_target = await self.get_state_contract()
-        await contract.initialize(to_uint(MIN_SQRT_RATIO)).execute()
+        await contract.initialize_price(to_uint(MIN_SQRT_RATIO)).execute()
         res = await contract.get_cur_slot().call()
         tick = felt_to_int(res.call_info.result[2])
         self.assertEqual(tick, get_min_tick(1))
 
         contract, swap_target = await self.get_state_contract()
-        await contract.initialize(to_uint(MAX_SQRT_RATIO - 1)).execute()
+        await contract.initialize_price(to_uint(MAX_SQRT_RATIO - 1)).execute()
         res = await contract.get_cur_slot().call()
         tick = felt_to_int(res.call_info.result[2])
         self.assertEqual(tick, get_max_tick(1) - 1)
 
         contract, swap_target = await self.get_state_contract()
         price = encode_price_sqrt(1, 2)
-        await contract.initialize(price).execute()
+        await contract.initialize_price(price).execute()
         res = await contract.get_cur_slot().call()
         sqrt_price_x96 = tuple(res.call_info.result[0: 2])
         tick = felt_to_int(res.call_info.result[2])
@@ -181,7 +243,7 @@ class SwapPoolTest(TestCase):
             'swap is locked'
         )
 
-        await contract.initialize(encode_price_sqrt(1, 10)).execute()
+        await contract.initialize_price(encode_price_sqrt(1, 10)).execute()
         await self.add_liquidity(swap_target, contract, address, min_tick, max_tick, 3161)
 
         await assert_revert(
@@ -244,7 +306,7 @@ class SwapPoolTest(TestCase):
         token0 = cached_contract(state, self.token0_def, self.token0)
         token1 = cached_contract(state, self.token1_def, self.token1)
         price = to_uint(25054144837504793118650146401)
-        await contract.initialize(price).execute()
+        await contract.initialize_price(price).execute()
         res = await self.add_liquidity(swap_target, contract, address, min_tick, max_tick, 3161)
         amount0 = from_uint(res.call_info.result[0: 2])
         amount1 = from_uint(res.call_info.result[2: 4])
@@ -467,7 +529,7 @@ class SwapPoolTest(TestCase):
     async def test_protocol_fee(self):
         contract, swap_target = await self.get_state_contract()
         price = to_uint(25054144837504793118650146401)
-        await contract.initialize(price).execute()
+        await contract.initialize_price(price).execute()
         await self.add_liquidity(swap_target, contract, address, min_tick, max_tick, 3161)
 
         # protocol fees accumulate as expected during swap
@@ -561,7 +623,7 @@ class SwapPoolTest(TestCase):
 
         contract, swap_target = await self.get_state_contract()
         price = encode_price_sqrt(1, 1)
-        await contract.initialize(price).execute()
+        await contract.initialize_price(price).execute()
         res = await self.add_liquidity(swap_target, contract, address, int_to_felt(min_tick), max_tick, expand_to_18decimals(2))
 
         # remove more liquidity more than have
@@ -724,7 +786,7 @@ class SwapPoolTest(TestCase):
     async def test_add_liquidity3(self):
         contract, swap_target = await self.get_state_contract()
         price = encode_price_sqrt(1, 1)
-        await contract.initialize(price).execute()
+        await contract.initialize_price(price).execute()
         res = await self.add_liquidity(swap_target, contract, address, int_to_felt(min_tick), max_tick, expand_to_18decimals(2))
 
         res = await contract.get_liquidity().call()
@@ -803,7 +865,7 @@ class SwapPoolTest(TestCase):
     async def test_limit_orders(self):
         contract, swap_target = await self.get_state_contract()
         price = encode_price_sqrt(1, 1)
-        await contract.initialize(price).execute()
+        await contract.initialize_price(price).execute()
         res = await self.add_liquidity(swap_target, contract, address, int_to_felt(min_tick), max_tick, expand_to_18decimals(2))
 
         # limit selling 0 for 1 at tick 0 thru 1
@@ -1053,7 +1115,7 @@ class SwapPoolTest(TestCase):
         tick_spacing = TICK_SPACINGS[FeeAmount.LOW]
         min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
         contract, swap_target = await self.get_state_contract_low()
-        await contract.initialize(encode_price_sqrt(1, 1)).execute()
+        await contract.initialize_price(encode_price_sqrt(1, 1)).execute()
 
         # works with multiple LPs
         new_contract, new_swap_target = await self.get_state_contract_low(contract.state.copy())
@@ -1142,7 +1204,7 @@ class SwapPoolTest(TestCase):
         tick_spacing = TICK_SPACINGS[FeeAmount.LOW]
         min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
         contract, swap_target = await self.get_state_contract_low()
-        await contract.initialize(encode_price_sqrt(1, 1)).execute()
+        await contract.initialize_price(encode_price_sqrt(1, 1)).execute()
         res = await self.add_liquidity(swap_target, contract, address, min_tick, max_tick, liquidity_amount)
 
         # is initially set to 0
@@ -1330,9 +1392,17 @@ class SwapPoolTest(TestCase):
     async def test_tick_spacing(self):
         tick_spacing = 12
         await self.check_starknet()
-        contract_def, contract = await init_contract(CONTRACT_FILE, [tick_spacing, FeeAmount.MEDIUM, self.token0.contract_address, self.token1.contract_address, address], self.starknet)
+
+        kwargs = {
+            "contract_class": self.proxy_def,
+            "constructor_calldata": [self.declare_class.class_hash, tick_spacing, FeeAmount.MEDIUM, self.token0.contract_address, self.token1.contract_address, address],
+        }
+        contract = await self.starknet.deploy(**kwargs)
+        # replace api
+        contract = contract.replace_abi(self.contract_def.abi)
+
         min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
-        await contract.initialize(encode_price_sqrt(1, 1)).execute()
+        await contract.initialize_price(encode_price_sqrt(1, 1)).execute()
 
         # mint can only be called for multiples of 12
         await assert_revert(
@@ -1346,14 +1416,14 @@ class SwapPoolTest(TestCase):
 
         # mint can be called with multiples of 12
         state = contract.state.copy()
-        new_contract = cached_contract(state, contract_def, contract)
+        new_contract = cached_contract(state, self.contract_def, contract)
         new_swap_target = cached_contract(state, self.swap_target_def, self.swap_target)
         res = await self.add_liquidity(new_swap_target, new_contract, address, 12, 24, 1)
         res = await self.add_liquidity(new_swap_target, new_contract, address, -144, -120, 1)
 
         # swapping across gaps works in 1 for 0 direction
         state = contract.state.copy()
-        new_contract = cached_contract(state, contract_def, contract)
+        new_contract = cached_contract(state, self.contract_def, contract)
         new_swap_target = cached_contract(state, self.swap_target_def, self.swap_target)
         liquidity_amount = expand_to_18decimals(1) // 4
         res = await self.add_liquidity(new_swap_target, new_contract, address, 120000, 121200, liquidity_amount)
@@ -1380,7 +1450,7 @@ class SwapPoolTest(TestCase):
 
         # swapping across gaps works in 0 for 1 direction
         state = contract.state.copy()
-        new_contract = cached_contract(state, contract_def, contract)
+        new_contract = cached_contract(state, self.contract_def, contract)
         new_swap_target = cached_contract(state, self.swap_target_def, self.swap_target)
         liquidity_amount = expand_to_18decimals(1) // 4
         res = await self.add_liquidity(new_swap_target, new_contract, address, -121200, -120000, liquidity_amount)
@@ -1415,7 +1485,7 @@ class SwapPoolTest(TestCase):
         tick_spacing = 1
         contract_def, contract = await init_contract(CONTRACT_FILE, [tick_spacing, FeeAmount.MEDIUM, token0, token1])
         min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
-        await contract.initialize(encode_price_sqrt(1, 1)).execute()
+        await contract.initialize_price(encode_price_sqrt(1, 1)).execute()
 
         # mint can only be called for multiples of 12
 
@@ -1426,7 +1496,7 @@ class SwapPoolTest(TestCase):
     const p0 = (await sqrtTickMath.getSqrtRatioAtTick(-24081)).add(1)
     // initialize at a price of ~0.3 token1/token0
     // meaning if you swap in 2 token0, you should end up getting 0 token1
-    await pool.initialize(p0)
+    await pool.initialize_price(p0)
     expect(await pool.liquidity(), 'current pool liquidity is 1').to.eq(0)
     expect((await pool.slot0()).tick, 'pool tick is -24081').to.eq(-24081)
 

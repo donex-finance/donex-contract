@@ -206,7 +206,6 @@ func create_and_initialize_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
     assert calldata[3] = token1;
     assert calldata[4] = owner;
     // deploy contract
-    // TODO: tick_spacing
     let (pool_address) = deploy(
         class_hash=swap_pool_hash,
         contract_address_salt=tick_spacing,
