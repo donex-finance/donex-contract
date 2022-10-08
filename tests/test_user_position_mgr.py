@@ -24,6 +24,9 @@ other_signer = MockSigner(2343424234234)
 Q128 = to_uint(2 ** 128)
 MaxUint256 = to_uint(2 ** 256 - 1)
 
+NFT_NAME = 111
+NFT_SYMBOL = 222
+
 # The path to the contract source code.
 
 tick_spacing = TICK_SPACINGS[FeeAmount.MEDIUM]
@@ -42,7 +45,7 @@ async def init_user_position_contract(starknet, swap_pool_hash):
     print('compile user_position time:', time.time() - begin)
 
     begin = time.time()
-    res = await starknet.declare(
+    declare_class = await starknet.declare(
         contract_class=compiled_contract,
     )
     print('declare user_position_mgr time:', time.time() - begin)
@@ -55,7 +58,7 @@ async def init_user_position_contract(starknet, swap_pool_hash):
 
     kwargs = {
         "contract_class": compiled_proxy,
-        "constructor_calldata": [res.class_hash]
+        "constructor_calldata": [declare_class.class_hash, address, swap_pool_hash, NFT_NAME, NFT_SYMBOL]
         }
 
     begin = time.time()
@@ -65,9 +68,7 @@ async def init_user_position_contract(starknet, swap_pool_hash):
     # replace api
     contract = contract.replace_abi(compiled_contract.abi)
 
-    await contract.initializer(address, swap_pool_hash, 111, 222).execute()
-
-    return compiled_contract, contract
+    return compiled_contract, declare_class, compiled_proxy, contract
 
 async def init_swap_pool_class(starknet):
 
@@ -106,7 +107,7 @@ class UserPositionMgrTest(TestCase):
             # swap pool
             self.swap_pool_class = await init_swap_pool_class(self.starknet)
 
-            self.user_position_def, self.user_position = await init_user_position_contract(self.starknet, self.swap_pool_class.class_hash)
+            self.user_position_def, self.user_position_class, self.proxy_def, self.user_position = await init_user_position_contract(self.starknet, self.swap_pool_class.class_hash)
 
             res = await self.user_position.create_and_initialize_pool(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, encode_price_sqrt(1, 1)).execute()
 
@@ -124,6 +125,27 @@ class UserPositionMgrTest(TestCase):
         #swap_pool = cached_contract(state, self.swap_pool_def, self.swap_pool)
 
         return user_position
+
+    @pytest.mark.asyncio
+    async def test_upgrade(self):
+        user_position = await self.get_user_position_contract()
+
+        user_position = user_position.replace_abi(self.proxy_def.abi)
+
+        await assert_revert(
+            user_position.upgrade(111).execute(caller_address=other_address),
+            ""
+        )
+
+        await user_position.upgrade(111).execute(caller_address=address)
+
+    @pytest.mark.asyncio
+    async def test_initializer(self):
+        user_position = await self.get_user_position_contract()
+        await assert_revert(
+            user_position.initializer(address, 111, NFT_NAME, NFT_SYMBOL).execute(caller_address=address),
+            ""
+        )
 
     @pytest.mark.asyncio
     async def test_mint(self):

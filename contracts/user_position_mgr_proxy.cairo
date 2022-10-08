@@ -6,30 +6,22 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
 from openzeppelin.upgrades.library import Proxy
 from openzeppelin.access.ownable.library import Ownable
 
+from contracts.interface.IUserPositionMgr import IUserPositionMgr
+
 @constructor
 func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    class_hash: felt
-    //owner: felt,
-    //swap_pool_hash: felt
+    class_hash: felt,
+    owner: felt,
+    swap_pool_hash: felt,
+    name: felt,
+    symbol: felt
 ) {
     Proxy._set_implementation_hash(class_hash);
 
-
-    // call intializer
-    // TODO: selector
-    //let (local calldata: felt*) = alloc();
-    //assert calldata[0] = owner;
-    //assert calldata[1] = swap_pool_hash;
-    //library_call(
-    //    class_hash=class_hash,
-    //    function_selector='',
-    //    calldata_size=2,
-    //    calldata=calldata,
-    //);
+    IUserPositionMgr.library_call_initializer(class_hash=class_hash, owner=owner, swap_pool_hash=swap_pool_hash, name=name, symbol=symbol);
     return ();
 }
 
-// TODO: test
 @external
 func upgrade{syscall_ptr : felt*, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     new_implementation : felt
