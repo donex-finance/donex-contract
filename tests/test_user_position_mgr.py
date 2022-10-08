@@ -65,7 +65,7 @@ async def init_user_position_contract(starknet, swap_pool_hash):
     # replace api
     contract = contract.replace_abi(compiled_contract.abi)
 
-    await contract.initializer(address, swap_pool_hash).execute()
+    await contract.initializer(address, swap_pool_hash, 111, 222).execute()
 
     return compiled_contract, contract
 
@@ -83,24 +83,6 @@ async def init_swap_pool_class(starknet):
     )
     print('declare swap_pool time:', time.time() - begin)
     return res
-
-async def init_erc721(starknet, owner):
-    begin = time.time()
-    compiled_contract = compile_starknet_files(
-        ['tests/mocks/ERC721_mock.cairo'], debug_info=True, disable_hint_validation=True
-    )
-    print('compile erc721 time:', time.time() - begin)
-
-    kwargs = {
-        "contract_class": compiled_contract,
-        "constructor_calldata": [0, 1, owner]
-        }
-
-    begin = time.time()
-    contract = await starknet.deploy(**kwargs)
-    print('deploy erc721 time:', time.time() - begin)
-
-    return compiled_contract, contract
 
 class UserPositionMgrTest(TestCase):
 
@@ -126,10 +108,6 @@ class UserPositionMgrTest(TestCase):
 
             self.user_position_def, self.user_position = await init_user_position_contract(self.starknet, self.swap_pool_class.class_hash)
 
-            # erc721
-            self.erc721_def, self.erc721 = await init_erc721(self.starknet, self.user_position.contract_address)
-            await self.user_position.initialize_erc721(self.erc721.contract_address).execute(caller_address=address)
-
             res = await self.user_position.create_and_initialize_pool(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, encode_price_sqrt(1, 1)).execute()
 
             self.swap_pool_address = res.call_info.result[0]
@@ -145,20 +123,18 @@ class UserPositionMgrTest(TestCase):
 
         #swap_pool = cached_contract(state, self.swap_pool_def, self.swap_pool)
 
-        erc721 = cached_contract(state, self.erc721_def, self.erc721)
-
-        return user_position, erc721 
+        return user_position
 
     @pytest.mark.asyncio
     async def test_mint(self):
 
-        user_position, erc721  = await self.get_user_position_contract()
+        user_position = await self.get_user_position_contract()
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0)).execute(caller_address=other_address)
 
         # check nft
-        res = await erc721.balanceOf(other_address).call()
+        res = await user_position.balanceOf(other_address).call()
         self.assertEqual(res.call_info.result[0], 1)
-        res = await erc721.tokenOfOwnerByIndex(other_address, to_uint(0)).call()
+        res = await user_position.tokenOfOwnerByIndex(other_address, to_uint(0)).call()
         self.assertEqual(from_uint(res.call_info.result[0: 2]), 1)
 
         res = await user_position.get_token_position(to_uint(1)).call()
@@ -173,7 +149,7 @@ class UserPositionMgrTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_increase_liquidity(self):
-        user_position, erc721  = await self.get_user_position_contract()
+        user_position = await self.get_user_position_contract()
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000), to_uint(1000), to_uint(0), to_uint(0)).execute(caller_address=other_address)
 
         token_id = to_uint(1)
@@ -186,7 +162,7 @@ class UserPositionMgrTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_decrease_liquidity(self):
-        user_position, erc721  = await self.get_user_position_contract()
+        user_position = await self.get_user_position_contract()
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute(caller_address=other_address)
 
         token_id = to_uint(1)
@@ -229,7 +205,7 @@ class UserPositionMgrTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_collect(self):
-        user_position, erc721  = await self.get_user_position_contract()
+        user_position = await self.get_user_position_contract()
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0)).execute(caller_address=other_address)
         res = await user_position.mint(address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0)).execute(caller_address=address)
 
@@ -275,7 +251,7 @@ class UserPositionMgrTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_burn(self):
-        user_position, erc721  = await self.get_user_position_contract()
+        user_position = await self.get_user_position_contract()
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute(caller_address=other_address)
 
         token_id = to_uint(1)
@@ -325,7 +301,7 @@ class UserPositionMgrTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_exact_input(self):
-        user_position, erc721  = await self.get_user_position_contract()
+        user_position = await self.get_user_position_contract()
 
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0)).execute(caller_address=address)
 
@@ -390,7 +366,7 @@ class UserPositionMgrTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_exact_output(self):
-        user_position, erc721  = await self.get_user_position_contract()
+        user_position = await self.get_user_position_contract()
 
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0)).execute(caller_address=address)
 
