@@ -689,6 +689,34 @@ func _get_limit_price{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     return (sqrt_price_limit,);
 }
 
+@view
+func get_exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    token_in: felt,
+    token_out: felt,
+    fee: felt,
+    recipient: felt,
+    amount_in: Uint256, 
+    sqrt_price_limit: Uint256,
+) -> (amount_out: Uint256) {
+    alloc_locals;
+
+    let pool_address = _check_pool_address(token_in, token_out, fee);
+    let (caller) = get_caller_address();
+
+    let zero_for_one = is_le_felt(token_in, token_out);
+
+    let (limit_price: Uint256) = _get_limit_price(sqrt_price_limit, zero_for_one);
+
+    let (amount0: Uint256, amount1: Uint256) = ISwapPool.get_swap_results(contract_address=pool_address, recipient=recipient, zero_for_one=zero_for_one, amount_specified=amount_in, sqrt_price_limit_x96=limit_price);
+
+    if (zero_for_one == 1) {
+        let (neg_amount1: Uint256) = uint256_neg(amount1);
+        return (neg_amount1,);
+    }
+
+    let (neg_amount0) = uint256_neg(amount0);
+    return (neg_amount0,);
+}
 
 @external
 func exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
@@ -726,6 +754,35 @@ func exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
         assert is_valid = 1;
     }
     return (neg_amount0,);
+}
+
+@view
+func get_exact_output{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    token_in: felt,
+    token_out: felt,
+    fee: felt,
+    recipient: felt,
+    amount_out: Uint256, 
+    sqrt_price_limit: Uint256
+) -> (amount_in: Uint256) {
+    alloc_locals;
+
+    let pool_address = _check_pool_address(token_in, token_out, fee);
+    let (caller) = get_caller_address();
+
+    // unsined int
+    let zero_for_one = is_le_felt(token_in, token_out);
+     
+    let (amount_specified: Uint256) = uint256_neg(amount_out);
+
+    let (limit_price: Uint256) = _get_limit_price(sqrt_price_limit, zero_for_one);
+
+    let (amount0: Uint256, amount1: Uint256) = ISwapPool.get_swap_results(contract_address=pool_address, recipient=recipient, zero_for_one=zero_for_one, amount_specified=amount_specified, sqrt_price_limit_x96=limit_price);
+
+    if (zero_for_one == 1) {
+        return (amount0,);
+    }
+    return (amount1,);
 }
 
 @external

@@ -424,7 +424,7 @@ class UserPositionMgrTest(TestCase):
             "too much requested"
         )
 
-        res = await new_user_position.exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max)).execute(caller_address=address),
+        res = await new_user_position.exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max)).execute(caller_address=address)
 
         pool_after = await self.get_balance(token0, token1, self.swap_pool_address)
         trader_after = await self.get_balance(token0, token1, address)

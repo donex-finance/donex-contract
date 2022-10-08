@@ -610,7 +610,7 @@ func _swap_2{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     return ();
 }
 
-func _swap_3{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func _swap_cal_res{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     zero_for_one: felt, exact_input: felt, amount_specified: Uint256, state: SwapState
 ) -> (amount0: Uint256, amount1: Uint256) {
     if (zero_for_one == exact_input) {
@@ -624,7 +624,7 @@ func _swap_3{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     return (amount0, amount1);
 }
 
-func _swap_4{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+func _swap_transfer_token{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     zero_for_one: felt, 
     amount0: Uint256, 
     amount1: Uint256, 
@@ -680,6 +680,57 @@ func _update_liquidity_cond{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
     return ();
 }
 
+@view
+func get_swap_results{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
+}(
+    recipient: felt, 
+    zero_for_one: felt, 
+    amount_specified: Uint256,  // int256
+    sqrt_price_limit_x96: Uint256, // uint160
+) -> (amount0: Uint256, amount1: Uint256) {
+    alloc_locals;
+
+    Utils.assert_is_uint160(sqrt_price_limit_x96);
+
+    // amount_specified != 0
+    let (is_valid) = uint256_eq(amount_specified, Uint256(0, 0));
+    assert is_valid = 0;
+
+    let (slot0: SlotState) = _slot0.read();
+    let (fee_protocol) = _swap_1(slot0, sqrt_price_limit_x96, zero_for_one);
+
+    let (liquidity_start) = _liquidity.read();
+
+    let (exact_input) = uint256_signed_lt(Uint256(0, 0), amount_specified);
+
+    if (zero_for_one == 1) {
+        let (fee_growth: Uint256) = _fee_growth_global0_x128.read();
+    } else {
+        let (fee_growth: Uint256) = _fee_growth_global1_x128.read();
+    }
+
+    let init_state = SwapState(
+        amount_specified_remaining=amount_specified,
+        amount_caculated=Uint256(0, 0),
+        sqrt_price_x96=slot0.sqrt_price_x96,
+        tick=slot0.tick,
+        fee_growth_global_x128=fee_growth,
+        protocol_fee=0,
+        liquidity=liquidity_start,
+    );
+
+    let (state: SwapState) = _compute_swap_step(
+        init_state, fee_protocol, exact_input, zero_for_one, sqrt_price_limit_x96
+    );
+
+    let (amount0: Uint256, amount1: Uint256) = _swap_cal_res(
+        zero_for_one, exact_input, amount_specified, state
+    );
+
+    return (amount0, amount1);
+}
+
 // @params amount_specified: int256
 @external
 func swap{
@@ -687,7 +738,7 @@ func swap{
 }(
     recipient: felt, 
     zero_for_one: felt, 
-    amount_specified: Uint256, 
+    amount_specified: Uint256,  // int256
     sqrt_price_limit_x96: Uint256, // uint160
     data: felt
 ) -> (amount0: Uint256, amount1: Uint256) {
@@ -737,12 +788,12 @@ func swap{
 
     _swap_2(state.fee_growth_global_x128, state.protocol_fee, zero_for_one);
 
-    let (amount0: Uint256, amount1: Uint256) = _swap_3(
+    let (amount0: Uint256, amount1: Uint256) = _swap_cal_res(
         zero_for_one, exact_input, amount_specified, state
     );
 
     // transfer and check balance
-    _swap_4(zero_for_one, amount0, amount1, recipient, data);
+    _swap_transfer_token(zero_for_one, amount0, amount1, recipient, data);
 
     _unlock();
 

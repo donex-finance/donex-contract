@@ -12,6 +12,14 @@ namespace ISwapPool {
     func get_position(owner: felt, tick_lower: felt, tick_upper: felt) -> (position: PositionInfo) {
     }
 
+    func get_swap_results(
+        recipient: felt,
+        zero_for_one: felt,
+        amount_specified: Uint256, // int256
+        sqrt_price_limit_x96: Uint256 // uint160
+    ) -> (amount0: Uint256, amount1: Uint256) {
+    }
+
     func initialize(sqrt_price_x96: Uint256) {
     }
 
@@ -28,8 +36,8 @@ namespace ISwapPool {
     func swap(
         recipient: felt,
         zero_for_one: felt,
-        amount_specified: Uint256,
-        sqrt_price_limit_x96: Uint256,
+        amount_specified: Uint256, // int256
+        sqrt_price_limit_x96: Uint256, // uint160
         data: felt
     ) -> (amount0: Uint256, amount1: Uint256) {
     }
