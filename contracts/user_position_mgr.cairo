@@ -80,9 +80,36 @@ func CreateNewPool(token0: felt, token1: felt, fee: felt, pool_address: felt) {
 }
 
 @constructor
-func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(owner: felt, swap_pool_hash: felt) {
+func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
+    return ();
+}
+
+//TODO: unittest for only once
+@external
+func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    owner: felt,
+    swap_pool_hash: felt,
+) {
+    let (old) = _swap_pool_hash.read();
+    with_attr error_message("user_position_mgr: only can be initilize once") {
+        assert old = 0;
+    }
     Ownable.initializer(owner);
     _swap_pool_hash.write(swap_pool_hash);
+    return ();
+}
+
+@external
+func initialize_erc721{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    erc721_contract: felt
+) {
+    // only can be initilize once
+    let (old) = _erc721_contract.read();
+    with_attr error_message("user_position_mgr: only can be initilize erc721 once") {
+        assert old = 0;
+    }
+
+    _erc721_contract.write(erc721_contract);
     return ();
 }
 
@@ -139,20 +166,6 @@ func _check_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
 @view
 func owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (owner: felt) {
     return Ownable.owner();
-}
-
-@external
-func initialize{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    erc721_contract: felt
-) {
-    // only can be initilize once
-    let (old) = _erc721_contract.read();
-    with_attr error_message("user_position_mgr: only can be initilize once") {
-        assert old = 0;
-    }
-
-    _erc721_contract.write(erc721_contract);
-    return ();
 }
 
 func _write_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(

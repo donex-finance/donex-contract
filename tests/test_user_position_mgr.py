@@ -12,7 +12,7 @@ from utils import (
     MAX_UINT128, assert_revert, to_uint,
     felt_to_int, from_uint, cached_contract, encode_price_sqrt,
     get_max_tick, get_min_tick, TICK_SPACINGS, FeeAmount, init_contract,
-    assert_event_emitted
+    assert_event_emitted, Account
 )
 
 from test_tickmath import (MIN_SQRT_RATIO, MAX_SQRT_RATIO)
@@ -41,14 +41,31 @@ async def init_user_position_contract(starknet, swap_pool_hash):
     )
     print('compile user_position time:', time.time() - begin)
 
+    begin = time.time()
+    res = await starknet.declare(
+        contract_class=compiled_contract,
+    )
+    print('declare user_position_mgr time:', time.time() - begin)
+
+    begin = time.time()
+    compiled_proxy = compile_starknet_files(
+        ['contracts/user_position_mgr_proxy.cairo'], debug_info=True, disable_hint_validation=True
+    )
+    print('compile user_position time:', time.time() - begin)
+
     kwargs = {
-        "contract_class": compiled_contract,
-        "constructor_calldata": [address, swap_pool_hash]
+        "contract_class": compiled_proxy,
+        "constructor_calldata": [res.class_hash]
         }
 
     begin = time.time()
     contract = await starknet.deploy(**kwargs)
     print('deploy user_position time:', time.time() - begin)
+
+    # replace api
+    contract = contract.replace_abi(compiled_contract.abi)
+
+    await contract.initializer(address, swap_pool_hash).execute()
 
     return compiled_contract, contract
 
@@ -111,7 +128,7 @@ class UserPositionMgrTest(TestCase):
 
             # erc721
             self.erc721_def, self.erc721 = await init_erc721(self.starknet, self.user_position.contract_address)
-            await self.user_position.initialize(self.erc721.contract_address).execute(caller_address=address)
+            await self.user_position.initialize_erc721(self.erc721.contract_address).execute(caller_address=address)
 
             res = await self.user_position.create_and_initialize_pool(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, encode_price_sqrt(1, 1)).execute()
 
