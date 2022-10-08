@@ -137,7 +137,21 @@ class UserPositionMgrTest(TestCase):
             ""
         )
 
+        # upgrade wrong class_hash
         await user_position.upgrade(111).execute(caller_address=address)
+
+        user_position = user_position.replace_abi(self.user_position_def.abi)
+        await assert_revert(
+            user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0)).execute(caller_address=other_address),
+            ''
+        )
+
+        # upgrade right class_hash
+        user_position = user_position.replace_abi(self.proxy_def.abi)
+        await user_position.upgrade(self.user_position_class.class_hash).execute(caller_address=address)
+
+        user_position = user_position.replace_abi(self.user_position_def.abi)
+        await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0)).execute(caller_address=other_address)
 
     @pytest.mark.asyncio
     async def test_initializer(self):
