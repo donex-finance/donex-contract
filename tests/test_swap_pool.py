@@ -1112,13 +1112,30 @@ class SwapPoolTest(TestCase):
 
     @pytest.mark.asyncio
     async def test_collect(self):
+        await self.check_starknet()
         tick_spacing = TICK_SPACINGS[FeeAmount.LOW]
         min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
-        contract, swap_target = await self.get_state_contract_low()
+
+        proxy_def = compile_starknet_files(
+            ['tests/mocks/swap_pool_mock.cairo'], debug_info=True, disable_hint_validation=True
+        )
+        kwargs = {
+            "contract_class": proxy_def,
+            "constructor_calldata": [self.declare_class.class_hash, tick_spacing, FeeAmount.LOW, self.token0.contract_address, self.token1.contract_address, address],
+        }
+        contract = await self.starknet.deploy(**kwargs)
+
+        # replace api
+        contract = contract.replace_abi(self.contract_def.abi)
+
+        swap_target = cached_contract(contract.state, self.swap_target_def, self.swap_target)
+
         await contract.initialize_price(encode_price_sqrt(1, 1)).execute()
 
         # works with multiple LPs
-        new_contract, new_swap_target = await self.get_state_contract_low(contract.state.copy())
+        state = contract.state.copy()
+        new_contract = cached_contract(state, self.contract_def, contract)
+        new_swap_target = cached_contract(state, self.swap_target_def, swap_target)
         res = await self.add_liquidity(new_swap_target, new_contract, address, min_tick, max_tick, expand_to_18decimals(1))
         res = await self.add_liquidity(new_swap_target, new_contract, address, min_tick + tick_spacing, max_tick - tick_spacing, expand_to_18decimals(2))
 
@@ -1142,9 +1159,12 @@ class SwapPoolTest(TestCase):
         magic_num = 115792089237316195423570985008687907852929702298719625575994
 
         # works just before the cap binds
-        new_contract, new_swap_target = await self.get_state_contract_low(contract.state.copy())
+        state = contract.state.copy()
+        new_contract = cached_contract(state, self.contract_def, contract)
         # set_fee
+        new_contract = new_contract.replace_abi(proxy_def.abi)
         res = await new_contract.set_fee_growth_global0_x128(to_uint(magic_num)).execute()
+        new_contract = new_contract.replace_abi(self.contract_def.abi)
 
         res = await new_contract.remove_liquidity(min_tick, max_tick, 0).execute(caller_address=address)
 
@@ -1155,9 +1175,12 @@ class SwapPoolTest(TestCase):
         self.assertEqual(tokens_owed1, 0)
 
         # works just after the cap binds
-        new_contract, new_swap_target = await self.get_state_contract_low(contract.state.copy())
+        state = contract.state.copy()
+        new_contract = cached_contract(state, self.contract_def, contract)
         # set_fee
+        new_contract = new_contract.replace_abi(proxy_def.abi)
         res = await new_contract.set_fee_growth_global0_x128(to_uint(magic_num + 1)).execute()
+        new_contract = new_contract.replace_abi(self.contract_def.abi)
 
         res = await new_contract.remove_liquidity(min_tick, max_tick, 0).execute(caller_address=address)
 
@@ -1168,9 +1191,12 @@ class SwapPoolTest(TestCase):
         self.assertEqual(tokens_owed1, 0)
 
         # worksworks well after the cap binds
-        new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
+        state = contract.state.copy()
+        new_contract = cached_contract(state, self.contract_def, contract)
         # set_fee
+        new_contract = new_contract.replace_abi(proxy_def.abi)
         res = await new_contract.set_fee_growth_global0_x128(to_uint(2 ** 256 - 1)).execute()
+        new_contract = new_contract.replace_abi(self.contract_def.abi)
 
         res = await new_contract.remove_liquidity(min_tick, max_tick, 0).execute(caller_address=address)
 
