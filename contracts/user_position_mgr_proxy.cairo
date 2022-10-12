@@ -13,12 +13,13 @@ func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     class_hash: felt,
     owner: felt,
     swap_pool_hash: felt,
+    swap_pool_proxy_hash: felt,
     name: felt,
     symbol: felt
 ) {
     Proxy._set_implementation_hash(class_hash);
 
-    IUserPositionMgr.library_call_initializer(class_hash=class_hash, owner=owner, swap_pool_hash=swap_pool_hash, name=name, symbol=symbol);
+    IUserPositionMgr.library_call_initializer(class_hash=class_hash, owner=owner, swap_pool_hash=swap_pool_hash, swap_pool_proxy_hash=swap_pool_proxy_hash, name=name, symbol=symbol);
     return ();
 }
 

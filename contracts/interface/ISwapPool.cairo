@@ -29,7 +29,7 @@ namespace ISwapPool {
     ) -> (amount0: Uint256, amount1: Uint256) {
     }
 
-    func initialize(sqrt_price_x96: Uint256) {
+    func initialize_price(sqrt_price_x96: Uint256) {
     }
 
     func add_liquidity(recipient: felt, tick_lower: felt, tick_upper: felt, liquidity: felt, data: felt) -> (
@@ -66,5 +66,8 @@ namespace ISwapPool {
     }
 
     func set_fee_protocol(fee_protocol0: felt, fee_protocol1: felt) {
+    }
+
+    func upgrade_swap_pool(hash: felt) {
     }
 }

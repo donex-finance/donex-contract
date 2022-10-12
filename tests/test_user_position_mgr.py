@@ -37,7 +37,7 @@ address = 11111111111111
 other_address = 222222222222222
 
 #TODO: check two diferent address with same position tick, burn and collect
-async def init_user_position_contract(starknet, swap_pool_hash):
+async def init_user_position_contract(starknet, swap_pool_hash, swap_pool_proxy_hash):
     begin = time.time()
     compiled_contract = compile_starknet_files(
         ['contracts/user_position_mgr.cairo'], debug_info=True, disable_hint_validation=True
@@ -58,7 +58,7 @@ async def init_user_position_contract(starknet, swap_pool_hash):
 
     kwargs = {
         "contract_class": compiled_proxy,
-        "constructor_calldata": [declare_class.class_hash, address, swap_pool_hash, NFT_NAME, NFT_SYMBOL]
+        "constructor_calldata": [declare_class.class_hash, address, swap_pool_hash, swap_pool_proxy_hash, NFT_NAME, NFT_SYMBOL]
         }
 
     begin = time.time()
@@ -79,11 +79,23 @@ async def init_swap_pool_class(starknet):
     print('compile swap_pool time:', time.time() - begin)
 
     begin = time.time()
-    res = await starknet.declare(
+    declared_contract = await starknet.declare(
         contract_class=compiled_contract,
     )
     print('declare swap_pool time:', time.time() - begin)
-    return res
+
+    begin = time.time()
+    compiled_proxy = compile_starknet_files(
+        ['contracts/swap_pool_proxy.cairo'], debug_info=True, disable_hint_validation=True
+    )
+    print('compile swap_pool_proxy time:', time.time() - begin)
+
+    begin = time.time()
+    declared_proxy = await starknet.declare(
+        contract_class=compiled_proxy,
+    )
+    print('declare swap_pool time:', time.time() - begin)
+    return declared_contract, declared_proxy
 
 class UserPositionMgrTest(TestCase):
 
@@ -105,9 +117,9 @@ class UserPositionMgrTest(TestCase):
 
         if not hasattr(self, 'user_position'):
             # swap pool
-            self.swap_pool_class = await init_swap_pool_class(self.starknet)
+            self.swap_pool_class, self.swap_pool_proxy_class = await init_swap_pool_class(self.starknet)
 
-            self.user_position_def, self.user_position_class, self.proxy_def, self.user_position = await init_user_position_contract(self.starknet, self.swap_pool_class.class_hash)
+            self.user_position_def, self.user_position_class, self.proxy_def, self.user_position = await init_user_position_contract(self.starknet, self.swap_pool_class.class_hash, self.swap_pool_proxy_class.class_hash)
 
             res = await self.user_position.create_and_initialize_pool(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, encode_price_sqrt(1, 1)).execute()
 
@@ -157,7 +169,7 @@ class UserPositionMgrTest(TestCase):
     async def test_initializer(self):
         user_position = await self.get_user_position_contract()
         await assert_revert(
-            user_position.initializer(address, 111, NFT_NAME, NFT_SYMBOL).execute(caller_address=address),
+            user_position.initializer(address, 111, 222, NFT_NAME, NFT_SYMBOL).execute(caller_address=address),
             ""
         )
 
