@@ -575,10 +575,14 @@ func _swap_1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     let (fee_protocol) = _fee_protocol.read();
     if (zero_for_one == 1) {
         let (is_valid) = uint256_lt(sqrt_price_limit_x96, slot0.sqrt_price_x96);
-        assert is_valid = 1;
+        with_attr error_message("ZO: price limit too high") {
+            assert is_valid = 1;
+        }
 
         let (is_valid) = uint256_lt(Uint256(TickMath.MIN_SQRT_RATIO, 0), sqrt_price_limit_x96);
-        assert is_valid = 1;
+        with_attr error_message("ZO: price limit too low") {
+            assert is_valid = 1;
+        }
 
         let (_, res) = unsigned_div_rem(fee_protocol, 16);
 
@@ -586,12 +590,16 @@ func _swap_1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     }
 
     let (is_valid) = uint256_lt(slot0.sqrt_price_x96, sqrt_price_limit_x96);
-    assert is_valid = 1;
+    with_attr error_message("OZ: price limit too low") {
+        assert is_valid = 1;
+    }
 
     let (is_valid) = uint256_lt(
         sqrt_price_limit_x96, Uint256(TickMath.MAX_SQRT_RATIO_LOW, TickMath.MAX_SQRT_RATIO_HIGH)
     );
-    assert is_valid = 1;
+    with_attr error_message("OZ: price limit too high") {
+        assert is_valid = 1;
+    }
 
     let (res, _) = unsigned_div_rem(fee_protocol, 16);
     return (res,);
@@ -708,7 +716,9 @@ func get_swap_results{
 
     // amount_specified != 0
     let (is_valid) = uint256_eq(amount_specified, Uint256(0, 0));
-    assert is_valid = 0;
+    with_attr error_message("Amount specified is zero") {
+        assert is_valid = 0;
+    }
 
     let (slot0: SlotState) = _slot0.read();
     let (fee_protocol) = _swap_1(slot0, sqrt_price_limit_x96, zero_for_one);
@@ -761,7 +771,9 @@ func swap{
 
     // amount_specified != 0
     let (is_valid) = uint256_eq(amount_specified, Uint256(0, 0));
-    assert is_valid = 0;
+    with_attr error_message("Amount specified is zero") {
+        assert is_valid = 0;
+    }
 
     _lock();
 
