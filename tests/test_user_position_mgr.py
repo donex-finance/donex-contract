@@ -373,7 +373,12 @@ class UserPositionMgrTest(TestCase):
             "too little received"
         )
 
+        res = await new_user_position.get_exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, to_uint(amount_in), to_uint(price)).execute(caller_address=address)
+        expect_amount_out = from_uint(res.call_info.result[0: 2])
+
         res = await new_user_position.exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min)).execute(caller_address=address)
+        amount_out = from_uint(res.call_info.result[0: 2])
+        self.assertEqual(amount_out, expect_amount_out)
 
         pool_after = await self.get_balance(token0, token1, self.swap_pool_address)
         trader_after = await self.get_balance(token0, token1, address)
@@ -401,7 +406,12 @@ class UserPositionMgrTest(TestCase):
             "too little received"
         )
 
+        res = await new_user_position.get_exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, to_uint(amount_in), to_uint(price)).execute(caller_address=address)
+        expect_amount_out = from_uint(res.call_info.result[0: 2])   
+
         res = await new_user_position.exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min)).execute(caller_address=address)
+        amount_out = from_uint(res.call_info.result[0: 2])
+        self.assertEqual(amount_out, expect_amount_out)
 
         pool_after = await self.get_balance(token0, token1, self.swap_pool_address)
         trader_after = await self.get_balance(token0, token1, address)
@@ -437,7 +447,12 @@ class UserPositionMgrTest(TestCase):
             "too much requested"
         )
 
-        res = await new_user_position.exact_output(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max)).execute(caller_address=address),
+        res = await new_user_position.get_exact_output(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, to_uint(amount_out), to_uint(price)).execute(caller_address=address)
+        expect_amount_in = from_uint(res.call_info.result[0: 2])
+
+        res = await new_user_position.exact_output(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max)).execute(caller_address=address)
+        amount_in = from_uint(res.call_info.result[0: 2])
+        self.assertEqual(amount_in, expect_amount_in)
 
         pool_after = await self.get_balance(token0, token1, self.swap_pool_address)
         trader_after = await self.get_balance(token0, token1, address)
@@ -465,7 +480,12 @@ class UserPositionMgrTest(TestCase):
             "too much requested"
         )
 
+        res = await new_user_position.get_exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, to_uint(amount_out), to_uint(price)).execute(caller_address=address)
+        expect_amount_in = from_uint(res.call_info.result[0: 2])
+
         res = await new_user_position.exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max)).execute(caller_address=address)
+        amount_in = from_uint(res.call_info.result[0: 2])
+        self.assertEqual(amount_in, expect_amount_in)
 
         pool_after = await self.get_balance(token0, token1, self.swap_pool_address)
         trader_after = await self.get_balance(token0, token1, address)
@@ -475,3 +495,21 @@ class UserPositionMgrTest(TestCase):
         self.assertEqual(trader_after[1], trader_before[1] - 3)
         self.assertEqual(pool_after[0], pool_before[0] - 1)
         self.assertEqual(pool_after[1], pool_before[1] + 3)
+
+    @pytest.mark.asyncio
+    async def test_upgrade_swap_pool_class_hash(self):
+        user_position = await self.get_user_position_contract()
+        await assert_revert(
+            user_position.upgrade_swap_pool_class_hash(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, self.swap_pool_class.class_hash).execute(caller_address=other_address),
+            ""
+        )
+        await user_position.upgrade_swap_pool_class_hash(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, self.swap_pool_class.class_hash).execute(caller_address=address)
+
+    @pytest.mark.asyncio
+    async def test_update_swap_pool(self):
+        user_position = await self.get_user_position_contract()
+        await assert_revert(
+            user_position.update_swap_pool(self.swap_pool_class.class_hash, self.swap_pool_proxy_class.class_hash).execute(caller_address=other_address),
+            ""
+        )
+        await user_position.update_swap_pool(self.swap_pool_class.class_hash, self.swap_pool_proxy_class.class_hash).execute(caller_address=address)

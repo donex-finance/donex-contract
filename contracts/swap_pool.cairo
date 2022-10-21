@@ -705,7 +705,6 @@ func _update_liquidity_cond{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
 func get_swap_results{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
 }(
-    recipient: felt, 
     zero_for_one: felt, 
     amount_specified: Uint256,  // int256
     sqrt_price_limit_x96: Uint256, // uint160

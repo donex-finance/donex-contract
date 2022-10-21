@@ -693,7 +693,6 @@ func get_exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     token_in: felt,
     token_out: felt,
     fee: felt,
-    recipient: felt,
     amount_in: Uint256, 
     sqrt_price_limit: Uint256,
 ) -> (amount_out: Uint256) {
@@ -706,7 +705,7 @@ func get_exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
 
     let (limit_price: Uint256) = _get_limit_price(sqrt_price_limit, zero_for_one);
 
-    let (amount0: Uint256, amount1: Uint256) = ISwapPool.get_swap_results(contract_address=pool_address, recipient=recipient, zero_for_one=zero_for_one, amount_specified=amount_in, sqrt_price_limit_x96=limit_price);
+    let (amount0: Uint256, amount1: Uint256) = ISwapPool.get_swap_results(contract_address=pool_address, zero_for_one=zero_for_one, amount_specified=amount_in, sqrt_price_limit_x96=limit_price);
 
     if (zero_for_one == 1) {
         let (neg_amount1: Uint256) = uint256_neg(amount1);
@@ -760,7 +759,6 @@ func get_exact_output{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     token_in: felt,
     token_out: felt,
     fee: felt,
-    recipient: felt,
     amount_out: Uint256, 
     sqrt_price_limit: Uint256
 ) -> (amount_in: Uint256) {
@@ -776,7 +774,7 @@ func get_exact_output{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
 
     let (limit_price: Uint256) = _get_limit_price(sqrt_price_limit, zero_for_one);
 
-    let (amount0: Uint256, amount1: Uint256) = ISwapPool.get_swap_results(contract_address=pool_address, recipient=recipient, zero_for_one=zero_for_one, amount_specified=amount_specified, sqrt_price_limit_x96=limit_price);
+    let (amount0: Uint256, amount1: Uint256) = ISwapPool.get_swap_results(contract_address=pool_address, zero_for_one=zero_for_one, amount_specified=amount_specified, sqrt_price_limit_x96=limit_price);
 
     if (zero_for_one == 1) {
         return (amount0,);
@@ -927,7 +925,7 @@ func upgrade_swap_pool_class_hash{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*
 ) {
     Ownable.assert_only_owner();
     let pool_address = _check_pool_address(token0, token1, fee);
-    ISwapPool.upgrade_swap_pool(contract_address=pool_address, hash=swap_pool_hash);
+    ISwapPool.upgrade(contract_address=pool_address, new_implementation=swap_pool_hash);
     return ();
 }
 

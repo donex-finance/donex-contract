@@ -22,7 +22,6 @@ namespace ISwapPool {
     }
 
     func get_swap_results(
-        recipient: felt,
         zero_for_one: felt,
         amount_specified: Uint256, // int256
         sqrt_price_limit_x96: Uint256 // uint160
@@ -68,6 +67,6 @@ namespace ISwapPool {
     func set_fee_protocol(fee_protocol0: felt, fee_protocol1: felt) {
     }
 
-    func upgrade_swap_pool(hash: felt) {
+    func upgrade(new_implementation: felt) {
     }
 }
