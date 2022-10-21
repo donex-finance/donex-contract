@@ -1,6 +1,6 @@
 %lang starknet
 
-from starkware.starknet.common.syscalls import get_caller_address, get_contract_address, deploy
+from starkware.starknet.common.syscalls import get_caller_address, get_contract_address, deploy, get_block_timestamp
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
 from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_add, uint256_lt, uint256_sub, uint256_neg, uint256_eq, uint256_signed_lt
@@ -688,6 +688,19 @@ func _get_limit_price{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     return (sqrt_price_limit,);
 }
 
+func _check_deadline{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(deadline: felt) {
+    alloc_locals;
+
+    // Expired
+    with_attr error_message("deadline") {
+        let (block_timestamp) = get_block_timestamp();
+        let flag = is_le_felt(block_timestamp, deadline);
+        assert flag = 1;
+    }
+
+    return ();
+}
+
 @view
 func get_exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     token_in: felt,
@@ -724,9 +737,12 @@ func exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     recipient: felt,
     amount_in: Uint256, 
     sqrt_price_limit: Uint256,
-    amount_out_min: Uint256
+    amount_out_min: Uint256,
+    deadline: felt
 ) -> (amount_out: Uint256) {
     alloc_locals;
+
+    _check_deadline(deadline);
 
     let pool_address = _check_pool_address(token_in, token_out, fee);
     let (caller) = get_caller_address();
@@ -790,9 +806,12 @@ func exact_output{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
     recipient: felt,
     amount_out: Uint256, 
     sqrt_price_limit: Uint256,
-    amount_in_max: Uint256
+    amount_in_max: Uint256,
+    deadline: felt
 ) -> (amount_in: Uint256) {
     alloc_locals;
+
+    _check_deadline(deadline);
 
     let pool_address = _check_pool_address(token_in, token_out, fee);
     let (caller) = get_caller_address();

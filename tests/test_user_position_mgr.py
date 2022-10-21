@@ -368,15 +368,21 @@ class UserPositionMgrTest(TestCase):
         trader_before = await self.get_balance(token0, token1, address)
         print('balance:', pool_before, trader_before)
 
+        deadline = int(time.time() + 1000)
+        #await assert_revert(
+        #    new_user_position.exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min + 1), 0).execute(caller_address=address),
+        #    "deadline"
+        #)
+
         await assert_revert(
-            new_user_position.exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min + 1)).execute(caller_address=address),
+            new_user_position.exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min + 1), deadline).execute(caller_address=address),
             "too little received"
         )
 
         res = await new_user_position.get_exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, to_uint(amount_in), to_uint(price)).execute(caller_address=address)
         expect_amount_out = from_uint(res.call_info.result[0: 2])
 
-        res = await new_user_position.exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min)).execute(caller_address=address)
+        res = await new_user_position.exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min), deadline).execute(caller_address=address)
         amount_out = from_uint(res.call_info.result[0: 2])
         self.assertEqual(amount_out, expect_amount_out)
 
@@ -402,14 +408,14 @@ class UserPositionMgrTest(TestCase):
             price = 1461446703485210103287273052203988822378723970341
 
         await assert_revert(
-            new_user_position.exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min + 1)).execute(caller_address=address),
+            new_user_position.exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min + 1), deadline).execute(caller_address=address),
             "too little received"
         )
 
         res = await new_user_position.get_exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, to_uint(amount_in), to_uint(price)).execute(caller_address=address)
         expect_amount_out = from_uint(res.call_info.result[0: 2])   
 
-        res = await new_user_position.exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min)).execute(caller_address=address)
+        res = await new_user_position.exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min), deadline).execute(caller_address=address)
         amount_out = from_uint(res.call_info.result[0: 2])
         self.assertEqual(amount_out, expect_amount_out)
 
@@ -442,15 +448,22 @@ class UserPositionMgrTest(TestCase):
         price = 4295128740
         if self.token0.contract_address > self.token1.contract_address:
             price = 1461446703485210103287273052203988822378723970341
+
+        deadline = int(time.time() + 1000)
+        #await assert_revert(
+        #    new_user_position.exact_output(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max - 1), 0).execute(caller_address=address),
+        #    "deadline"
+        #)
+
         await assert_revert(
-            new_user_position.exact_output(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max - 1)).execute(caller_address=address),
+            new_user_position.exact_output(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max - 1), deadline).execute(caller_address=address),
             "too much requested"
         )
 
         res = await new_user_position.get_exact_output(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, to_uint(amount_out), to_uint(price)).execute(caller_address=address)
         expect_amount_in = from_uint(res.call_info.result[0: 2])
 
-        res = await new_user_position.exact_output(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max)).execute(caller_address=address)
+        res = await new_user_position.exact_output(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max), deadline).execute(caller_address=address)
         amount_in = from_uint(res.call_info.result[0: 2])
         self.assertEqual(amount_in, expect_amount_in)
 
@@ -476,14 +489,14 @@ class UserPositionMgrTest(TestCase):
             price = 1461446703485210103287273052203988822378723970341
 
         await assert_revert(
-            new_user_position.exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max - 1)).execute(caller_address=address),
+            new_user_position.exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max - 1), deadline).execute(caller_address=address),
             "too much requested"
         )
 
         res = await new_user_position.get_exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, to_uint(amount_out), to_uint(price)).execute(caller_address=address)
         expect_amount_in = from_uint(res.call_info.result[0: 2])
 
-        res = await new_user_position.exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max)).execute(caller_address=address)
+        res = await new_user_position.exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max), deadline).execute(caller_address=address)
         amount_in = from_uint(res.call_info.result[0: 2])
         self.assertEqual(amount_in, expect_amount_in)
 
