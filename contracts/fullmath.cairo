@@ -17,6 +17,7 @@ from starkware.cairo.common.uint256 import (
     uint256_neg,
     uint256_signed_nn,
     uint256_xor,
+    uint256_mul_div_mod,
 )
 from starkware.cairo.common.math import abs_value
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
@@ -25,49 +26,41 @@ from starkware.cairo.common.math_cmp import is_nn, is_le
 from contracts.math_utils import Utils
 
 namespace FullMath {
-    // func _count_inv{
-    //    range_check_ptr
-    // } (inv: Uint256, denominator: Uint256) -> (res: Uint256):
-    //    let (tmp: Uint256, _) = uint256_mul(denominator, inv)
-    //    let (tmp: Uint256) = uint256_sub(Uint256(2, 0), tmp)
-    //    let (new_inv: Uint256, _) = uint256_mul(inv, tmp)
-    //    return (new_inv)
-    // end
 
-    func uint256_add_rem{range_check_ptr}(
-        a: Uint256, b: Uint256, denominator: Uint256, rem_256: Uint256
-    ) -> (rem: Uint256) {
-        alloc_locals;
-        let (res: Uint256, carry) = uint256_add(a, b);
-        let (_, rem: Uint256) = uint256_unsigned_div_rem(res, denominator);
-        let (is_valid) = Utils.is_gt(carry, 0);
-        if (is_valid == 1) {
-            let (res: Uint256) = uint256_add_rem(rem, rem_256, denominator, rem_256);
-            return (res,);
-        }
-        return (rem,);
-    }
+    //func uint256_add_rem{range_check_ptr}(
+    //    a: Uint256, b: Uint256, denominator: Uint256, rem_256: Uint256
+    //) -> (rem: Uint256) {
+    //    alloc_locals;
+    //    let (res: Uint256, carry) = uint256_add(a, b);
+    //    let (_, rem: Uint256) = uint256_unsigned_div_rem(res, denominator);
+    //    let (is_valid) = Utils.is_gt(carry, 0);
+    //    if (is_valid == 1) {
+    //        let (res: Uint256) = uint256_add_rem(rem, rem_256, denominator, rem_256);
+    //        return (res,);
+    //    }
+    //    return (rem,);
+    //}
 
-    func uint512_div_rem{range_check_ptr}(
-        low: Uint256, high: Uint256, denominator: Uint256, rem_256: Uint256
-    ) -> (remainder: Uint256) {
-        alloc_locals;
+    //func uint512_div_rem{range_check_ptr}(
+    //    low: Uint256, high: Uint256, denominator: Uint256, rem_256: Uint256
+    //) -> (remainder: Uint256) {
+    //    alloc_locals;
 
-        // high * 256_rem % c
-        let (_, rem_low: Uint256) = uint256_unsigned_div_rem(low, denominator);
+    //    // high * 256_rem % c
+    //    let (_, rem_low: Uint256) = uint256_unsigned_div_rem(low, denominator);
 
-        let (tmp: Uint256, tmp2: Uint256) = uint256_mul(rem_256, high);
-        let (is_valid) = uint256_eq(Uint256(0, 0), tmp2);
-        if (is_valid == 0) {
-            let (rem_high: Uint256) = uint512_div_rem(tmp, tmp2, denominator, rem_256);
-            let (res) = uint256_add_rem(rem_low, rem_high, denominator, rem_256);
-            return (res,);
-        }
+    //    let (tmp: Uint256, tmp2: Uint256) = uint256_mul(rem_256, high);
+    //    let (is_valid) = uint256_eq(Uint256(0, 0), tmp2);
+    //    if (is_valid == 0) {
+    //        let (rem_high: Uint256) = uint512_div_rem(tmp, tmp2, denominator, rem_256);
+    //        let (res) = uint256_add_rem(rem_low, rem_high, denominator, rem_256);
+    //        return (res,);
+    //    }
 
-        let (_, rem_high: Uint256) = uint256_unsigned_div_rem(tmp, denominator);
-        let (res) = uint256_add_rem(rem_low, rem_high, denominator, rem_256);
-        return (res,);
-    }
+    //    let (_, rem_high: Uint256) = uint256_unsigned_div_rem(tmp, denominator);
+    //    let (res) = uint256_add_rem(rem_low, rem_high, denominator, rem_256);
+    //    return (res,);
+    //}
 
     // a * b / c
     func uint256_mul_div{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
@@ -83,6 +76,7 @@ namespace FullMath {
         }
 
         let (low: Uint256, high: Uint256) = uint256_mul(a, b);
+        let (_, _, rem_final: Uint256) = uint256_mul_div_mod(a, b, c);
 
         // check if high < c
         let (is_valid) = uint256_lt(high, c);
@@ -96,15 +90,6 @@ namespace FullMath {
             let (res: Uint256, rem_low: Uint256) = uint256_unsigned_div_rem(low, c);
             return (res, rem_low);
         }
-
-        // get 2 ^ 256 % c
-        let (tmp: Uint256, rem_256_1: Uint256) = uint256_unsigned_div_rem(
-            Uint256(Utils.MAX_UINT128, Utils.MAX_UINT128), c
-        );
-        let (tmp: Uint256, _) = uint256_add(rem_256_1, Uint256(1, 0));
-        let (_, rem_256: Uint256) = uint256_unsigned_div_rem(tmp, c);
-
-        let (rem_final: Uint256) = uint512_div_rem(low, high, c, rem_256);
 
         // Subtract 256 bit number from 512 bit number
         let (is_valid) = uint256_lt(low, rem_final);
