@@ -10,6 +10,7 @@ from starkware.cairo.common.uint256 import (
     uint256_signed_nn,
     uint256_lt,
 )
+from starkware.cairo.common.bool import TRUE, FALSE
 
 namespace Utils {
     // P = 2 ** 251 + 17 * (2 ** 192) + 1
@@ -26,7 +27,7 @@ namespace Utils {
 
     func is_gt{range_check_ptr}(a: felt, b: felt) -> (res: felt) {
         let is_valid = is_nn(b - a);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             return (0,);
         }
         return (1,);
@@ -39,7 +40,7 @@ namespace Utils {
 
     func is_lt_signed{range_check_ptr}(a: felt, b: felt) -> (res: felt) {
         let is_valid = is_nn(a - b);
-        if (is_valid == 0) {
+        if (is_valid == FALSE) {
             return (1,);
         }
         return (0,);
@@ -50,12 +51,12 @@ namespace Utils {
         let res = a + b;
         let is_valid = is_nn(res);
         with_attr error_message("safe_add: minus result") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
 
         let is_valid = is_le(res, Utils.MAX_UINT128);
         with_attr error_message("safe_add: overflow") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
 
         return (res,);
@@ -81,7 +82,7 @@ namespace Utils {
         alloc_locals;
         let (res: Uint256) = uint256_shr(a, Uint256(b, 0));
         let (is_valid) = uint256_signed_nn(a);
-        if (is_valid == 0) {
+        if (is_valid == FALSE) {
             let (tmp1: Uint256) = uint256_pow2(Uint256(256 - b, 0));
             let (tmp2: Uint256) = uint256_sub(tmp1, Uint256(1, 0));
             let (tmp3: Uint256) = uint256_sub(Uint256(2 ** 128 - 1, 2 ** 128 - 1), tmp2);
@@ -95,14 +96,14 @@ namespace Utils {
     func uint256_safe_add{range_check_ptr}(a: Uint256, b: Uint256) -> (res: Uint256) {
         let (res: Uint256, is_overflow) = uint256_add(a, b);
         with_attr error_message("uint256_safe_add: overflow") {
-            assert is_overflow = 0;
+            assert is_overflow = FALSE;
         }
         return (res,);
     }
 
     func min{range_check_ptr}(a: felt, b: felt) -> felt {
         let is_valid = is_le_felt(a, b);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             return a;
         }
         return b;
@@ -110,7 +111,7 @@ namespace Utils {
 
     func max{range_check_ptr}(a: felt, b: felt) -> felt {
         let is_valid = is_le_felt(a, b);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             return b;
         }
         return a;
@@ -119,7 +120,7 @@ namespace Utils {
     func assert_is_uint128{range_check_ptr}(a: felt) {
         let is_valid = is_le(a, MAX_UINT128);
         with_attr error_message("assert_uint128: overflow") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
         return ();
     }
@@ -127,7 +128,7 @@ namespace Utils {
     func assert_is_uint160{range_check_ptr}(a: Uint256) {
         let (is_valid) = uint256_lt(a, Uint256(0, 2 ** 32));
         with_attr error_message("assert_uint160: overflow") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
         return ();
     }

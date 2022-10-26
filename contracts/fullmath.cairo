@@ -22,6 +22,7 @@ from starkware.cairo.common.uint256 import (
 from starkware.cairo.common.math import abs_value
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
 from starkware.cairo.common.math_cmp import is_nn, is_le
+from starkware.cairo.common.bool import TRUE, FALSE
 
 from contracts.math_utils import Utils
 
@@ -34,7 +35,7 @@ namespace FullMath {
     //    let (res: Uint256, carry) = uint256_add(a, b);
     //    let (_, rem: Uint256) = uint256_unsigned_div_rem(res, denominator);
     //    let (is_valid) = Utils.is_gt(carry, 0);
-    //    if (is_valid == 1) {
+    //    if (is_valid == TRUE) {
     //        let (res: Uint256) = uint256_add_rem(rem, rem_256, denominator, rem_256);
     //        return (res,);
     //    }
@@ -51,7 +52,7 @@ namespace FullMath {
 
     //    let (tmp: Uint256, tmp2: Uint256) = uint256_mul(rem_256, high);
     //    let (is_valid) = uint256_eq(Uint256(0, 0), tmp2);
-    //    if (is_valid == 0) {
+    //    if (is_valid == FALSE) {
     //        let (rem_high: Uint256) = uint512_div_rem(tmp, tmp2, denominator, rem_256);
     //        let (res) = uint256_add_rem(rem_low, rem_high, denominator, rem_256);
     //        return (res,);
@@ -72,7 +73,7 @@ namespace FullMath {
 
         let (is_valid) = uint256_eq(c, Uint256(0, 0));
         with_attr error_message("denominator is zero") {
-            assert is_valid = 0;
+            assert is_valid = FALSE;
         }
 
         let (low: Uint256, high: Uint256) = uint256_mul(a, b);
@@ -81,12 +82,12 @@ namespace FullMath {
         // check if high < c
         let (is_valid) = uint256_lt(high, c);
         with_attr error_message("overflows uint256") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
 
         // check if high is 0
         let (is_valid) = uint256_eq(Uint256(0, 0), high);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let (res: Uint256, rem_low: Uint256) = uint256_unsigned_div_rem(low, c);
             return (res, rem_low);
         }
@@ -160,10 +161,10 @@ namespace FullMath {
 
         let (res: Uint256, rem: Uint256) = uint256_mul_div(a, b, c);
         let (is_valid) = uint256_lt(Uint256(0, 0), rem);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let (is_valid) = uint256_lt(res, Uint256(Utils.MAX_UINT128, Utils.MAX_UINT128));
             with_attr error_message("overflows uint256") {
-                assert is_valid = 1;
+                assert is_valid = TRUE;
             }
             let (tmp: Uint256, _) = uint256_add(res, Uint256(1, 0));
             return (tmp,);
@@ -175,13 +176,13 @@ namespace FullMath {
         alloc_locals;
 
         let (is_valid) = uint256_eq(Uint256(0, 0), b);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             return (Uint256(0, 0),);
         }
 
         let (res: Uint256, rem: Uint256) = uint256_unsigned_div_rem(a, b);
         let (is_valid) = uint256_lt(Uint256(0, 0), rem);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let (tmp: Uint256, _) = uint256_add(res, Uint256(1, 0));
             return (tmp,);
         }

@@ -314,7 +314,7 @@ func initialize_price{
     let (slot0) = _slot0.read();
     let (is_valid) = uint256_eq(slot0.sqrt_price_x96, Uint256(0, 0));
     with_attr error_message("initialize more than once") {
-        assert is_valid = 1;
+        assert is_valid = TRUE;
     }
 
     let (tick) = TickMath.get_tick_at_sqrt_ratio(sqrt_price_x96);
@@ -352,7 +352,7 @@ func _transfer_token_cond{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_
 func _lock{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
     let (slot_unlocked) = _slot_unlocked.read();
     with_attr error_message("swap is locked") {
-        assert slot_unlocked = 1;
+        assert slot_unlocked = TRUE;
     }
     _slot_unlocked.write(0);
     return ();
@@ -395,7 +395,7 @@ func _compute_swap_step_2{range_check_ptr}(
     fee_protocol: felt, protocol_fee: felt, fee_amount: Uint256
 ) -> (new_fee_amount: Uint256, new_protocol_fee: felt) {
     let (is_valid) = Utils.is_gt(fee_protocol, 0);
-    if (is_valid == 1) {
+    if (is_valid == TRUE) {
         let (delta: Uint256, _) = uint256_unsigned_div_rem(fee_amount, Uint256(fee_protocol, 0));
         let (new_fee_amount: Uint256) = uint256_sub(fee_amount, delta);
 
@@ -409,7 +409,7 @@ func _compute_swap_step_3{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
     state: SwapState, fee_amount: Uint256
 ) -> (fee_growth_global_x128: Uint256) {
     let (is_valid) = Utils.is_gt(state.liquidity, 0);
-    if (is_valid == 1) {
+    if (is_valid == TRUE) {
         let (tmp: Uint256, _) = FullMath.uint256_mul_div(
             fee_amount, Uint256(0, 1), Uint256(state.liquidity, 0)
         );
@@ -453,7 +453,7 @@ func _compute_swap_step_4{
     alloc_locals;
 
     let (is_valid) = uint256_eq(state_sqrt_price_x96, sqrt_price_next_x96);
-    if (is_valid == 1) {
+    if (is_valid == TRUE) {
         let (tick) = Utils.cond_assign(zero_for_one, tick_next - 1, tick_next);
 
         if (initialized == 1) {
@@ -470,7 +470,7 @@ func _compute_swap_step_4{
     }
 
     let (is_valid) = uint256_eq(state_sqrt_price_x96, sqrt_price_start_x96);
-    if (is_valid == 0) {
+    if (is_valid == FALSE) {
         let (tick) = TickMath.get_tick_at_sqrt_ratio(state_sqrt_price_x96);
         return (state.liquidity, tick);
     }
@@ -576,12 +576,12 @@ func _swap_1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     if (zero_for_one == 1) {
         let (is_valid) = uint256_lt(sqrt_price_limit_x96, slot0.sqrt_price_x96);
         with_attr error_message("ZO: price limit too high") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
 
         let (is_valid) = uint256_lt(Uint256(TickMath.MIN_SQRT_RATIO, 0), sqrt_price_limit_x96);
         with_attr error_message("ZO: price limit too low") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
 
         let (_, res) = unsigned_div_rem(fee_protocol, 16);
@@ -591,14 +591,14 @@ func _swap_1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
 
     let (is_valid) = uint256_lt(slot0.sqrt_price_x96, sqrt_price_limit_x96);
     with_attr error_message("OZ: price limit too low") {
-        assert is_valid = 1;
+        assert is_valid = TRUE;
     }
 
     let (is_valid) = uint256_lt(
         sqrt_price_limit_x96, Uint256(TickMath.MAX_SQRT_RATIO_LOW, TickMath.MAX_SQRT_RATIO_HIGH)
     );
     with_attr error_message("OZ: price limit too high") {
-        assert is_valid = 1;
+        assert is_valid = TRUE;
     }
 
     let (res, _) = unsigned_div_rem(fee_protocol, 16);
@@ -613,7 +613,7 @@ func _swap_2{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         _fee_growth_global0_x128.write(state_fee_growth_global_x128);
 
         let (is_valid) = Utils.is_gt(protocol_fee, 0);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let (protocol_fee_token0) = _protocol_fee_token0.read();
             _protocol_fee_token0.write(protocol_fee_token0 + protocol_fee);
             return ();
@@ -623,7 +623,7 @@ func _swap_2{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
 
     _fee_growth_global1_x128.write(state_fee_growth_global_x128);
     let (is_valid) = Utils.is_gt(protocol_fee, 0);
-    if (is_valid == 1) {
+    if (is_valid == TRUE) {
         let (protocol_fee_token1) = _protocol_fee_token1.read();
         _protocol_fee_token1.write(protocol_fee_token1 + protocol_fee);
         return ();
@@ -669,7 +669,7 @@ func _swap_transfer_token{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_
         let (tmp: Uint256) = Utils.uint256_safe_add(balance_before, amount0);
         let (is_valid) = uint256_le(tmp, balance_after);
         with_attr error_message("transfer token0 failed") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
         return ();
     }
@@ -684,7 +684,7 @@ func _swap_transfer_token{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_
     let (tmp: Uint256) = Utils.uint256_safe_add(balance1_before, amount1);
     let (is_valid) = uint256_le(tmp, balance_after);
     with_attr error_message("transfer token1 failed") {
-        assert is_valid = 1;
+        assert is_valid = TRUE;
     }
     return ();
 }
@@ -716,7 +716,7 @@ func get_swap_results{
     // amount_specified != 0
     let (is_valid) = uint256_eq(amount_specified, Uint256(0, 0));
     with_attr error_message("Amount specified is zero") {
-        assert is_valid = 0;
+        assert is_valid = FALSE;
     }
 
     let (slot0: SlotState) = _slot0.read();
@@ -771,7 +771,7 @@ func swap{
     // amount_specified != 0
     let (is_valid) = uint256_eq(amount_specified, Uint256(0, 0));
     with_attr error_message("Amount specified is zero") {
-        assert is_valid = 0;
+        assert is_valid = FALSE;
     }
 
     _lock();
@@ -838,17 +838,17 @@ func swap{
 func _check_ticks{range_check_ptr}(tick_lower: felt, tick_upper: felt) {
     let (is_valid) = Utils.is_lt_signed(tick_lower, tick_upper);
     with_attr error_message("tick lower is greater than tick upper") {
-        assert is_valid = 1;
+        assert is_valid = TRUE;
     }
 
     let is_valid = is_le(TickMath.MIN_TICK, tick_lower);
     with_attr error_message("tick is too low") {
-        assert is_valid = 1;
+        assert is_valid = TRUE;
     }
 
     let is_valid = is_le(tick_upper, TickMath.MAX_TICK);
     with_attr error_message("tick is too high") {
-        assert is_valid = 1;
+        assert is_valid = TRUE;
     }
 
     return ();
@@ -955,7 +955,7 @@ func _update_position{
     );
 
     let (is_valid) = Utils.is_lt_signed(liquidity_delta, 0);
-    if (is_valid == 1) {
+    if (is_valid == TRUE) {
         _clear_tick(flipped_lower, tick_lower);
         _clear_tick(flipped_upper, tick_upper);
         return (new_position,);
@@ -982,7 +982,7 @@ func _modify_position{
         let (sqrt_ratio1: Uint256) = TickMath.get_sqrt_ratio_at_tick(params.tick_upper);
 
         let (is_valid) = Utils.is_lt_signed(slot0.tick, params.tick_lower);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let (amount0: Uint256) = SqrtPriceMath.get_amount0_delta2(
                 sqrt_ratio0, sqrt_ratio1, params.liquidity_delta
             );
@@ -990,7 +990,7 @@ func _modify_position{
         }
 
         let (is_valid) = Utils.is_lt_signed(slot0.tick, params.tick_upper);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let (amount0: Uint256) = SqrtPriceMath.get_amount0_delta2(
                 slot0.sqrt_price_x96, sqrt_ratio1, params.liquidity_delta
             );
@@ -1037,7 +1037,7 @@ func _add_liquidity_callback_3{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
         let (tmp: Uint256) = Utils.uint256_safe_add(balance0_before, amount0);
         let (is_valid) = uint256_le(tmp, balance0_after);
         with_attr error_message("token0 balance illegal") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
         return ();
     }
@@ -1070,7 +1070,7 @@ func _add_liquidity_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ran
         let (tmp: Uint256) = Utils.uint256_safe_add(balance1_before, amount1);
         let (is_valid) = uint256_le(tmp, balance1_after);
         with_attr error_message("token1 balance illegal") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
         return ();
     }
@@ -1131,7 +1131,7 @@ func _remove_liquidity_1{
 
     let (is_valid) = Utils.is_gt(flag1 + flag2, 0);
     // TODO: could abs_amount greater then 2 ** 128
-    if (is_valid == 1) {
+    if (is_valid == TRUE) {
         let tokens_owed0 = position.tokens_owed0 + abs_amount0.low;
         let tokens_owed1 = position.tokens_owed1 + abs_amount1.low;
         // write new position
@@ -1240,7 +1240,7 @@ func _collect_1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}
 
     let flag = flag1 + flag2;
     let (is_valid) = Utils.is_gt(flag, 0);
-    if (is_valid == 1) {
+    if (is_valid == TRUE) {
         let new_position = PositionInfo(
             liquidity=position.liquidity,
             fee_growth_inside0_x128=position.fee_growth_inside0_x128,
@@ -1302,7 +1302,7 @@ func _collect_protocol_1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
 ) -> (res: felt) {
     alloc_locals;
     let (is_valid) = Utils.is_gt(amount, 0);
-    if (is_valid == 1) {
+    if (is_valid == TRUE) {
         // ensure that the slot is not cleared, for gas savings
         let (token0) = _token0.read();
         if (protocol_fee_token == amount) {
@@ -1324,7 +1324,7 @@ func _collect_protocol_2{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
 ) -> (res: felt) {
     alloc_locals;
     let (is_valid) = Utils.is_gt(amount, 0);
-    if (is_valid == 1) {
+    if (is_valid == TRUE) {
         // ensure that the slot is not cleared, for gas savings
         let (token1) = _token1.read();
         if (protocol_fee_token == amount) {

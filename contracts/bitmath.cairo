@@ -18,6 +18,7 @@ from starkware.cairo.common.uint256 import (
     uint256_neg,
     uint256_signed_nn,
 )
+from starkware.cairo.common.bool import TRUE, FALSE
 
 from contracts.math_utils import Utils
 
@@ -26,7 +27,7 @@ namespace BitMath {
         x: Uint256, r: felt
     ) {
         let (is_valid) = uint256_le(mask, x);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let (new_x: Uint256) = uint256_shr(x, Uint256(bit, 0));
             let new_r = r + bit;
             return (new_x, new_r);
@@ -38,7 +39,7 @@ namespace BitMath {
         alloc_locals;
 
         let (is_valid) = uint256_lt(Uint256(0, 0), num);
-        assert is_valid = 1;
+        assert is_valid = TRUE;
 
         let (x: Uint256, r) = _msb_shift(num, 0, Uint256(0, 1), 128);
         let (x: Uint256, r) = _msb_shift(x, r, Uint256(0x10000000000000000, 0), 64);
@@ -62,7 +63,7 @@ namespace BitMath {
 
         let (tx: Uint256) = uint256_and(x, mask);
         let (is_valid) = uint256_lt(Uint256(0, 0), tx);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let new_r = r - bit;
             return (x, new_r);
         }
@@ -74,7 +75,7 @@ namespace BitMath {
         res: felt
     ) {
         let (is_valid) = uint256_lt(Uint256(0, 0), num);
-        assert is_valid = 1;
+        assert is_valid = TRUE;
 
         let (x: Uint256, r) = _lsb_shift(num, 255, Uint256(Utils.MAX_UINT128, 0), 128);
         let (x: Uint256, r) = _lsb_shift(x, r, Uint256(0xffffffffffffffff, 0), 64);

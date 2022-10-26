@@ -13,6 +13,7 @@ from starkware.cairo.common.uint256 import (
     uint256_xor,
     uint256_pow2,
 )
+from starkware.cairo.common.bool import FALSE, TRUE
 
 from contracts.math_utils import Utils
 from contracts.bitmath import BitMath
@@ -29,7 +30,7 @@ namespace TickBitmap {
 
         let (word_pos, bit_pos) = signed_div_rem(tick, 256, bound);
         let (is_valid) = Utils.is_lt_signed(bit_pos, 0);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let res = 256 + bit_pos;
             return (word_pos, res);
         }
@@ -72,7 +73,7 @@ namespace TickBitmap {
         let (is_valid) = Utils.is_lt_signed(tick, 0);
 
         local compressed;
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             if (rem != 0) {
                 compressed = compressed_0 - 1;
             } else {
@@ -93,7 +94,7 @@ namespace TickBitmap {
             let (state: Uint256) = uint256_and(cur_state, mask);
 
             let (is_valid) = uint256_eq(state, Uint256(0, 0));
-            if (is_valid == 0) {
+            if (is_valid == FALSE) {
                 let (msb) = BitMath.most_significant_bit(state);
                 let next = (compressed - (bit_pos - msb)) * tick_spacing;
                 return (next, 1);
@@ -112,7 +113,7 @@ namespace TickBitmap {
         let (state: Uint256) = uint256_and(cur_state, mask);
 
         let (is_valid) = uint256_eq(state, Uint256(0, 0));
-        if (is_valid == 0) {
+        if (is_valid == FALSE) {
             let (lsb) = BitMath.least_significant_bit(state);
             let next = (compressed + 1 + (lsb - bit_pos)) * tick_spacing;
             return (next, 1);

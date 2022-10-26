@@ -5,6 +5,7 @@ from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
 from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_add, uint256_lt, uint256_sub, uint256_neg, uint256_eq, uint256_signed_lt
 from starkware.cairo.common.math_cmp import is_le, is_le_felt
+from starkware.cairo.common.bool import TRUE, FALSE
 
 from openzeppelin.token.erc20.IERC20 import IERC20
 from openzeppelin.access.ownable.library import Ownable
@@ -115,7 +116,7 @@ func get_token_position{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     let (position: UserPosition) = _positions.read(token_id);
     let (is_valid) = Utils.is_eq(position.pool_address, 0);
     with_attr error_message("invalid token id") {
-        assert is_valid = 0;
+        assert is_valid = FALSE;
     }
 
     let (pool_info: PoolInfo) = _pool_infos.read(position.pool_address);
@@ -143,7 +144,7 @@ func _check_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
     let (address) = get_pool_address(token0, token1, fee);
     let (is_valid) = Utils.is_eq(address, 0);
     with_attr error_message("pool not exist") {
-        assert is_valid = 0;
+        assert is_valid = FALSE;
     }
     return address;
 }
@@ -198,7 +199,7 @@ func create_and_initialize_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
     let (pool_address) = get_pool_address(token0, token1, fee);
     let (is_valid) = Utils.is_eq(pool_address, 0);
     with_attr error_message("pool already exists") {
-        assert is_valid = 1;
+        assert is_valid = TRUE;
     }
 
     let (this_address) = get_contract_address();
@@ -461,13 +462,13 @@ func decrease_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
 
     let (is_valid) = Utils.is_gt(liquidity, 0);
     with_attr error_message("liquidity must be greater than 0") {
-        assert is_valid = 1;
+        assert is_valid = TRUE;
     }
 
     let (position: UserPosition) = _positions.read(token_id);
     let is_valid = is_le(liquidity, position.liquidity);
     with_attr error_message("liquidity must be less than or equal to the position liquidity") {
-        assert is_valid = 1;
+        assert is_valid = TRUE;
     }
 
     let pool_address = position.pool_address;
@@ -537,7 +538,7 @@ func _update_fees{
     alloc_locals;
 
     let (is_valid) = Utils.is_gt(position.liquidity, 0);
-    if (is_valid == 1) {
+    if (is_valid == TRUE) {
         ISwapPool.remove_liquidity(
             contract_address=position.pool_address,
             tick_lower=position.tick_lower,
@@ -603,7 +604,7 @@ func collect{
     let (flag2) = Utils.is_lt_signed(0, amount1_max);
     let (is_valid) = Utils.is_gt(flag1 + flag2, 0);
     with_attr error_message("user_position_mgr.collect: amount0 and amount1 can not be zero") {
-        assert is_valid = 1;
+        assert is_valid = TRUE;
     }
 
     let (position) = _positions.read(token_id);
@@ -695,7 +696,7 @@ func _check_deadline{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     with_attr error_message("deadline") {
         let (block_timestamp) = get_block_timestamp();
         let flag = is_le_felt(block_timestamp, deadline);
-        assert flag = 1;
+        assert flag = TRUE;
     }
 
     return ();
@@ -757,7 +758,7 @@ func exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
         let (neg_amount1: Uint256) = uint256_neg(amount1);
         let (is_valid) = uint256_le(amount_out_min, neg_amount1);
         with_attr error_message("too little received") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
         return (neg_amount1,);
     }
@@ -765,7 +766,7 @@ func exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     let (neg_amount0) = uint256_neg(amount0);
     let (is_valid) = uint256_le(amount_out_min, neg_amount0);
     with_attr error_message("too little received") {
-        assert is_valid = 1;
+        assert is_valid = TRUE;
     }
     return (neg_amount0,);
 }
@@ -828,13 +829,13 @@ func exact_output{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
     if (zero_for_one == 1) {
         let (is_valid) = uint256_le(amount0, amount_in_max);
         with_attr error_message("too much requested") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
         return (amount0,);
     }
     let (is_valid) = uint256_le(amount1, amount_in_max);
     with_attr error_message("too much requested") {
-        assert is_valid = 1;
+        assert is_valid = TRUE;
     }
     return (amount1,);
 }

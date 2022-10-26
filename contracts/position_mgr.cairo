@@ -2,6 +2,7 @@
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
 from starkware.cairo.common.uint256 import Uint256, uint256_lt, uint256_sub, uint256_signed_nn, uint256_add
+from starkware.cairo.common.bool import TRUE, FALSE
 
 from contracts.fullmath import FullMath
 from contracts.math_utils import Utils
@@ -26,7 +27,7 @@ namespace PositionMgr {
         if (liquidity_delta == 0) {
             let (is_valid) = Utils.is_gt(liquidity, 0);
             with_attr error_message("disallow pokes for 0 liquidity positions") {
-                assert is_valid = 1;
+                assert is_valid = TRUE;
             }
             return (liquidity,);
         }
@@ -58,7 +59,7 @@ namespace PositionMgr {
         );
         // TODO: check if minus
         //let (is_valid) = uint256_signed_nn(tmp256);
-        //assert is_valid = 1;
+        //assert is_valid = TRUE;
         let (tmp256_2: Uint256, _) = FullMath.uint256_mul_div(
             tmp256, Uint256(position.liquidity, 0), Uint256(0, 1)
         );
@@ -69,7 +70,7 @@ namespace PositionMgr {
         );
         // TODO: check if minus
         //let (is_valid) = uint256_signed_nn(tmp256);
-        //assert is_valid = 1;
+        //assert is_valid = TRUE;
         let (tmp256_2: Uint256, _) = FullMath.uint256_mul_div(
             tmp256, Uint256(position.liquidity, 0), Uint256(0, 1)
         );
@@ -78,7 +79,7 @@ namespace PositionMgr {
         let (tmp) = Utils.is_lt_signed(0, tokens_owed0);
         let (tmp2) = Utils.is_lt_signed(0, tokens_owed1);
         let (is_valid) = Utils.is_lt_signed(0, tmp + tmp2);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             // overflow is acceptable, have to withdraw before you hit type(uint128).max fees
             // ignore overflows
             let (res0: Uint256, _) = uint256_add(Uint256(position.tokens_owed0, 0), Uint256(tokens_owed0, 0));

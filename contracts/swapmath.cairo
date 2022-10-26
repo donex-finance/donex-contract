@@ -18,6 +18,7 @@ from starkware.cairo.common.uint256 import (
     uint256_neg,
     uint256_signed_nn,
 )
+from starkware.cairo.common.bool import FALSE, TRUE
 
 from contracts.fullmath import FullMath
 from contracts.sqrt_price_math import SqrtPriceMath
@@ -66,7 +67,7 @@ namespace SwapMath {
             tempvar bitwise_ptr = bitwise_ptr;
 
             let (is_valid) = uint256_lt(amount_in, amount_remaining_less_fee);
-            if (is_valid == 1) {
+            if (is_valid == TRUE) {
                 return (sqrt_ratio_target, amount_in, Uint256(0, 0));
             }
 
@@ -104,7 +105,7 @@ namespace SwapMath {
         let (is_valid) = uint256_lt(amount_out, abs_amount_remaining);
         tempvar range_check_ptr = range_check_ptr;
         tempvar bitwise_ptr = bitwise_ptr;
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             return (sqrt_ratio_target, Uint256(0, 0), amount_out);
         }
 
@@ -228,7 +229,7 @@ namespace SwapMath {
         let (is_valid) = uint256_eq(sqrt_ratio_next, sqrt_ratio_target);
 
         if (exact_in == 1) {
-            if (is_valid == 0) {
+            if (is_valid == FALSE) {
                 tempvar flag = 1;
             } else {
                 tempvar flag = 0;

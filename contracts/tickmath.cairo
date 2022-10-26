@@ -21,6 +21,7 @@ from starkware.cairo.common.bitwise import bitwise_and, bitwise_or
 from starkware.cairo.common.math import abs_value
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
 from starkware.cairo.common.math_cmp import is_nn, is_le
+from starkware.cairo.common.bool import TRUE, FALSE
 
 from contracts.math_utils import Utils
 
@@ -106,7 +107,7 @@ namespace TickMath {
         alloc_locals;
         // check if bit > 0x80000
         let is_valid = is_nn(0x80000 - bit);
-        if (is_valid == 0) {
+        if (is_valid == FALSE) {
             return (ratio,);
         }
 
@@ -147,13 +148,13 @@ namespace TickMath {
 
         let is_valid = is_le(abs_tick, MAX_TICK);
         with_attr error_message("TickMath: abs_tick is too large") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
 
         let (ratio: Uint256) = get_sqrt_ratio_at_tick_abs(abs_tick);
 
         let is_valid = is_nn(tick);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let (tmp: Uint256, _) = uint256_unsigned_div_rem(
                 Uint256(Utils.MAX_UINT128, Utils.MAX_UINT128), ratio
             );
@@ -170,7 +171,7 @@ namespace TickMath {
 
         let (a, r) = uint256_unsigned_div_rem(ratio2, Uint256(2 ** 32, 0));
         let (is_valid) = uint256_lt(Uint256(0, 0), r);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let (price: Uint256, _) = uint256_add(a, Uint256(1, 0));
             return (price,);
         }
@@ -181,7 +182,7 @@ namespace TickMath {
         new_x: Uint256, new_r: felt
     ) {
         let (is_valid) = uint256_le(mask, x);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let (new_x: Uint256) = uint256_shr(x, Uint256(bit, 0));
             let new_r = r + bit;
             return (new_x, new_r);
@@ -207,7 +208,7 @@ namespace TickMath {
         let (x: Uint256, r) = most_significant_bit_2(x, r, Uint256(0x4, 0), 2);
 
         let (is_valid) = uint256_le(Uint256(0x2, 0), x);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let r = r + 1;
             return (r,);
         }
@@ -222,7 +223,7 @@ namespace TickMath {
         alloc_locals;
 
         let (is_valid) = Utils.is_lt_signed(shf_bit, 50);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             return (r_in, log_2_in);
         }
 
@@ -232,10 +233,10 @@ namespace TickMath {
 
         local r: Uint256;
         let (is_valid) = uint256_eq(high, Uint256(0, 0));
-        if (is_valid == 0) {
+        if (is_valid == FALSE) {
             let (is_valid) = uint256_lt(high, Uint256(2 ** 127, 0));
             with_attr error_message("log_step overflow") {
-                assert is_valid = 1;
+                assert is_valid = TRUE;
             }
 
             let (tmp: Uint256) = uint256_shl(high, Uint256(129, 0));
@@ -288,14 +289,14 @@ namespace TickMath {
 
         let (is_valid) = uint256_le(Uint256(MIN_SQRT_RATIO, 0), sqrt_price_x96);
         with_attr error_message("tick is too low") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
 
         let (is_valid) = uint256_lt(
             sqrt_price_x96, Uint256(MAX_SQRT_RATIO_LOW, MAX_SQRT_RATIO_HIGH)
         );
         with_attr error_message("tick is too high") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
 
         // change uint160 to uint192, to raise precision
@@ -334,7 +335,7 @@ namespace TickMath {
         if (tl != th) {
             let (res: Uint256) = get_sqrt_ratio_at_tick(th);
             let (is_valid) = uint256_le(res, sqrt_price_x96);
-            if (is_valid == 1) {
+            if (is_valid == TRUE) {
                 return (th,);
             }
             return (tl,);

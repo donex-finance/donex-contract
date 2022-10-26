@@ -29,7 +29,7 @@ namespace TickMgr {
 
         let (tmp, rem) = signed_div_rem(TickMath.MIN_TICK, tick_spacing, bound);
         let (is_valid) = Utils.is_gt(rem, 0);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             tempvar min_tick = (tmp + 1) * tick_spacing;
         } else {
             tempvar min_tick = tmp * tick_spacing;
@@ -80,7 +80,7 @@ namespace TickMgr {
     ) -> (fee_growth_outside0_x128: Uint256, fee_growth_outside1_x128: Uint256, initialized: felt) {
         if (info.liquidity_gross == 0) {
             let is_valid = is_le(tick, tick_current);
-            if (is_valid == 1) {
+            if (is_valid == TRUE) {
                 return (fee_growth_global0_x128, fee_growth_global1_x128, TRUE);
             }
             return (info.fee_growth_outside0_x128, info.fee_growth_outside1_x128, TRUE);
@@ -107,7 +107,7 @@ namespace TickMgr {
 
         let is_valid = is_le(liq_gross_after, max_liquidity);
         with_attr error_message("update: liq_gross_after > max_liquidity") {
-            assert is_valid = 1;
+            assert is_valid = TRUE;
         }
 
         let (
@@ -150,7 +150,7 @@ namespace TickMgr {
         let (info_lower: TickInfo) = TickMgr_data.read(tick_lower);
 
         let is_valid = is_le(tick_lower, tick_current);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             return (info_lower.fee_growth_outside0_x128, info_lower.fee_growth_outside1_x128);
         }
 
@@ -176,7 +176,7 @@ namespace TickMgr {
         let (info_upper: TickInfo) = TickMgr_data.read(tick_upper);
 
         let (is_valid) = Utils.is_lt_signed(tick_current, tick_upper);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             return (info_upper.fee_growth_outside0_x128, info_upper.fee_growth_outside1_x128);
         }
 

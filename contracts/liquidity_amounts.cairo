@@ -19,6 +19,7 @@ from starkware.cairo.common.uint256 import (
     uint256_signed_nn,
 )
 from starkware.cairo.common.math import unsigned_div_rem
+from starkware.cairo.common.bool import FALSE, TRUE
 
 from contracts.fullmath import FullMath
 from contracts.math_utils import Utils
@@ -29,7 +30,7 @@ namespace LiquidityAmounts {
     ) {
         alloc_locals;
         let (is_valid) = uint256_lt(sqrt_ratio_b, sqrt_ratio_a);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             return (sqrt_ratio_b, sqrt_ratio_a);
         }
         return (sqrt_ratio_a, sqrt_ratio_b);
@@ -67,13 +68,13 @@ namespace LiquidityAmounts {
 
         let (is_valid) = uint256_le(sqrt_ratio, sqrt_ratio0);
 
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let (amount0: Uint256) = get_amount0_for_liquidity(sqrt_ratio0, sqrt_ratio1, liquidity);
             return (amount0, Uint256(0, 0));
         }
 
         let (is_valid) = uint256_lt(sqrt_ratio, sqrt_ratio1);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let (amount0: Uint256) = get_amount0_for_liquidity(sqrt_ratio, sqrt_ratio1, liquidity);
             let (amount1: Uint256) = get_amount1_for_liquidity(sqrt_ratio0, sqrt_ratio, liquidity);
             return (amount0, amount1);
@@ -125,13 +126,13 @@ namespace LiquidityAmounts {
 
         let (is_valid) = uint256_le(sqrt_ratio, sqrt_ratio0);
 
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let (liquidity) = get_liquidity_for_amount0(sqrt_ratio0, sqrt_ratio1, amount0);
             return (liquidity,);
         }
 
         let (is_valid) = uint256_lt(sqrt_ratio, sqrt_ratio1);
-        if (is_valid == 1) {
+        if (is_valid == TRUE) {
             let (liquidity0) = get_liquidity_for_amount0(sqrt_ratio, sqrt_ratio1, amount0);
             let (liquidity1) = get_liquidity_for_amount1(sqrt_ratio0, sqrt_ratio, amount1);
             let liquidity = Utils.min(liquidity0, liquidity1);
