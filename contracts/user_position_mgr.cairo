@@ -181,7 +181,7 @@ func _get_tickSpacing{range_check_ptr}(
         return 200;
     }
 
-    with_attr error_message("invalid fee") {
+    with_attr error_message("invalid fee level") {
         assert 0 = 1;
     }
     return 0;
@@ -195,6 +195,11 @@ func create_and_initialize_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
     sqrt_price_x96: Uint256
 ) -> (pool_address: felt) {
     alloc_locals;
+
+    let (is_valid) = Utils.is_eq(token0, token1);
+    with_attr error_message("token0 or token1 is illegal") {
+        assert is_valid = FALSE;
+    }
 
     let (pool_address) = get_pool_address(token0, token1, fee);
     let (is_valid) = Utils.is_eq(pool_address, 0);
