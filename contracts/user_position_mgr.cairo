@@ -141,6 +141,17 @@ func owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() ->
     return Ownable.owner();
 }
 
+@view
+func get_pool_cur_price{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    token0: felt,
+    token1: felt,
+    fee: felt
+) -> (sqrt_price_x96: Uint256, tick: felt) {
+    let (pool_address) = get_pool_address(token0, token1, fee);
+    let (sqrt_price_x96: Uint256, tick) = ISwapPool.get_cur_slot(contract_address=pool_address);
+    return (sqrt_price_x96, tick);
+}
+
 //
 //  external
 //
