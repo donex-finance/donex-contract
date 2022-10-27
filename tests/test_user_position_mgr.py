@@ -111,6 +111,10 @@ class UserPositionMgrTest(TestCase):
             self.token1_def, self.token1 = await init_contract(os.path.join("tests", "mocks/ERC20_mock.cairo"), [2, 2, 18, MAX_UINT128, MAX_UINT128, address], starknet=self.starknet)
             await self.token1.transfer(other_address, (MAX_UINT128, 2 ** 127)).execute(caller_address=address)
 
+            if self.token0.contract_address > self.token1.contract_address:
+                self.token0, self.token1 = self.token1, self.token0
+                self.token0_def, self.token1_def = self.token1_def, self.token0_def
+
 
     async def get_user_position_contract(self):
         await self.check_starknet()

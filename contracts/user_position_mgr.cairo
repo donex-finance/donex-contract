@@ -136,23 +136,14 @@ func get_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     return (address,);
 }
 
-func _check_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    token0: felt,
-    token1: felt,
-    fee: felt
-) -> felt {
-    let (address) = get_pool_address(token0, token1, fee);
-    let (is_valid) = Utils.is_eq(address, 0);
-    with_attr error_message("pool not exist") {
-        assert is_valid = FALSE;
-    }
-    return address;
-}
-
 @view
 func owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (owner: felt) {
     return Ownable.owner();
 }
+
+//
+//  external
+//
 
 func _write_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     token0: felt,
@@ -261,6 +252,30 @@ func _get_mint_liuqidity{
     return (liquidity,);
 }
 
+func _check_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    token0: felt,
+    token1: felt,
+    fee: felt
+) -> felt {
+    let (address) = get_pool_address(token0, token1, fee);
+    let (is_valid) = Utils.is_eq(address, 0);
+    with_attr error_message("pool not exist") {
+        assert is_valid = FALSE;
+    }
+    return address;
+}
+
+func _check_token_order{range_check_ptr} (
+    token0: felt,
+    token1: felt
+) {
+    let is_valid = is_le_felt(token0, token1);
+    with_attr error_message("wrong order with token0 and token1") {
+        assert is_valid = TRUE;
+    }
+    return ();
+}
+
 @external
 func mint{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
@@ -277,6 +292,8 @@ func mint{
     amount1_min: Uint256,
 ) {
     alloc_locals;
+
+    _check_token_order(token0, token1);
 
     let (cur_token_id: Uint256) = _token_id.read();
     let (new_token_id: Uint256, _) = uint256_add(cur_token_id, Uint256(1, 0));
@@ -594,7 +611,12 @@ func _update_fees{
 @external
 func collect{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
-}(token_id: Uint256, recipient: felt, amount0_max: felt, amount1_max: felt) -> (
+}(
+    token_id: Uint256, 
+    recipient: felt, 
+    amount0_max: felt, // uint128
+    amount1_max: felt  // uint128
+) -> (
     amount0: Uint256, amount1: Uint256
 ) {
     alloc_locals;
