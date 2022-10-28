@@ -25,6 +25,7 @@ from starkware.cairo.common.math_cmp import is_le, is_nn
 
 from openzeppelin.token.erc20.IERC20 import IERC20
 from openzeppelin.access.ownable.library import Ownable
+from openzeppelin.security.safemath.library import SafeUint256
 
 from contracts.tick_mgr import TickMgr, TickInfo
 from contracts.tick_bitmap import TickBitmap
@@ -666,7 +667,7 @@ func _swap_transfer_token{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_
         let (balance_before) = balance0();
         ISwapPoolCallback.swap_callback(contract_address=caller, token0=token0, token1=token1, fee=fee, amount0=amount0, amount1=amount1, data=data);
         let (balance_after: Uint256) = balance0();
-        let (tmp: Uint256) = Utils.uint256_safe_add(balance_before, amount0);
+        let (tmp: Uint256) = SafeUint256.add(balance_before, amount0);
         let (is_valid) = uint256_le(tmp, balance_after);
         with_attr error_message("transfer token0 failed") {
             assert is_valid = TRUE;
@@ -681,7 +682,7 @@ func _swap_transfer_token{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_
     let (balance1_before) = balance1();
     ISwapPoolCallback.swap_callback(contract_address=caller, token0=token0, token1=token1, fee=fee, amount0=amount0, amount1=amount1, data=data);
     let (balance_after: Uint256) = balance1();
-    let (tmp: Uint256) = Utils.uint256_safe_add(balance1_before, amount1);
+    let (tmp: Uint256) = SafeUint256.add(balance1_before, amount1);
     let (is_valid) = uint256_le(tmp, balance_after);
     with_attr error_message("transfer token1 failed") {
         assert is_valid = TRUE;
@@ -1034,7 +1035,7 @@ func _add_liquidity_callback_2{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
 func _add_liquidity_callback_3{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(flag: felt, balance0_before: Uint256, amount0: Uint256) {
     if (flag == 1) {
         let (balance0_after) = balance0();
-        let (tmp: Uint256) = Utils.uint256_safe_add(balance0_before, amount0);
+        let (tmp: Uint256) = SafeUint256.add(balance0_before, amount0);
         let (is_valid) = uint256_le(tmp, balance0_after);
         with_attr error_message("token0 balance illegal") {
             assert is_valid = TRUE;
@@ -1067,7 +1068,7 @@ func _add_liquidity_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ran
 
     if (flag2 == 1) {
         let (balance1_after) = balance1();
-        let (tmp: Uint256) = Utils.uint256_safe_add(balance1_before, amount1);
+        let (tmp: Uint256) = SafeUint256.add(balance1_before, amount1);
         let (is_valid) = uint256_le(tmp, balance1_after);
         with_attr error_message("token1 balance illegal") {
             assert is_valid = TRUE;

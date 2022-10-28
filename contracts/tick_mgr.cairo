@@ -96,7 +96,7 @@ namespace TickMgr {
         fee_growth_global0_x128: Uint256,
         fee_growth_global1_x128: Uint256,
         upper: felt,
-        max_liquidity: felt,
+        max_liquidity: felt, // uint128
     ) -> (flipped: felt) {
         alloc_locals;
 

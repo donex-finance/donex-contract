@@ -21,7 +21,7 @@ from starkware.cairo.common.uint256 import (
 )
 from starkware.cairo.common.math import abs_value
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
-from starkware.cairo.common.math_cmp import is_nn, is_le
+from starkware.cairo.common.math_cmp import is_nn
 from starkware.cairo.common.bool import TRUE, FALSE
 
 from contracts.math_utils import Utils

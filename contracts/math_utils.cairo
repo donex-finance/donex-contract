@@ -93,14 +93,6 @@ namespace Utils {
         return (res,);
     }
 
-    func uint256_safe_add{range_check_ptr}(a: Uint256, b: Uint256) -> (res: Uint256) {
-        let (res: Uint256, is_overflow) = uint256_add(a, b);
-        with_attr error_message("uint256_safe_add: overflow") {
-            assert is_overflow = FALSE;
-        }
-        return (res,);
-    }
-
     func min{range_check_ptr}(a: felt, b: felt) -> felt {
         let is_valid = is_le_felt(a, b);
         if (is_valid == TRUE) {

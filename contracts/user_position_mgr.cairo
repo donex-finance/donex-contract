@@ -480,7 +480,7 @@ func _check_approverd_or_owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
 @external
 func decrease_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
     token_id: Uint256,
-    liquidity: felt,
+    liquidity: felt, // uint128
     amount0_min: Uint256,
     amount1_min: Uint256
 ) -> (
@@ -635,9 +635,10 @@ func collect{
     let (caller) = get_caller_address();
     _check_approverd_or_owner(caller, token_id);
 
-    //TODO: is_le(amount0_max, 2 ** 128 - 1)
-    //TODO: check all uint128
-    //TODO: check all external arg type
+    // check uint128
+    assert_is_uint128(amount0_max);
+    assert_is_uint128(amount1_max);
+
     let (flag1) = Utils.is_lt_signed(0, amount0_max);
     let (flag2) = Utils.is_lt_signed(0, amount1_max);
     let (is_valid) = Utils.is_gt(flag1 + flag2, 0);
