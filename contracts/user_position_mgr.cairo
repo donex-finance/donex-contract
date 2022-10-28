@@ -281,7 +281,7 @@ func _check_token_order{range_check_ptr} (
     token1: felt
 ) {
     let is_valid = is_le_felt(token0, token1);
-    with_attr error_message("wrong order with token0 and token1") {
+    with_attr error_message("token0 address should be less than token1 address") {
         assert is_valid = TRUE;
     }
     return ();
@@ -636,8 +636,8 @@ func collect{
     _check_approverd_or_owner(caller, token_id);
 
     // check uint128
-    assert_is_uint128(amount0_max);
-    assert_is_uint128(amount1_max);
+    Utils.assert_is_uint128(amount0_max);
+    Utils.assert_is_uint128(amount1_max);
 
     let (flag1) = Utils.is_lt_signed(0, amount0_max);
     let (flag2) = Utils.is_lt_signed(0, amount1_max);
