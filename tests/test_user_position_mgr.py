@@ -181,6 +181,12 @@ class UserPositionMgrTest(TestCase):
     async def test_mint(self):
 
         user_position = await self.get_user_position_contract()
+
+        await assert_revert(
+            user_position.mint(other_address, self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0)).execute(caller_address=other_address),
+            "token0 address should be less than token1 address"
+        )
+
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0)).execute(caller_address=other_address)
 
         # check nft
