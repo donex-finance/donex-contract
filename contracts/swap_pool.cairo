@@ -18,6 +18,7 @@ from starkware.cairo.common.uint256 import (
     uint256_signed_lt,
     uint256_neg,
     uint256_signed_nn,
+    uint256_check
 )
 from starkware.cairo.common.bool import FALSE, TRUE
 from starkware.cairo.common.math import unsigned_div_rem, assert_in_range
@@ -767,6 +768,7 @@ func swap{
 ) -> (amount0: Uint256, amount1: Uint256) {
     alloc_locals;
 
+    uint256_check(amount_specified);
     Utils.assert_is_uint160(sqrt_price_limit_x96);
 
     // amount_specified != 0

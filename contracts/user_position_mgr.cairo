@@ -3,7 +3,7 @@
 from starkware.starknet.common.syscalls import get_caller_address, get_contract_address, deploy, get_block_timestamp
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
-from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_add, uint256_lt, uint256_sub, uint256_neg, uint256_eq, uint256_signed_lt
+from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_add, uint256_lt, uint256_sub, uint256_neg, uint256_eq, uint256_signed_lt, uint256_check
 from starkware.cairo.common.math_cmp import is_le, is_le_felt
 from starkware.cairo.common.bool import TRUE, FALSE
 
@@ -194,9 +194,11 @@ func create_and_initialize_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
     token0: felt,
     token1: felt,
     fee: felt,
-    sqrt_price_x96: Uint256
+    sqrt_price_x96: Uint256 // uint160
 ) -> (pool_address: felt) {
     alloc_locals;
+
+    Utils.assert_is_uint160(sqrt_price_x96);
 
     let (is_valid) = Utils.is_eq(token0, token1);
     with_attr error_message("token0 or token1 is illegal") {
@@ -306,6 +308,11 @@ func mint{
 
     _check_token_order(token0, token1);
 
+    uint256_check(amount0_desired);
+    uint256_check(amount1_desired);
+    uint256_check(amount0_min);
+    uint256_check(amount1_min);
+
     let (cur_token_id: Uint256) = _token_id.read();
     let (new_token_id: Uint256, _) = uint256_add(cur_token_id, Uint256(1, 0));
     _token_id.write(new_token_id);
@@ -373,6 +380,11 @@ func increase_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     amount1: Uint256
 ) {
     alloc_locals;
+
+    uint256_check(amount0_desired);
+    uint256_check(amount1_desired);
+    uint256_check(amount0_min);
+    uint256_check(amount1_min);
 
     let (position: UserPosition) = _positions.read(token_id);
     let pool_address = position.pool_address;
@@ -488,6 +500,9 @@ func decrease_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     amount1: Uint256
 ) {
     alloc_locals;
+
+    uint256_check(amount0_min);
+    uint256_check(amount1_min);
 
     // check the token_id owner
     let (caller) = get_caller_address();
@@ -782,6 +797,10 @@ func exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 ) -> (amount_out: Uint256) {
     alloc_locals;
 
+    uint256_check(amount_in);
+    uint256_check(amount_out_min);
+    Utils.assert_is_uint160(sqrt_price_limit);
+
     _check_deadline(deadline);
 
     let pool_address = _check_pool_address(token_in, token_out, fee);
@@ -850,6 +869,10 @@ func exact_output{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
     deadline: felt
 ) -> (amount_in: Uint256) {
     alloc_locals;
+
+    uint256_check(amount_out);
+    uint256_check(amount_in_max);
+    Utils.assert_is_uint160(sqrt_price_limit);
 
     _check_deadline(deadline);
 

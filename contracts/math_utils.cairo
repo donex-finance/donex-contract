@@ -9,6 +9,7 @@ from starkware.cairo.common.uint256 import (
     uint256_add,
     uint256_signed_nn,
     uint256_lt,
+    uint256_check
 )
 from starkware.cairo.common.bool import TRUE, FALSE
 
@@ -118,6 +119,7 @@ namespace Utils {
     }
 
     func assert_is_uint160{range_check_ptr}(a: Uint256) {
+        uint256_check(a);
         let (is_valid) = uint256_lt(a, Uint256(0, 2 ** 32));
         with_attr error_message("assert_uint160: overflow") {
             assert is_valid = TRUE;
