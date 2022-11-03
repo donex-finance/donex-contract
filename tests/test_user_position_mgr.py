@@ -253,7 +253,7 @@ class UserPositionMgrTest(TestCase):
         res = await user_position.exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min), DEADLINE).execute(caller_address=address)
 
         price = 1461446703485210103287273052203988822378723970341
-        res = await user_position.exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min), DEADLINE).execute(caller_address=address)
+        res = await user_position.exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in * 2), to_uint(price), to_uint(amount_out_min), DEADLINE).execute(caller_address=address)
 
         res = await user_position.get_position_token_amounts(token_id).call()
         token0_amount = from_uint(res.call_info.result[0: 2])

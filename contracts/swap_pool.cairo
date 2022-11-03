@@ -322,7 +322,7 @@ func get_position_token_fee{
     ) = TickMgr.get_fee_growth_inside(
         tick_lower, tick_upper, tick, fee_growth_global0_x128, fee_growth_global1_x128
     );
-    return (fee_growth_inside0_x128, fee_growth_inside0_x128);
+    return (fee_growth_inside0_x128, fee_growth_inside1_x128);
 }
 
 @external
