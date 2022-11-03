@@ -1502,66 +1502,24 @@ class SwapPoolTest(TestCase):
         tick = felt_to_int(res.call_info.result[2])
         self.assertEqual(tick, -120197)
 
-    '''
-    TODO
-    @pytest.mark.asyncio
-    async def test_issue(self):
+    #@pytest.mark.asyncio
+    #async def test_issue(self):
 
-        # tick transition cannot run twice if zero for one swap ends at fractional price just below tick
-        tick_spacing = 1
-        contract_def, contract = await init_contract(CONTRACT_FILE, [tick_spacing, FeeAmount.MEDIUM, token0, token1])
-        min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
-        await contract.initialize_price(encode_price_sqrt(1, 1)).execute()
+    #    # tick transition cannot run twice if zero for one swap ends at fractional price just below tick
+    #    tick_spacing = 1
+    #    await self.check_starknet()
 
-        # mint can only be called for multiples of 12
+    #    kwargs = {
+    #        "contract_class": self.proxy_def,
+    #        "constructor_calldata": [self.declare_class.class_hash, tick_spacing, FeeAmount.MEDIUM, self.token0.contract_address, self.token1.contract_address, address],
+    #    }
+    #    contract = await self.starknet.deploy(**kwargs)
+    #    # replace api
+    #    contract = contract.replace_abi(self.contract_def.abi)
 
-        it('tick transition cannot run twice if zero for one swap ends at fractional price just below tick', async () => {
-    pool = await createPool(FeeAmount.MEDIUM, 1)
-    const sqrtTickMath = (await (await ethers.getContractFactory('TickMathTest')).deploy()) as TickMathTest
-    const swapMath = (await (await ethers.getContractFactory('SwapMathTest')).deploy()) as SwapMathTest
-    const p0 = (await sqrtTickMath.getSqrtRatioAtTick(-24081)).add(1)
-    // initialize at a price of ~0.3 token1/token0
-    // meaning if you swap in 2 token0, you should end up getting 0 token1
-    await pool.initialize_price(p0)
-    expect(await pool.liquidity(), 'current pool liquidity is 1').to.eq(0)
-    expect((await pool.slot0()).tick, 'pool tick is -24081').to.eq(-24081)
-
-    // add a bunch of liquidity around current price
-    const liquidity = expandTo18Decimals(1000)
-    await mint(wallet.address, -24082, -24080, liquidity)
-    expect(await pool.liquidity(), 'current pool liquidity is now liquidity + 1').to.eq(liquidity)
-
-    await mint(wallet.address, -24082, -24081, liquidity)
-    expect(await pool.liquidity(), 'current pool liquidity is still liquidity + 1').to.eq(liquidity)
-
-    // check the math works out to moving the price down 1, sending no amount out, and having some amount remaining
-    {
-      const { feeAmount, amountIn, amountOut, sqrtQ } = await swapMath.computeSwapStep(
-        p0,
-        p0.sub(1),
-        liquidity,
-        3,
-        FeeAmount.MEDIUM
-      )
-      expect(sqrtQ, 'price moves').to.eq(p0.sub(1))
-      expect(feeAmount, 'fee amount is 1').to.eq(1)
-      expect(amountIn, 'amount in is 1').to.eq(1)
-      expect(amountOut, 'zero amount out').to.eq(0)
-    }
-
-    // swap 2 amount in, should get 0 amount out
-    await expect(swapExact0For1(3, wallet.address))
-      .to.emit(token0, 'Transfer')
-      .withArgs(wallet.address, pool.address, 3)
-      .to.not.emit(token1, 'Transfer')
-
-    const { tick, sqrtPriceX96 } = await pool.slot0()
-
-    expect(tick, 'pool is at the next tick').to.eq(-24082)
-    expect(sqrtPriceX96, 'pool price is still on the p0 boundary').to.eq(p0.sub(1))
-    expect(await pool.liquidity(), 'pool has run tick transition and liquidity changed').to.eq(liquidity.mul(2))
-  })
-    '''
+    #    min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
+    #    p0 = sqrtTickMath.getSqrtRatioAtTick(-24081).add(1)
+    #    await contract.initialize_price(p0).execute()
 
     @pytest.mark.asyncio
     async def test_set_fee_protocol(self):

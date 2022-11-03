@@ -36,6 +36,8 @@ max_tick = get_max_tick(tick_spacing)
 address = 11111111111111
 other_address = 222222222222222
 
+DEADLINE = int(time.time() + 1000)
+
 #TODO: check two diferent address with same position tick, burn and collect
 async def init_user_position_contract(starknet, swap_pool_hash, swap_pool_proxy_hash):
     begin = time.time()
@@ -158,7 +160,7 @@ class UserPositionMgrTest(TestCase):
 
         user_position = user_position.replace_abi(self.user_position_def.abi)
         await assert_revert(
-            user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0)).execute(caller_address=other_address),
+            user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address),
             ''
         )
 
@@ -167,7 +169,7 @@ class UserPositionMgrTest(TestCase):
         await user_position.upgrade(self.user_position_class.class_hash).execute(caller_address=address)
 
         user_position = user_position.replace_abi(self.user_position_def.abi)
-        await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
 
     @pytest.mark.asyncio
     async def test_initializer(self):
@@ -183,11 +185,11 @@ class UserPositionMgrTest(TestCase):
         user_position = await self.get_user_position_contract()
 
         await assert_revert(
-            user_position.mint(other_address, self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0)).execute(caller_address=other_address),
+            user_position.mint(other_address, self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address),
             "token0 address should be less than token1 address"
         )
 
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
 
         # check nft
         res = await user_position.balanceOf(other_address).call()
@@ -208,12 +210,12 @@ class UserPositionMgrTest(TestCase):
     @pytest.mark.asyncio
     async def test_increase_liquidity(self):
         user_position = await self.get_user_position_contract()
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000), to_uint(1000), to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000), to_uint(1000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
 
         token_id = to_uint(1)
 
         # increases position liquidity
-        res = await user_position.increase_liquidity(token_id, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await user_position.increase_liquidity(token_id, to_uint(100), to_uint(100), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
         res = await user_position.get_token_position(to_uint(1)).call()
         position = res.call_info.result
         self.assertEqual(position[3], 1100) # liquidity
@@ -221,25 +223,25 @@ class UserPositionMgrTest(TestCase):
     @pytest.mark.asyncio
     async def test_decrease_liquidity(self):
         user_position = await self.get_user_position_contract()
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
 
         token_id = to_uint(1)
 
         # cannot be called by other addresses
         await assert_revert(
-            user_position.decrease_liquidity(token_id, 50, to_uint(0), to_uint(0)).execute(caller_address=address),
+            user_position.decrease_liquidity(token_id, 50, to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address),
             "_check_approverd_or_owner failed"
         )
 
         # cannot decrease for more than all the liquidity
         await assert_revert(
-            user_position.decrease_liquidity(token_id, 101, to_uint(0), to_uint(0)).execute(caller_address=other_address),
-            "liquidity must be less than or equal to the position liquidity"
+            user_position.decrease_liquidity(token_id, 101, to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address),
+            "DL: liquidity is more than own"
         )
 
         # decreases position liquidity
         new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
-        res = await new_user_position.decrease_liquidity(token_id, 25, to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await new_user_position.decrease_liquidity(token_id, 25, to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
         res = await new_user_position.get_token_position(to_uint(1)).call()
         position = res.call_info.result
         self.assertEqual(position[3], 75)
@@ -248,24 +250,24 @@ class UserPositionMgrTest(TestCase):
 
         # can decrease for all the liquidity
         new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
-        res = await new_user_position.decrease_liquidity(token_id, 100, to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await new_user_position.decrease_liquidity(token_id, 100, to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
         res = await new_user_position.get_token_position(to_uint(1)).call()
         position = res.call_info.result
         self.assertEqual(position[3], 0)
 
         # cannot decrease for more than the liquidity of the nft position
         new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
-        res = await new_user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(200), to_uint(100), to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await new_user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(200), to_uint(100), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
         await assert_revert(
-            new_user_position.decrease_liquidity(token_id, 101, to_uint(0), to_uint(0)).execute(caller_address=other_address),
+            new_user_position.decrease_liquidity(token_id, 101, to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address),
             "liquidity must be less than or equal to the position liquidity"
         )
 
     @pytest.mark.asyncio
     async def test_collect(self):
         user_position = await self.get_user_position_contract()
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0)).execute(caller_address=other_address)
-        res = await user_position.mint(address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0)).execute(caller_address=address)
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
+        res = await user_position.mint(address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
 
         token_id = to_uint(1)
 
@@ -282,7 +284,7 @@ class UserPositionMgrTest(TestCase):
         )
 
         # transfers tokens owed from burn
-        res = await user_position.decrease_liquidity(token_id, 50, to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await user_position.decrease_liquidity(token_id, 50, to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
         res = await user_position.collect(token_id, address, MAX_UINT128, MAX_UINT128).execute(caller_address=other_address)
         assert_event_emitted(
             res,
@@ -310,7 +312,7 @@ class UserPositionMgrTest(TestCase):
     @pytest.mark.asyncio
     async def test_burn(self):
         user_position = await self.get_user_position_contract()
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
 
         token_id = to_uint(1)
 
@@ -328,7 +330,7 @@ class UserPositionMgrTest(TestCase):
 
         # cannot be called while there is still partial liquidity
         new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
-        res = await new_user_position.decrease_liquidity(token_id, 50, to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await new_user_position.decrease_liquidity(token_id, 50, to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
         await assert_revert(
             new_user_position.burn(token_id).execute(caller_address=other_address),
             "user_position_mgr: position not clear"
@@ -336,14 +338,14 @@ class UserPositionMgrTest(TestCase):
 
         # cannot be called while there is still tokens owed
         new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
-        res = await new_user_position.decrease_liquidity(token_id, 100, to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await new_user_position.decrease_liquidity(token_id, 100, to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
         await assert_revert(
             new_user_position.burn(token_id).execute(caller_address=other_address),
             "user_position_mgr: position not clear"
         )
 
         # cannot be called while there is still tokens owed
-        res = await user_position.decrease_liquidity(token_id, 100, to_uint(0), to_uint(0)).execute(caller_address=other_address)
+        res = await user_position.decrease_liquidity(token_id, 100, to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
         res = await user_position.collect(token_id, address, MAX_UINT128, MAX_UINT128).execute(caller_address=other_address)
         #await erc721.approve(user_position.contract_address, token_id).execute(caller_address=other_address)
         res = await user_position.burn(token_id).execute(caller_address=other_address)
@@ -361,7 +363,7 @@ class UserPositionMgrTest(TestCase):
     async def test_exact_input(self):
         user_position = await self.get_user_position_contract()
 
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0)).execute(caller_address=address)
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
 
         amount_in = 3
         amount_out_min = 1
@@ -442,7 +444,7 @@ class UserPositionMgrTest(TestCase):
     async def test_exact_output(self):
         user_position = await self.get_user_position_contract()
 
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0)).execute(caller_address=address)
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
 
         amount_out = 1
         amount_in_max = 3

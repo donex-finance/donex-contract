@@ -303,8 +303,11 @@ func mint{
     amount1_desired: Uint256,
     amount0_min: Uint256,
     amount1_min: Uint256,
+    deadline: felt
 ) {
     alloc_locals;
+
+    _check_deadline(deadline);
 
     _check_token_order(token0, token1);
 
@@ -373,13 +376,16 @@ func increase_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     amount0_desired: Uint256,
     amount1_desired: Uint256,
     amount0_min: Uint256,
-    amount1_min: Uint256
+    amount1_min: Uint256,
+    deadline: felt
 ) -> (
     liquidity: felt,
     amount0: Uint256,
     amount1: Uint256
 ) {
     alloc_locals;
+
+    _check_deadline(deadline);
 
     uint256_check(amount0_desired);
     uint256_check(amount1_desired);
@@ -489,17 +495,26 @@ func _check_approverd_or_owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
     return ();
 }
 
+// @function remove liquidity from position
+// @param {Uint256} token_id nft ID of position
+// @param {uint128} liquidity amount of liquidity to remove
+// @param {uint256} amount0_min minimum amount of token0 to remove from liquidity 
+// @param {uint256} amount1_min minimum amount of token1 to remove from liquidity
+// @param {felt} deadline deadline for transaction
 @external
 func decrease_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
     token_id: Uint256,
     liquidity: felt, // uint128
     amount0_min: Uint256,
-    amount1_min: Uint256
+    amount1_min: Uint256,
+    deadline: felt
 ) -> (
     amount0: Uint256,
     amount1: Uint256
 ) {
     alloc_locals;
+
+    _check_deadline(deadline);
 
     uint256_check(amount0_min);
     uint256_check(amount1_min);
@@ -508,14 +523,15 @@ func decrease_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     let (caller) = get_caller_address();
     _check_approverd_or_owner(caller, token_id);
 
+    // liquidity should greater than 0
     let (is_valid) = Utils.is_gt(liquidity, 0);
-    with_attr error_message("liquidity must be greater than 0") {
+    with_attr error_message("DL: liquidity must be greater than 0") {
         assert is_valid = TRUE;
     }
 
     let (position: UserPosition) = _positions.read(token_id);
     let is_valid = is_le(liquidity, position.liquidity);
-    with_attr error_message("liquidity must be less than or equal to the position liquidity") {
+    with_attr error_message("DL: liquidity is more than own") {
         assert is_valid = TRUE;
     }
 
@@ -532,7 +548,7 @@ func decrease_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     let (flag1) = uint256_le(amount0_min, amount0);
     let (flag2) = uint256_le(amount1_min, amount1);
     let flag = flag1 + flag2;
-    with_attr error_message("price slippage check") {
+    with_attr error_message("DL: price slippage check") {
         assert flag = 2;
     }
 
@@ -542,6 +558,7 @@ func decrease_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
         contract_address=pool_address, owner=this_address, tick_lower=tick_lower, tick_upper=tick_upper
     );
 
+    // TODO: why this here use the uint128 not Uint256?
     let (tmp: Uint256) = uint256_sub(slot_pos.fee_growth_inside0_x128, position.fee_growth_inside0_x128);
     let (tmp2: Uint256, _) = FullMath.uint256_mul_div(
         tmp,
