@@ -260,7 +260,7 @@ class UserPositionMgrTest(TestCase):
         res = await new_user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(200), to_uint(100), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
         await assert_revert(
             new_user_position.decrease_liquidity(token_id, 101, to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address),
-            "liquidity must be less than or equal to the position liquidity"
+            "DL: liquidity is more than own"
         )
 
     @pytest.mark.asyncio
