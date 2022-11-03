@@ -19,6 +19,7 @@ from contracts.liquidity_amounts import LiquidityAmounts
 from contracts.math_utils import Utils
 from contracts.fullmath import FullMath
 from contracts.position_mgr import PositionInfo
+from contracts.sqrt_price_math import SqrtPriceMath
 
 struct UserPosition {
     pool_address: felt,
@@ -150,6 +151,90 @@ func get_pool_cur_price{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     let (pool_address) = get_pool_address(token0, token1, fee);
     let (sqrt_price_x96: Uint256, tick) = ISwapPool.get_cur_slot(contract_address=pool_address);
     return (sqrt_price_x96, tick);
+}
+
+func _get_position_liquidity_token{
+    range_check_ptr,
+    bitwise_ptr: BitwiseBuiltin*,
+}(
+    position: UserPosition,
+    sqrt_price_x96: Uint256,
+    cur_tick
+) -> (amount0: Uint256, amount1: Uint256) {
+    alloc_locals;
+
+    if (position.liquidity != 0) {
+        let (sqrt_ratio0: Uint256) = TickMath.get_sqrt_ratio_at_tick(position.tick_lower);
+        let (sqrt_ratio1: Uint256) = TickMath.get_sqrt_ratio_at_tick(position.tick_upper);
+
+        let (is_valid) = Utils.is_lt_signed(cur_tick, position.tick_lower);
+        if (is_valid == TRUE) {
+            let (amount0: Uint256) = SqrtPriceMath.get_amount0_delta(
+                sqrt_ratio0, sqrt_ratio1, position.liquidity, FALSE
+            );
+            return (amount0, Uint256(0, 0));
+        }
+
+        let (is_valid) = Utils.is_lt_signed(cur_tick, position.tick_upper);
+        if (is_valid == TRUE) {
+            let (amount0: Uint256) = SqrtPriceMath.get_amount0_delta(
+                sqrt_price_x96, sqrt_ratio1, position.liquidity, FALSE
+            );
+
+            let (amount1: Uint256) = SqrtPriceMath.get_amount1_delta(
+                sqrt_ratio0, sqrt_price_x96, position.liquidity, FALSE
+            );
+
+            return (amount0, amount1);
+        }
+
+        let (amount1: Uint256) = SqrtPriceMath.get_amount1_delta(
+            sqrt_ratio0, sqrt_ratio1, position.liquidity, FALSE
+        );
+        return (Uint256(0, 0), amount1);
+    }
+    return (Uint256(0, 0), Uint256(0, 0));
+}
+
+@view
+func get_position_token_amounts{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
+    token_id: Uint256
+) -> (token0_liquidity: Uint256, token1_liquidity: Uint256, tokens_owed0: felt, tokens_owed1: felt) {
+    alloc_locals;
+
+    let (position: UserPosition) = _positions.read(token_id);
+    let (sqrt_price_x96: Uint256, tick) = ISwapPool.get_cur_slot(contract_address=position.pool_address);
+
+    // get the liquidity token
+    let (amount0: Uint256, amount1: Uint256) = _get_position_liquidity_token(
+        position, sqrt_price_x96, tick
+    );
+
+    // get the fee
+    let (fee_growth_inside0_x128: Uint256, fee_growth_inside1_x128: Uint256) = ISwapPool.get_position_token_fee(contract_address=position.pool_address, tick_lower=position.tick_lower, tick_upper=position.tick_upper);
+
+    let (tmp: Uint256) = uint256_sub(
+        fee_growth_inside0_x128, position.fee_growth_inside0_x128
+    );
+    let (tmp1: Uint256, _) = FullMath.uint256_mul_div(
+        tmp, Uint256(position.liquidity, 0), Uint256(0, 1)
+    );
+    let tokens_owed0 = position.tokens_owed0 + tmp1.low;
+
+    let (tmp2: Uint256) = uint256_sub(
+        fee_growth_inside1_x128, position.fee_growth_inside1_x128
+    );
+    let (tmp3: Uint256, _) = FullMath.uint256_mul_div(
+        tmp2, Uint256(position.liquidity, 0), Uint256(0, 1)
+    );
+    let tokens_owed1 = position.tokens_owed1 + tmp3.low;
+
+    return (
+        amount0,
+        amount1,
+        tokens_owed0,
+        tokens_owed1
+    );
 }
 
 //
@@ -304,7 +389,7 @@ func mint{
     amount0_min: Uint256,
     amount1_min: Uint256,
     deadline: felt
-) {
+) -> (amount0: Uint256, amount1: Uint256) {
     alloc_locals;
 
     _check_deadline(deadline);
@@ -367,7 +452,7 @@ func mint{
 
     IncreaseLiquidity.emit(new_token_id, liquidity, amount0, amount1);
 
-    return ();
+    return (amount0, amount1);
 }
 
 @external
@@ -602,6 +687,7 @@ func _update_fees{
 ) {
     alloc_locals;
 
+    // trigger an update of the position fees owed and fee growth snapshots if it has any liquidity
     let (is_valid) = Utils.is_gt(position.liquidity, 0);
     if (is_valid == TRUE) {
         ISwapPool.remove_liquidity(

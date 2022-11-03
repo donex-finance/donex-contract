@@ -304,6 +304,27 @@ func balance1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}()
     return (balance,);
 }
 
+@view
+func get_position_token_fee{
+    syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
+}(
+    tick_lower: felt,
+    tick_upper: felt,
+) -> (token0_fee: Uint256, token1_fee: Uint256) {
+    alloc_locals;
+
+    let (slot0: SlotState) = _slot0.read();
+    let tick = slot0.tick;
+    let (fee_growth_global0_x128: Uint256) = _fee_growth_global0_x128.read();
+    let (fee_growth_global1_x128: Uint256) = _fee_growth_global1_x128.read();
+    let (
+        fee_growth_inside0_x128: Uint256, fee_growth_inside1_x128: Uint256
+    ) = TickMgr.get_fee_growth_inside(
+        tick_lower, tick_upper, tick, fee_growth_global0_x128, fee_growth_global1_x128
+    );
+    return (fee_growth_inside0_x128, fee_growth_inside0_x128);
+}
+
 @external
 func initialize_price{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*

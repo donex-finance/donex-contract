@@ -50,7 +50,7 @@ namespace SqrtPriceMath {
         let (is_valid) = uint256_lt(Uint256(0, 0), price_a);
         assert is_valid = TRUE;
 
-        if (roundup == 1) {
+        if (roundup == TRUE) {
             let (tmp: Uint256) = FullMath.uint256_mul_div_roundingup(
                 numerator1, numerator2, price_b
             );
@@ -68,11 +68,11 @@ namespace SqrtPriceMath {
     ) -> (amount0: Uint256) {
         let (is_valid) = Utils.is_lt_signed(liquidity, 0);
         if (is_valid == TRUE) {
-            let (tmp: Uint256) = get_amount0_delta(sqrt_ratio0_x96, sqrt_ratio1_x96, -liquidity, 0);
+            let (tmp: Uint256) = get_amount0_delta(sqrt_ratio0_x96, sqrt_ratio1_x96, -liquidity, FALSE);
             let (res: Uint256) = uint256_neg(tmp);
             return (res,);
         }
-        let (res: Uint256) = get_amount0_delta(sqrt_ratio0_x96, sqrt_ratio1_x96, liquidity, 1);
+        let (res: Uint256) = get_amount0_delta(sqrt_ratio0_x96, sqrt_ratio1_x96, liquidity, TRUE);
         return (res,);
     }
 
@@ -89,7 +89,7 @@ namespace SqrtPriceMath {
         }
 
         let (tmp: Uint256) = uint256_sub(price_b, price_a);
-        if (roundup == 1) {
+        if (roundup == TRUE) {
             let (delta: Uint256) = FullMath.uint256_mul_div_roundingup(
                 Uint256(liquidity, 0), tmp, Uint256(2 ** 96, 0)
             );
@@ -107,12 +107,12 @@ namespace SqrtPriceMath {
     ) -> (amount1: Uint256) {
         let (is_valid) = Utils.is_lt_signed(liquidity, 0);
         if (is_valid == TRUE) {
-            let (tmp: Uint256) = get_amount1_delta(sqrt_ratio0_x96, sqrt_ratio1_x96, -liquidity, 0);
+            let (tmp: Uint256) = get_amount1_delta(sqrt_ratio0_x96, sqrt_ratio1_x96, -liquidity, FALSE);
             let (res: Uint256) = uint256_neg(tmp);
             return (res,);
         }
 
-        let (res: Uint256) = get_amount1_delta(sqrt_ratio0_x96, sqrt_ratio1_x96, liquidity, 1);
+        let (res: Uint256) = get_amount1_delta(sqrt_ratio0_x96, sqrt_ratio1_x96, liquidity, TRUE);
         return (res,);
     }
 

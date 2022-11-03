@@ -6,14 +6,8 @@ from contracts.position_mgr import PositionInfo
 
 @contract_interface
 namespace ISwapPool {
-    func initializer(
-        tick_spacing: felt, 
-        fee: felt, 
-        token_a: felt, 
-        token_b: felt, 
-        owner: felt 
-    ) {
-    }
+
+    // view
 
     func get_cur_slot() -> (sqrt_price_x96: Uint256, tick: felt) {
     }
@@ -26,6 +20,23 @@ namespace ISwapPool {
         amount_specified: Uint256, // int256
         sqrt_price_limit_x96: Uint256 // uint160
     ) -> (amount0: Uint256, amount1: Uint256) {
+    }
+
+    func get_position_token_fee(
+        tick_lower: felt,
+        tick_upper: felt,
+    ) -> (token0_fee: Uint256, token1_fee: Uint256) {
+    }
+
+    // external
+
+    func initializer(
+        tick_spacing: felt, 
+        fee: felt, 
+        token_a: felt, 
+        token_b: felt, 
+        owner: felt 
+    ) {
     }
 
     func initialize_price(sqrt_price_x96: Uint256) {

@@ -221,6 +221,59 @@ class UserPositionMgrTest(TestCase):
         self.assertEqual(position[3], 1100) # liquidity
 
     @pytest.mark.asyncio
+    async def test_get_position_token(self):
+        user_position = await self.get_user_position_contract()
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100000000), to_uint(100000000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
+        amount0 = from_uint(res.call_info.result[0: 2])
+        amount1 = from_uint(res.call_info.result[2: 4])
+
+        res = await user_position.mint(address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100000), to_uint(100000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
+
+        token_id = to_uint(1)
+
+        # check the liquidity amount before swap
+        res = await user_position.get_position_token_amounts(token_id).call()
+        token0_amount = from_uint(res.call_info.result[0: 2])
+        token1_amount = from_uint(res.call_info.result[2: 4])
+        token0_fee = res.call_info.result[4]
+        token1_fee = res.call_info.result[5]
+        print('before_swap:', token0_amount, token1_amount, token0_fee, token1_fee)
+        self.assertEqual(token0_amount <= amount0, True)
+        self.assertEqual(token1_amount <= amount1, True)
+        self.assertEqual(token0_amount >= amount0 - 1, True)
+        self.assertEqual(token1_amount >= amount1 - 1, True)
+        self.assertEqual(token0_fee, 0)
+        self.assertEqual(token1_fee, 0)
+
+        # swap
+        amount_in = 300000
+        amount_out_min = 1
+
+        price = 4295128740
+        res = await user_position.exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min), DEADLINE).execute(caller_address=address)
+
+        price = 1461446703485210103287273052203988822378723970341
+        res = await user_position.exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min), DEADLINE).execute(caller_address=address)
+
+        res = await user_position.get_position_token_amounts(token_id).call()
+        token0_amount = from_uint(res.call_info.result[0: 2])
+        token1_amount = from_uint(res.call_info.result[2: 4])
+        token0_fee = res.call_info.result[4]
+        token1_fee = res.call_info.result[5]
+        print('after_swap:', token0_amount, token1_amount, token0_fee, token1_fee)
+
+        res = await user_position.collect(token_id, address, MAX_UINT128, MAX_UINT128).execute(caller_address=other_address)
+        self.assertEqual(token0_fee, from_uint(res.call_info.result[0: 2]))
+        self.assertEqual(token1_fee, from_uint(res.call_info.result[2: 4]))
+
+        res = await user_position.get_token_position(token_id).call()
+        liquidity = res.call_info.result[3]
+        res = await user_position.decrease_liquidity(token_id, liquidity, to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
+        res = await user_position.collect(token_id, address, MAX_UINT128, MAX_UINT128).execute(caller_address=other_address)
+        self.assertEqual(token0_amount, from_uint(res.call_info.result[0: 2]))
+        self.assertEqual(token1_amount, from_uint(res.call_info.result[2: 4]))
+
+    @pytest.mark.asyncio
     async def test_decrease_liquidity(self):
         user_position = await self.get_user_position_contract()
         res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
