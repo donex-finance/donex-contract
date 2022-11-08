@@ -39,6 +39,11 @@ struct PoolInfo {
     fee: felt,
 }
 
+// const
+const PATH_TOKEN_IN_INDEX = 0;
+const PATH_FEE_INDEX = 1;
+const PATH_TOKEN_OUT_INDEX = 2;
+
 // storage
 
 @storage_var
@@ -860,18 +865,18 @@ func _check_deadline{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     return ();
 }
 
-@view
-func get_exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    token_in: felt,
-    token_out: felt,
-    fee: felt,
+func _get_exact_input_internal{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    path_len: felt,
+    path: felt*,
     amount_in: Uint256, 
     sqrt_price_limit: Uint256,
 ) -> (amount_out: Uint256) {
     alloc_locals;
 
+    let token_in = path[PATH_TOKEN_IN_INDEX];
+    let fee = path[PATH_FEE_INDEX];
+    let token_out = path[PATH_TOKEN_OUT_INDEX];
     let pool_address = _check_pool_address(token_in, token_out, fee);
-    let (caller) = get_caller_address();
 
     let zero_for_one = is_le_felt(token_in, token_out);
 
@@ -888,6 +893,65 @@ func get_exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     return (neg_amount0,);
 }
 
+@view
+func get_exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    token_in: felt,
+    token_out: felt,
+    fee: felt,
+    amount_in: Uint256, 
+    sqrt_price_limit: Uint256,
+) -> (amount_out: Uint256) {
+    alloc_locals;
+
+    let (local path: felt*) = alloc();
+    assert path[PATH_TOKEN_IN_INDEX] = token_in;
+    assert path[PATH_FEE_INDEX] = fee;
+    assert path[PATH_TOKEN_OUT_INDEX] = token_out;
+    let (amount_out: Uint256) = _get_exact_input_internal(3, path, amount_in, sqrt_price_limit);
+
+    return (amount_out,);
+}
+
+func _get_exact_input_router{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    path_len: felt,
+    path: felt*,
+    amount_in: Uint256 
+) -> (amount_out: Uint256) {
+    alloc_locals;
+
+    let (amount_out: Uint256) = _get_exact_input_internal(path_len, path, amount_in, Uint256(0, 0));
+
+    let (has_multiple_pools) = Utils.is_gt(path_len, 3);
+    if (has_multiple_pools == TRUE) {
+        let (new_amount_out: Uint256) = _get_exact_input_router(path_len - 2, path + 2, amount_out);
+        return (new_amount_out,);
+    }
+
+    return (amount_out,);
+}
+
+@external
+func get_exact_input_router{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    path_len: felt,
+    path: felt*,
+    amount_in: Uint256, 
+) -> (amount_out: Uint256) {
+    alloc_locals;
+
+    let (pool_num, rem) = unsigned_div_rem(path_len, 2);
+    with_attr error_message("path_len illeagl") {
+        assert rem = 1;
+    }
+
+    uint256_check(amount_in);
+
+    let (payer) = get_caller_address();
+
+    let (amount_out: Uint256) = _get_exact_input_router(path_len, path, amount_in);
+
+    return (amount_out,);
+}
+
 func _exact_input_internal{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     path_len: felt,
     path: felt*,
@@ -899,9 +963,9 @@ func _exact_input_internal{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range
     alloc_locals;
 
     // get the pool info
-    let token_in = path[0];
-    let token_out  = path[1];
-    let fee = path[2];
+    let token_in = path[PATH_TOKEN_IN_INDEX];
+    let fee = path[PATH_FEE_INDEX];
+    let token_out = path[PATH_TOKEN_OUT_INDEX];
     let pool_address = _check_pool_address(token_in, token_out, fee);
 
     let zero_for_one = is_le_felt(token_in, token_out);
@@ -943,9 +1007,9 @@ func exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 
     // alloc path array
     let (local path: felt*) = alloc();
-    assert path[0] = token_in;
-    assert path[1] = token_out;
-    assert path[2] = fee;
+    assert path[PATH_TOKEN_IN_INDEX] = token_in;
+    assert path[PATH_FEE_INDEX] = fee;
+    assert path[PATH_TOKEN_OUT_INDEX] = token_out;
     let (amount_out: Uint256) = _exact_input_internal(3, path, payer, recipient, amount_in, sqrt_price_limit);
 
     with_attr error_message("too little received") {
@@ -965,17 +1029,14 @@ func _exact_input_router{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
 ) -> (amount_out: Uint256) {
     alloc_locals;
 
-
     let (has_multiple_pools) = Utils.is_gt(path_len, 3);
 
     if (has_multiple_pools == TRUE) {
-        // first pool token_out should be the second pool token_in
-        with_attr error_message("pool path is not connected") {
-            assert path[1] = path[3];
-        }
         let (this_address) = get_contract_address();
+        // the recipient should be this contract except the last hop
         let (amount_out: Uint256) = _exact_input_internal(path_len, path, payer, this_address, amount_in, Uint256(0, 0));
-        let (new_amount_out: Uint256) = _exact_input_router(path_len - 3, path + 3, this_address, this_address, amount_out);
+        // the payer should be the contract except the first hop
+        let (new_amount_out: Uint256) = _exact_input_router(path_len - 2, path + 2, this_address, recipient, amount_out);
         return (new_amount_out,);
     }
 
@@ -994,9 +1055,9 @@ func exact_input_router{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
 ) -> (amount_out: Uint256) {
     alloc_locals;
 
-    let (pool_num, rem) = unsigned_div_rem(path_len, 3);
+    let (pool_num, rem) = unsigned_div_rem(path_len, 2);
     with_attr error_message("path_len illeagl") {
-        assert rem = 0;
+        assert rem = 1;
     }
 
     uint256_check(amount_in);
@@ -1027,7 +1088,6 @@ func get_exact_output{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     alloc_locals;
 
     let pool_address = _check_pool_address(token_in, token_out, fee);
-    let (caller) = get_caller_address();
 
     // unsined int
     let zero_for_one = is_le_felt(token_in, token_out);
@@ -1106,14 +1166,24 @@ func swap_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
     let (pool_address) = get_pool_address(token0, token1, fee);
     assert caller_address = pool_address;
 
+    let (this_address) = get_contract_address();
+
     let (flag1) = uint256_signed_lt(Uint256(0, 0), amount0);
     if (flag1 == 1) {
+        if (this_address == data) {
+            IERC20.transfer(contract_address=token0, recipient=caller_address, amount=amount0);
+            return ();
+        }
         IERC20.transferFrom(contract_address=token0, sender=data, recipient=caller_address, amount=amount0);
         return ();
     }
 
     let (flag2) = uint256_signed_lt(Uint256(0, 0), amount1);
     if (flag2 == 1) {
+        if (this_address == data) {
+            IERC20.transfer(contract_address=token1, recipient=caller_address, amount=amount1);
+            return ();
+        }
         IERC20.transferFrom(contract_address=token1, sender=data, recipient=caller_address, amount=amount1);
         return ();
     }

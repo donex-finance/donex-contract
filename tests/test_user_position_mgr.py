@@ -108,10 +108,15 @@ class UserPositionMgrTest(TestCase):
     async def check_starknet(self):
         if not hasattr(self, 'starknet'):
             self.starknet = await Starknet.empty()
+            # token0
             self.token0_def, self.token0 = await init_contract(os.path.join("tests", "mocks/ERC20_mock.cairo"), [1, 1, 18, MAX_UINT128, MAX_UINT128, address], starknet=self.starknet)
             await self.token0.transfer(other_address, (MAX_UINT128, 2 ** 127)).execute(caller_address=address)
+            # token1
             self.token1_def, self.token1 = await init_contract(os.path.join("tests", "mocks/ERC20_mock.cairo"), [2, 2, 18, MAX_UINT128, MAX_UINT128, address], starknet=self.starknet)
             await self.token1.transfer(other_address, (MAX_UINT128, 2 ** 127)).execute(caller_address=address)
+            # token2
+            self.token2_def, self.token2 = await init_contract(os.path.join("tests", "mocks/ERC20_mock.cairo"), [1, 1, 18, MAX_UINT128, MAX_UINT128, address], starknet=self.starknet)
+            await self.token2.transfer(other_address, (MAX_UINT128, 2 ** 127)).execute(caller_address=address)
 
             if self.token0.contract_address > self.token1.contract_address:
                 self.token0, self.token1 = self.token1, self.token0
@@ -128,14 +133,19 @@ class UserPositionMgrTest(TestCase):
             self.user_position_def, self.user_position_class, self.proxy_def, self.user_position = await init_user_position_contract(self.starknet, self.swap_pool_class.class_hash, self.swap_pool_proxy_class.class_hash)
 
             res = await self.user_position.create_and_initialize_pool(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, encode_price_sqrt(1, 1)).execute()
-
             self.swap_pool_address = res.call_info.result[0]
+
+            res = await self.user_position.create_and_initialize_pool(self.token1.contract_address, self.token2.contract_address, FeeAmount.MEDIUM, encode_price_sqrt(1, 1)).execute()
+
+            self.swap_pool_address2 = res.call_info.result[0]
 
             await self.token0.approve(self.user_position.contract_address, to_uint(2 ** 256 - 1)).execute(caller_address=address)
             await self.token1.approve(self.user_position.contract_address, to_uint(2 ** 256 - 1)).execute(caller_address=address)
+            await self.token2.approve(self.user_position.contract_address, to_uint(2 ** 256 - 1)).execute(caller_address=address)
 
             await self.token0.approve(self.user_position.contract_address, to_uint(2 ** 256 - 1)).execute(caller_address=other_address)
             await self.token1.approve(self.user_position.contract_address, to_uint(2 ** 256 - 1)).execute(caller_address=other_address)
+            await self.token2.approve(self.user_position.contract_address, to_uint(2 ** 256 - 1)).execute(caller_address=other_address)
 
         state = self.user_position.state.copy()
         user_position = cached_contract(state, self.user_position_def, self.user_position)
@@ -493,6 +503,145 @@ class UserPositionMgrTest(TestCase):
         self.assertEqual(pool_after[0], pool_before[0] - 1)
         self.assertEqual(pool_after[1], pool_before[1] + 3)
 
+    async def exact_input_router(self, contract, path, amount_in=3, amount_out_min=1):
+        res = await  contract.exact_input_router(path, address, to_uint(amount_in), to_uint(amount_out_min), DEADLINE).execute(caller_address=address)
+        return res
+
+    @pytest.mark.asyncio
+    async def test_exact_input_router(self):
+        user_position = await self.get_user_position_contract()
+
+        fee = FeeAmount.MEDIUM
+
+        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, fee, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
+
+        if self.token1.contract_address < self.token2.contract_address:
+            res = await user_position.mint(other_address, self.token1.contract_address, self.token2.contract_address, fee, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
+        else:
+            res = await user_position.mint(other_address, self.token2.contract_address, self.token1.contract_address, fee, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
+
+        print('token address:', self.token0.contract_address, self.token1.contract_address, self.token2.contract_address)
+
+        # single-pool
+        # 0 -> 1
+        new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
+
+        token0 = cached_contract(new_user_position.state, self.token0_def, self.token0)
+        token1 = cached_contract(new_user_position.state, self.token1_def, self.token1)
+        pool_before = await self.get_balance(token0, token1, self.swap_pool_address)
+        trader_before = await self.get_balance(token0, token1, address)
+
+        amount_in = 3
+        path = [self.token0.contract_address, fee, self.token1.contract_address]
+
+        res = await new_user_position.get_exact_input_router(path, to_uint(amount_in)).execute(caller_address=address)
+        expect_amount_out = from_uint(res.call_info.result[0: 2])
+
+        res = await self.exact_input_router(new_user_position, path, amount_in)
+        amount_out = from_uint(res.call_info.result[0: 2])
+        self.assertEqual(amount_out, expect_amount_out)
+
+        pool_after = await self.get_balance(token0, token1, self.swap_pool_address)
+        trader_after = await self.get_balance(token0, token1, address)
+
+        self.assertEqual(trader_after[0], trader_before[0] - 3)
+        self.assertEqual(trader_after[1], trader_before[1] + 1)
+        self.assertEqual(pool_after[0], pool_before[0] + 3)
+        self.assertEqual(pool_after[1], pool_before[1] - 1)
+
+        # 1-> 0
+        new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
+
+        token0 = cached_contract(new_user_position.state, self.token0_def, self.token0)
+        token1 = cached_contract(new_user_position.state, self.token1_def, self.token1)
+        pool_before = await self.get_balance(token0, token1, self.swap_pool_address)
+        trader_before = await self.get_balance(token0, token1, address)
+
+        path = [self.token1.contract_address, fee, self.token0.contract_address]
+        res = await new_user_position.get_exact_input_router(path, to_uint(amount_in)).execute(caller_address=address)
+        expect_amount_out = from_uint(res.call_info.result[0: 2])
+
+        res = await self.exact_input_router(new_user_position, path, amount_in)
+        amount_out = from_uint(res.call_info.result[0: 2])
+        self.assertEqual(amount_out, expect_amount_out)
+
+        pool_after = await self.get_balance(token0, token1, self.swap_pool_address)
+        trader_after = await self.get_balance(token0, token1, address)
+
+        self.assertEqual(trader_after[0], trader_before[0] + 1)
+        self.assertEqual(trader_after[1], trader_before[1] - 3)
+        self.assertEqual(pool_after[0], pool_before[0] - 1)
+        self.assertEqual(pool_after[1], pool_before[1] + 3)
+
+        # multi-pool
+        # 0 -> 1 -> 2
+        new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
+        token0 = cached_contract(new_user_position.state, self.token0_def, self.token0)
+        token2 = cached_contract(new_user_position.state, self.token2_def, self.token2)
+        trader_before = await self.get_balance(token0, token2, address)
+
+        amount_in = 5
+        path = [self.token0.contract_address, fee, self.token1.contract_address, fee, self.token2.contract_address]
+        res = await new_user_position.get_exact_input_router(path, to_uint(amount_in)).execute(caller_address=address)
+        expect_amount_out = from_uint(res.call_info.result[0: 2])
+        print('expect_amount_out: ', expect_amount_out)
+
+        res = await self.exact_input_router(new_user_position, path, amount_in, 1)
+        amount_out = from_uint(res.call_info.result[0: 2])
+        self.assertEqual(amount_out, expect_amount_out)
+
+        trader_after = await self.get_balance(token0, token2, address)
+
+        self.assertEqual(trader_after[0], trader_before[0] - 5)
+        self.assertEqual(trader_after[1], trader_before[1] + 1)
+
+        print('raw_events:', res.raw_events, self.swap_pool_address)
+
+        # event
+        assert_event_emitted(
+            res,
+            from_address=self.swap_pool_address,
+            name='TransferToken',
+            data=[
+                self.token1.contract_address,
+                new_user_position.contract_address, 
+                3,
+                0
+            ]
+        )
+        assert_event_emitted(
+            res,
+            from_address=self.swap_pool_address2,
+            name='TransferToken',
+            data=[
+                self.token2.contract_address,
+                address,
+                1,
+                0
+            ]
+        )
+
+        # 2 -> 1 -> 0
+        new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
+        token0 = cached_contract(new_user_position.state, self.token0_def, self.token0)
+        token2 = cached_contract(new_user_position.state, self.token2_def, self.token2)
+        trader_before = await self.get_balance(token0, token2, address)
+
+        amount_in = 5
+        path = [self.token2.contract_address, fee, self.token1.contract_address, fee, self.token0.contract_address]
+        res = await new_user_position.get_exact_input_router(path, to_uint(amount_in)).execute(caller_address=address)
+        expect_amount_out = from_uint(res.call_info.result[0: 2])
+        print('expect_amount_out: ', expect_amount_out)
+
+        res = await self.exact_input_router(new_user_position, path, amount_in, 1)
+        amount_out = from_uint(res.call_info.result[0: 2])
+        self.assertEqual(amount_out, expect_amount_out)
+
+        trader_after = await self.get_balance(token0, token2, address)
+
+        self.assertEqual(trader_after[1], trader_before[1] - 5)
+        self.assertEqual(trader_after[0], trader_before[0] + 1)
+
     @pytest.mark.asyncio
     async def test_exact_output(self):
         user_position = await self.get_user_position_contract()
@@ -591,3 +740,5 @@ class UserPositionMgrTest(TestCase):
             ""
         )
         await user_position.update_swap_pool(self.swap_pool_class.class_hash, self.swap_pool_proxy_class.class_hash).execute(caller_address=address)
+
+    #TODO: test fees accounting
