@@ -5,6 +5,7 @@ from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
 from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_add, uint256_lt, uint256_sub, uint256_neg, uint256_eq, uint256_signed_lt, uint256_check
 from starkware.cairo.common.math_cmp import is_le, is_le_felt
+from starkware.cairo.common.math import unsigned_div_rem
 from starkware.cairo.common.bool import TRUE, FALSE
 
 from openzeppelin.token.erc20.IERC20 import IERC20
@@ -887,6 +888,38 @@ func get_exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check
     return (neg_amount0,);
 }
 
+func _exact_input_internal{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    path_len: felt,
+    path: felt*,
+    payer: felt,
+    recipient: felt,
+    amount_in: Uint256, 
+    sqrt_price_limit: Uint256,
+) -> (amount_out: Uint256) {
+    alloc_locals;
+
+    // get the pool info
+    let token_in = path[0];
+    let token_out  = path[1];
+    let fee = path[2];
+    let pool_address = _check_pool_address(token_in, token_out, fee);
+
+    let zero_for_one = is_le_felt(token_in, token_out);
+
+    let (limit_price: Uint256) = _get_limit_price(sqrt_price_limit, zero_for_one);
+
+    // call pool swap
+    let (amount0: Uint256, amount1: Uint256) = ISwapPool.swap(contract_address=pool_address, recipient=recipient, zero_for_one=zero_for_one, amount_specified=amount_in, sqrt_price_limit_x96=limit_price, data=payer);
+
+    if (zero_for_one == 1) {
+        let (neg_amount1: Uint256) = uint256_neg(amount1);
+        return (neg_amount1,);
+    }
+
+    let (neg_amount0) = uint256_neg(amount0);
+    return (neg_amount0,);
+}
+
 @external
 func exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     token_in: felt,
@@ -906,30 +939,81 @@ func exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 
     _check_deadline(deadline);
 
-    let pool_address = _check_pool_address(token_in, token_out, fee);
-    let (caller) = get_caller_address();
+    let (payer) = get_caller_address();
 
-    let zero_for_one = is_le_felt(token_in, token_out);
+    // alloc path array
+    let (local path: felt*) = alloc();
+    assert path[0] = token_in;
+    assert path[1] = token_out;
+    assert path[2] = fee;
+    let (amount_out: Uint256) = _exact_input_internal(3, path, payer, recipient, amount_in, sqrt_price_limit);
 
-    let (limit_price: Uint256) = _get_limit_price(sqrt_price_limit, zero_for_one);
-
-    let (amount0: Uint256, amount1: Uint256) = ISwapPool.swap(contract_address=pool_address, recipient=recipient, zero_for_one=zero_for_one, amount_specified=amount_in, sqrt_price_limit_x96=limit_price, data=caller);
-
-    if (zero_for_one == 1) {
-        let (neg_amount1: Uint256) = uint256_neg(amount1);
-        let (is_valid) = uint256_le(amount_out_min, neg_amount1);
-        with_attr error_message("too little received") {
-            assert is_valid = TRUE;
-        }
-        return (neg_amount1,);
-    }
-
-    let (neg_amount0) = uint256_neg(amount0);
-    let (is_valid) = uint256_le(amount_out_min, neg_amount0);
     with_attr error_message("too little received") {
+        let (is_valid) = uint256_le(amount_out_min, amount_out);
         assert is_valid = TRUE;
     }
-    return (neg_amount0,);
+
+    return (amount_out,);
+}
+
+func _exact_input_router{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    path_len: felt,
+    path: felt*,
+    payer: felt,
+    recipient: felt,
+    amount_in: Uint256 
+) -> (amount_out: Uint256) {
+    alloc_locals;
+
+
+    let (has_multiple_pools) = Utils.is_gt(path_len, 3);
+
+    if (has_multiple_pools == TRUE) {
+        // first pool token_out should be the second pool token_in
+        with_attr error_message("pool path is not connected") {
+            assert path[1] = path[3];
+        }
+        let (this_address) = get_contract_address();
+        let (amount_out: Uint256) = _exact_input_internal(path_len, path, payer, this_address, amount_in, Uint256(0, 0));
+        let (new_amount_out: Uint256) = _exact_input_router(path_len - 3, path + 3, this_address, this_address, amount_out);
+        return (new_amount_out,);
+    }
+
+    let (amount_out: Uint256) = _exact_input_internal(path_len, path, payer, recipient, amount_in, Uint256(0, 0));
+    return (amount_out,);
+}
+
+@external
+func exact_input_router{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    path_len: felt,
+    path: felt*,
+    recipient: felt,
+    amount_in: Uint256, 
+    amount_out_min: Uint256,
+    deadline: felt
+) -> (amount_out: Uint256) {
+    alloc_locals;
+
+    let (pool_num, rem) = unsigned_div_rem(path_len, 3);
+    with_attr error_message("path_len illeagl") {
+        assert rem = 0;
+    }
+
+    uint256_check(amount_in);
+    uint256_check(amount_out_min);
+
+    _check_deadline(deadline);
+
+    let (payer) = get_caller_address();
+
+    let (amount_out: Uint256) = _exact_input_router(path_len, path, payer, recipient, amount_in);
+
+    with_attr error_message("too little received") {
+        let (is_valid) = uint256_le(amount_out_min, amount_out);
+        assert is_valid = TRUE;
+    }
+
+    return (amount_out,);
 }
 
 @view
