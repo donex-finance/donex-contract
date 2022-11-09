@@ -454,7 +454,7 @@ class UserPositionMgrTest(TestCase):
             "too little received"
         )
 
-        res = await new_user_position.get_exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, to_uint(amount_in), to_uint(price)).execute(caller_address=address)
+        res = await new_user_position.get_exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, to_uint(amount_in)).execute(caller_address=address)
         expect_amount_out = from_uint(res.call_info.result[0: 2])
 
         res = await new_user_position.exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min), deadline).execute(caller_address=address)
@@ -487,7 +487,7 @@ class UserPositionMgrTest(TestCase):
             "too little received"
         )
 
-        res = await new_user_position.get_exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, to_uint(amount_in), to_uint(price)).execute(caller_address=address)
+        res = await new_user_position.get_exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, to_uint(amount_in)).execute(caller_address=address)
         expect_amount_out = from_uint(res.call_info.result[0: 2])   
 
         res = await new_user_position.exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min), deadline).execute(caller_address=address)
@@ -672,7 +672,7 @@ class UserPositionMgrTest(TestCase):
             "too much requested"
         )
 
-        res = await new_user_position.get_exact_output(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, to_uint(amount_out), to_uint(price)).execute(caller_address=address)
+        res = await new_user_position.get_exact_output(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, to_uint(amount_out)).execute(caller_address=address)
         expect_amount_in = from_uint(res.call_info.result[0: 2])
 
         res = await new_user_position.exact_output(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max), deadline).execute(caller_address=address)
@@ -705,7 +705,7 @@ class UserPositionMgrTest(TestCase):
             "too much requested"
         )
 
-        res = await new_user_position.get_exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, to_uint(amount_out), to_uint(price)).execute(caller_address=address)
+        res = await new_user_position.get_exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, to_uint(amount_out)).execute(caller_address=address)
         expect_amount_in = from_uint(res.call_info.result[0: 2])
 
         res = await new_user_position.exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max), deadline).execute(caller_address=address)
