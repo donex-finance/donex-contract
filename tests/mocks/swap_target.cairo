@@ -5,6 +5,7 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin
 from contracts.sqrt_price_math import SqrtPriceMath
 from starkware.cairo.common.uint256 import Uint256, uint256_signed_lt
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
+from starkware.cairo.common.bool import TRUE, FALSE
 
 from openzeppelin.token.erc20.IERC20 import IERC20
 
@@ -81,13 +82,13 @@ func swap_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
 
     let (caller_address) = get_caller_address();
     let (flag1) = uint256_signed_lt(Uint256(0, 0), amount0);
-    if (flag1 == 1) {
+    if (flag1 == TRUE) {
         IERC20.transferFrom(contract_address=token0, sender=data, recipient=caller_address, amount=amount0);
         return ();
     }
 
     let (flag2) = uint256_signed_lt(Uint256(0, 0), amount1);
-    if (flag2 == 1) {
+    if (flag2 == TRUE) {
         IERC20.transferFrom(contract_address=token1, sender=data, recipient=caller_address, amount=amount1);
         return ();
     }

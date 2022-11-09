@@ -263,7 +263,7 @@ namespace TickMath {
         res: Uint256
     ) {
         alloc_locals;
-        if (cond == 0) {
+        if (cond == FALSE) {
             let (res: Uint256) = uint256_shr(ratio, Uint256(msb - 127, 0));
             return (res,);
         }
@@ -273,7 +273,7 @@ namespace TickMath {
 
     func _get_tick_at_sqrt_ratio2{range_check_ptr}(cond: felt, tick_low: Uint256) -> (res: felt) {
         alloc_locals;
-        if (cond == 0) {
+        if (cond == FALSE) {
             let (res: Uint256) = uint256_neg(tick_low);
             let res2 = -res.low;
             return (res2,);

@@ -134,9 +134,9 @@ namespace TickMgr {
         let (tmp) = Utils.is_eq(liq_gross_after, 0);
         let (tmp2) = Utils.is_eq(liq_gross_before, 0);
         if (tmp != tmp2) {
-            return (1,);
+            return (TRUE,);
         }
-        return (0,);
+        return (FALSE,);
     }
 
     func _get_fee_growth_inside_1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(

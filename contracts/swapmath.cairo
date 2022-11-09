@@ -38,13 +38,13 @@ namespace SwapMath {
     ) -> (sqrt_ratio_next: Uint256, amont_in: Uint256, amount_out: Uint256) {
         alloc_locals;
 
-        if (exact_in == 1) {
+        if (exact_in == TRUE) {
             let (amount_remaining_less_fee: Uint256, _) = FullMath.uint256_mul_div(
                 amount_remaining, Uint256(num_1e6 - fee_pips, 0), Uint256(num_1e6, 0)
             );
             local low;
             local high;
-            if (zero_for_one == 1) {
+            if (zero_for_one == TRUE) {
                 let (amount_in: Uint256) = SqrtPriceMath.get_amount0_delta(
                     sqrt_ratio_target, sqrt_ratio_current, liquidity, 1
                 );
@@ -80,7 +80,7 @@ namespace SwapMath {
 
         local low;
         local high;
-        if (zero_for_one == 1) {
+        if (zero_for_one == TRUE) {
             let (amount_out: Uint256) = SqrtPriceMath.get_amount1_delta(
                 sqrt_ratio_target, sqrt_ratio_current, liquidity, 0
             );
@@ -127,7 +127,7 @@ namespace SwapMath {
     ) -> (amont_in2: Uint256, amount_out2: Uint256) {
         alloc_locals;
 
-        if (zero_for_one == 1) {
+        if (zero_for_one == TRUE) {
             local low;
             local high;
             if (max + exact_in == 2) {
@@ -228,17 +228,17 @@ namespace SwapMath {
 
         let (is_valid) = uint256_eq(sqrt_ratio_next, sqrt_ratio_target);
 
-        if (exact_in == 1) {
+        if (exact_in == TRUE) {
             if (is_valid == FALSE) {
-                tempvar flag = 1;
+                tempvar flag = TRUE;
             } else {
-                tempvar flag = 0;
+                tempvar flag = FALSE;
             }
         } else {
-            tempvar flag = 0;
+            tempvar flag = FALSE;
         }
 
-        if (flag == 1) {
+        if (flag == TRUE) {
             let (fee_amount: Uint256) = uint256_sub(amount_remaining, amount_in2);
             return (sqrt_ratio_next, amount_in2, amount_out2, fee_amount);
         }

@@ -7,6 +7,7 @@ from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_add, uin
 from starkware.cairo.common.math_cmp import is_le, is_le_felt
 from starkware.cairo.common.math import unsigned_div_rem
 from starkware.cairo.common.bool import TRUE, FALSE
+from starkware.cairo.common.bitwise import bitwise_or
 
 from openzeppelin.token.erc20.IERC20 import IERC20
 from openzeppelin.access.ownable.library import Ownable
@@ -840,8 +841,8 @@ func _get_limit_price{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     alloc_locals;
 
     let (flag) = uint256_eq(sqrt_price_limit, Uint256(0, 0));
-    if (flag == 1) {
-        if (zero_for_one == 1) {
+    if (flag == TRUE) {
+        if (zero_for_one == TRUE) {
             let res: Uint256 = Uint256(TickMath.MIN_SQRT_RATIO + 1, 0);
             return (res,);
         }
@@ -884,7 +885,7 @@ func _get_exact_input_internal{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
 
     let (amount0: Uint256, amount1: Uint256) = ISwapPool.get_swap_results(contract_address=pool_address, zero_for_one=zero_for_one, amount_specified=amount_in, sqrt_price_limit_x96=limit_price);
 
-    if (zero_for_one == 1) {
+    if (zero_for_one == TRUE) {
         let (neg_amount1: Uint256) = uint256_neg(amount1);
         return (neg_amount1,);
     }
@@ -975,7 +976,7 @@ func _exact_input_internal{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range
     // call pool swap
     let (amount0: Uint256, amount1: Uint256) = ISwapPool.swap(contract_address=pool_address, recipient=recipient, zero_for_one=zero_for_one, amount_specified=amount_in, sqrt_price_limit_x96=limit_price, data=payer);
 
-    if (zero_for_one == 1) {
+    if (zero_for_one == TRUE) {
         let (neg_amount1: Uint256) = uint256_neg(amount1);
         return (neg_amount1,);
     }
@@ -1098,7 +1099,7 @@ func get_exact_output{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
 
     let (amount0: Uint256, amount1: Uint256) = ISwapPool.get_swap_results(contract_address=pool_address, zero_for_one=zero_for_one, amount_specified=amount_specified, sqrt_price_limit_x96=limit_price);
 
-    if (zero_for_one == 1) {
+    if (zero_for_one == TRUE) {
         return (amount0,);
     }
     return (amount1,);
@@ -1135,7 +1136,7 @@ func exact_output{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
 
     let (amount0: Uint256, amount1: Uint256) = ISwapPool.swap(contract_address=pool_address, recipient=recipient, zero_for_one=zero_for_one, amount_specified=amount_specified, sqrt_price_limit_x96=limit_price, data=caller);
 
-    if (zero_for_one == 1) {
+    if (zero_for_one == TRUE) {
         let (is_valid) = uint256_le(amount0, amount_in_max);
         with_attr error_message("too much requested") {
             assert is_valid = TRUE;
@@ -1169,7 +1170,7 @@ func swap_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
     let (this_address) = get_contract_address();
 
     let (flag1) = uint256_signed_lt(Uint256(0, 0), amount0);
-    if (flag1 == 1) {
+    if (flag1 == TRUE) {
         if (this_address == data) {
             IERC20.transfer(contract_address=token0, recipient=caller_address, amount=amount0);
             return ();
@@ -1179,7 +1180,7 @@ func swap_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
     }
 
     let (flag2) = uint256_signed_lt(Uint256(0, 0), amount1);
-    if (flag2 == 1) {
+    if (flag2 == TRUE) {
         if (this_address == data) {
             IERC20.transfer(contract_address=token1, recipient=caller_address, amount=amount1);
             return ();

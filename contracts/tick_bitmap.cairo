@@ -83,7 +83,7 @@ namespace TickBitmap {
             compressed = compressed_0;
         }
 
-        if (lte == 1) {
+        if (lte == TRUE) {
             let (word_pos, bit_pos) = position(compressed);
 
             let (tmp: Uint256) = uint256_shl(Uint256(1, 0), Uint256(bit_pos, 0));
@@ -97,11 +97,11 @@ namespace TickBitmap {
             if (is_valid == FALSE) {
                 let (msb) = BitMath.most_significant_bit(state);
                 let next = (compressed - (bit_pos - msb)) * tick_spacing;
-                return (next, 1);
+                return (next, TRUE);
             }
 
             let next = (compressed - bit_pos) * tick_spacing;
-            return (next, 0);
+            return (next, FALSE);
         }
 
         let (word_pos, bit_pos) = position(compressed + 1);
@@ -116,10 +116,10 @@ namespace TickBitmap {
         if (is_valid == FALSE) {
             let (lsb) = BitMath.least_significant_bit(state);
             let next = (compressed + 1 + (lsb - bit_pos)) * tick_spacing;
-            return (next, 1);
+            return (next, TRUE);
         }
 
         let next = (compressed + 1 + 255 - bit_pos) * tick_spacing;
-        return (next, 0);
+        return (next, FALSE);
     }
 }
