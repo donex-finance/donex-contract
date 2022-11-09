@@ -305,7 +305,7 @@ func _get_exact_output_router{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, ra
 
     let (has_multiple_pools) = Utils.is_gt(path_len, 3);
     if (has_multiple_pools == TRUE) {
-        let (new_amount_in: Uint256) = _get_exact_input_router(path_len - 2, path + 2, amount_in);
+        let (new_amount_in: Uint256) = _get_exact_output_router(path_len - 2, path + 2, amount_in);
         return (new_amount_in,);
     }
 
