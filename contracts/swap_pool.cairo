@@ -673,25 +673,25 @@ func _swap_transfer_token{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_
     amount0: Uint256, 
     amount1: Uint256, 
     recipient: felt, 
-    data: felt
+    sender: felt,
+    data_len: felt,
+    data: felt*
 ) {
     alloc_locals;
 
-    let (token0) = _token0.read();
-    let (token1) = _token1.read();
-    let (fee) = _fee.read();
     let (caller) = get_caller_address();
     if (zero_for_one == TRUE) {
         let (flag) = uint256_signed_nn(amount1);
         let (is_valid) = Utils.is_eq(flag, 0);
+        let (token1) = _token1.read();
         let (abs_amount1: Uint256) = uint256_neg(amount1);
         _transfer_token_cond(is_valid, token1, recipient, abs_amount1);
         let (balance_before) = balance0();
-        ISwapPoolCallback.swap_callback(contract_address=caller, token0=token0, token1=token1, fee=fee, amount0=amount0, amount1=amount1, data=data);
+        ISwapPoolCallback.swap_callback(contract_address=caller, amount0=amount0, amount1=amount1, sender=sender, data_len=data_len, data=data);
         let (balance_after: Uint256) = balance0();
         let (tmp: Uint256) = SafeUint256.add(balance_before, amount0);
-        let (is_valid) = uint256_le(tmp, balance_after);
         with_attr error_message("transfer token0 failed") {
+            let (is_valid) = uint256_le(tmp, balance_after);
             assert is_valid = TRUE;
         }
         return ();
@@ -700,13 +700,14 @@ func _swap_transfer_token{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_
     let (flag) = uint256_signed_nn(amount0);
     let (is_valid) = Utils.is_eq(flag, 0);
     let (abs_amount0: Uint256) = uint256_neg(amount0);
+    let (token0) = _token0.read();
     _transfer_token_cond(is_valid, token0, recipient, abs_amount0);
     let (balance1_before) = balance1();
-    ISwapPoolCallback.swap_callback(contract_address=caller, token0=token0, token1=token1, fee=fee, amount0=amount0, amount1=amount1, data=data);
+    ISwapPoolCallback.swap_callback(contract_address=caller, amount0=amount0, amount1=amount1, sender=sender, data_len=data_len, data=data);
     let (balance_after: Uint256) = balance1();
     let (tmp: Uint256) = SafeUint256.add(balance1_before, amount1);
-    let (is_valid) = uint256_le(tmp, balance_after);
     with_attr error_message("transfer token1 failed") {
+        let (is_valid) = uint256_le(tmp, balance_after);
         assert is_valid = TRUE;
     }
     return ();
@@ -785,7 +786,9 @@ func swap{
     zero_for_one: felt, 
     amount_specified: Uint256,  // int256
     sqrt_price_limit_x96: Uint256, // uint160
-    data: felt
+    sender: felt,
+    data_len: felt,
+    data: felt*
 ) -> (amount0: Uint256, amount1: Uint256) {
     alloc_locals;
 
@@ -841,7 +844,7 @@ func swap{
     );
 
     // transfer and check balance
-    _swap_transfer_token(zero_for_one, amount0, amount1, recipient, data);
+    _swap_transfer_token(zero_for_one, amount0, amount1, recipient, sender, data_len, data);
 
     _unlock();
 

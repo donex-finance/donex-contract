@@ -50,7 +50,7 @@ namespace BitMath {
         let (x: Uint256, r) = _msb_shift(x, r, Uint256(0x4, 0), 2);
 
         let (is_valid) = uint256_le(Uint256(0x2, 0), x);
-        if ((is_valid) == 1) {
+        if ((is_valid) == TRUE) {
             return (r + 1,);
         }
         return (r,);

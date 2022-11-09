@@ -137,17 +137,17 @@ class SwapPoolTest(TestCase):
         await self.add_liquidity(swap_target, contract, address, min_tick, max_tick, expand_to_18decimals(2))
         return contract
 
-    async def swap_exact0_for1(self, swap_pool, amount, address):
+    async def swap_exact0_for1(self, swap_pool, amount, address, fee=FeeAmount.MEDIUM):
         swap_target = cached_contract(swap_pool.state, self.swap_target_def, self.swap_target)
         sqrt_price_limit = MIN_SQRT_RATIO + 1
 
-        res = await swap_target.swap(address, 1, to_uint(amount), to_uint(sqrt_price_limit), swap_pool.contract_address).execute(caller_address=address)
+        res = await swap_target.swap(address, 1, to_uint(amount), to_uint(sqrt_price_limit), swap_pool.contract_address, [self.token0.contract_address, fee, self.token1.contract_address]).execute(caller_address=address)
         return res
 
-    async def swap_exact1_for0(self, swap_pool, amount, address):
+    async def swap_exact1_for0(self, swap_pool, amount, address, fee=FeeAmount.MEDIUM):
         swap_target = cached_contract(swap_pool.state, self.swap_target_def, self.swap_target)
         sqrt_price_limit = MAX_SQRT_RATIO - 1
-        res = await swap_target.swap(address, 0, to_uint(amount), to_uint(sqrt_price_limit), swap_pool.contract_address).execute(caller_address=address)
+        res = await swap_target.swap(address, 0, to_uint(amount), to_uint(sqrt_price_limit), swap_pool.contract_address, [self.token0.contract_address, fee, self.token1.contract_address]).execute(caller_address=address)
         return res
 
     @pytest.mark.asyncio
@@ -1227,7 +1227,8 @@ class SwapPoolTest(TestCase):
     @pytest.mark.asyncio
     async def test_fee_protocol(self):
         liquidity_amount = expand_to_18decimals(1000)
-        tick_spacing = TICK_SPACINGS[FeeAmount.LOW]
+        fee = FeeAmount.LOW
+        tick_spacing = TICK_SPACINGS[fee]
         min_tick, max_tick = get_min_tick(tick_spacing), get_max_tick(tick_spacing)
         contract, swap_target = await self.get_state_contract_low()
         await contract.initialize_price(encode_price_sqrt(1, 1)).execute()

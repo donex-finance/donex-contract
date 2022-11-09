@@ -57,7 +57,9 @@ namespace ISwapPool {
         zero_for_one: felt,
         amount_specified: Uint256, // int256
         sqrt_price_limit_x96: Uint256, // uint160
-        data: felt
+        sender: felt,
+        data_len: felt,
+        data: felt*
     ) -> (amount0: Uint256, amount1: Uint256) {
     }
 

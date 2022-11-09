@@ -2,14 +2,15 @@
 
 from starkware.starknet.common.syscalls import get_caller_address, get_contract_address
 from starkware.cairo.common.cairo_builtins import HashBuiltin
-from contracts.sqrt_price_math import SqrtPriceMath
 from starkware.cairo.common.uint256 import Uint256, uint256_signed_lt
 from starkware.cairo.common.cairo_builtins import BitwiseBuiltin
 from starkware.cairo.common.bool import TRUE, FALSE
+from starkware.cairo.common.math_cmp import is_le_felt
 
 from openzeppelin.token.erc20.IERC20 import IERC20
 
 from contracts.interface.ISwapPool import ISwapPool
+from contracts.sqrt_price_math import SqrtPriceMath
 
 @storage_var
 func _token0() -> (res: felt) {
@@ -61,36 +62,59 @@ func add_liquidity_callback{
 
 @external
 func swap{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    recipient: felt, zero_for_one: felt, amount_specified: Uint256, sqrt_price_limit_x96: Uint256, pool_address: felt
+    recipient: felt, 
+    zero_for_one: felt, 
+    amount_specified: Uint256, 
+    sqrt_price_limit_x96: Uint256, 
+    pool_address: felt,
+    data_len: felt,
+    data: felt*
 ) -> (amount0: Uint256, amount1: Uint256) {
     let (caller) = get_caller_address(); 
-    let (amount0: Uint256, amount1: Uint256) = ISwapPool.swap(contract_address=pool_address, recipient=recipient, zero_for_one=zero_for_one, amount_specified=amount_specified, sqrt_price_limit_x96=sqrt_price_limit_x96, data=caller);
+    let (amount0: Uint256, amount1: Uint256) = ISwapPool.swap(contract_address=pool_address, recipient=recipient, zero_for_one=zero_for_one, amount_specified=amount_specified, sqrt_price_limit_x96=sqrt_price_limit_x96, payer=caller, data_len=data_len, data=data);
     return (amount0, amount1);
+}
+
+func _swap_callback_1{range_check_ptr}(
+    amount0: Uint256,
+    amount1: Uint256,
+    token_in: felt,
+    token_out: felt
+) -> (exact_input: felt, amount0: Uint256) {
+    let (flag) = uint256_signed_lt(Uint256(0, 0), amount0);
+
+    if (flag == TRUE) {
+        let exact_input = is_le_felt(token_in, token_out);
+        return (exact_input, amount0);
+    }
+
+    let exact_input = is_le_felt(token_out, token_in);
+    return (exact_input, amount1);
 }
 
 @external
 func swap_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    token0: felt,
-    token1: felt,
-    fee: felt,
     amount0: Uint256, 
     amount1: Uint256, 
-    data: felt
+    sender: felt,
+    data_len: felt,
+    data: felt*
 ) {
     
     alloc_locals;
 
+    let token_in = data[0];
+    let fee = data[1];
+    let token_out = data[2];
+
+    let (exact_input, amount_pay: Uint256) = _swap_callback_1(amount0, amount1, token_in, token_out);
+
     let (caller_address) = get_caller_address();
-    let (flag1) = uint256_signed_lt(Uint256(0, 0), amount0);
-    if (flag1 == TRUE) {
-        IERC20.transferFrom(contract_address=token0, sender=data, recipient=caller_address, amount=amount0);
-        return ();
+    if (exact_input == TRUE) {
+        IERC20.transferFrom(contract_address=token_in, sender=sender, recipient=caller_address, amount=amount_pay);
+    } else {
+        IERC20.transferFrom(contract_address=token_out, sender=sender, recipient=caller_address, amount=amount_pay);
     }
 
-    let (flag2) = uint256_signed_lt(Uint256(0, 0), amount1);
-    if (flag2 == TRUE) {
-        IERC20.transferFrom(contract_address=token1, sender=data, recipient=caller_address, amount=amount1);
-        return ();
-    }
     return ();
 }

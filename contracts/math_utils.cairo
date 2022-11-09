@@ -64,7 +64,7 @@ namespace Utils {
     }
 
     func cond_assign{range_check_ptr}(cond: felt, new_value: felt, old_value: felt) -> (res: felt) {
-        if (cond == 1) {
+        if (cond == TRUE) {
             return (new_value,);
         }
         return (old_value,);
@@ -73,7 +73,7 @@ namespace Utils {
     func cond_assign_uint256{range_check_ptr}(
         cond: felt, new_value: Uint256, old_value: Uint256
     ) -> (res: Uint256) {
-        if (cond == 1) {
+        if (cond == TRUE) {
             return (new_value,);
         }
         return (old_value,);

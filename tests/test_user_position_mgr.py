@@ -659,9 +659,7 @@ class UserPositionMgrTest(TestCase):
         trader_before = await self.get_balance(token0, token1, address)
         print('balance:', pool_before, trader_before)
 
-        price = 4295128740
-        if self.token0.contract_address > self.token1.contract_address:
-            price = 1461446703485210103287273052203988822378723970341
+        price = 0
 
         deadline = int(time.time() + 1000)
         #await assert_revert(
