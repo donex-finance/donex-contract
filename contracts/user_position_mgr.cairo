@@ -102,8 +102,8 @@ func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     name: felt,
     symbol: felt
 ) {
-    let (old) = _swap_pool_proxy_hash.read();
     with_attr error_message("user_position_mgr: only can be initilize once") {
+        let (old) = _swap_pool_proxy_hash.read();
         assert old = 0;
     }
     Ownable.initializer(owner);
@@ -124,8 +124,8 @@ func get_token_position{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     token_id: Uint256
 ) -> (position: UserPosition, pool_info: PoolInfo) {
     let (position: UserPosition) = _positions.read(token_id);
-    let (is_valid) = Utils.is_eq(position.pool_address, 0);
     with_attr error_message("invalid token id") {
+        let (is_valid) = Utils.is_eq(position.pool_address, 0);
         assert is_valid = FALSE;
     }
 
@@ -444,6 +444,9 @@ func _get_tickSpacing{range_check_ptr}(
     if (fee == 10000) {
         return 200;
     }
+    if (fee == 50000) {
+        return 1000;
+    }
 
     with_attr error_message("invalid fee level") {
         assert 0 = 1;
@@ -462,14 +465,14 @@ func create_and_initialize_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
 
     Utils.assert_is_uint160(sqrt_price_x96);
 
-    let (is_valid) = Utils.is_eq(token0, token1);
     with_attr error_message("token0 or token1 is illegal") {
+        let (is_valid) = Utils.is_eq(token0, token1);
         assert is_valid = FALSE;
     }
 
-    let (pool_address) = get_pool_address(token0, token1, fee);
-    let (is_valid) = Utils.is_eq(pool_address, 0);
     with_attr error_message("pool already exists") {
+        let (pool_address) = get_pool_address(token0, token1, fee);
+        let (is_valid) = Utils.is_eq(pool_address, 0);
         assert is_valid = TRUE;
     }
 
@@ -533,8 +536,8 @@ func _check_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
     fee: felt
 ) -> felt {
     let (address) = get_pool_address(token0, token1, fee);
-    let (is_valid) = Utils.is_eq(address, 0);
     with_attr error_message("pool not exist") {
+        let (is_valid) = Utils.is_eq(address, 0);
         assert is_valid = FALSE;
     }
     return address;
@@ -544,8 +547,8 @@ func _check_token_order{range_check_ptr} (
     token0: felt,
     token1: felt
 ) {
-    let is_valid = is_le_felt(token0, token1);
     with_attr error_message("token0 address should be less than token1 address") {
+        let is_valid = is_le_felt(token0, token1);
         assert is_valid = TRUE;
     }
     return ();
@@ -601,10 +604,10 @@ func mint{
         liquidity=liquidity,
         data=caller
     );
-    let (flag1) = uint256_le(amount0_min, amount0);
-    let (flag2) = uint256_le(amount1_min, amount1);
-    let flag = flag1 + flag2;
     with_attr error_message("price slippage check") {
+        let (flag1) = uint256_le(amount0_min, amount0);
+        let (flag2) = uint256_le(amount1_min, amount1);
+        let flag = flag1 + flag2;
         assert flag = 2;
     }
 
@@ -673,10 +676,10 @@ func increase_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
         liquidity=liquidity,
         data=caller
     );
-    let (flag1) = uint256_le(amount0_min, amount0);
-    let (flag2) = uint256_le(amount1_min, amount1);
-    let flag = flag1 + flag2;
     with_attr error_message("price slippage check") {
+        let (flag1) = uint256_le(amount0_min, amount0);
+        let (flag2) = uint256_le(amount1_min, amount1);
+        let flag = flag1 + flag2;
         assert flag = 2;
     }
 
@@ -786,14 +789,14 @@ func decrease_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     _check_approverd_or_owner(caller, token_id);
 
     // liquidity should greater than 0
-    let (is_valid) = Utils.is_gt(liquidity, 0);
     with_attr error_message("DL: liquidity must be greater than 0") {
+        let (is_valid) = Utils.is_gt(liquidity, 0);
         assert is_valid = TRUE;
     }
 
     let (position: UserPosition) = _positions.read(token_id);
-    let is_valid = is_le(liquidity, position.liquidity);
     with_attr error_message("DL: liquidity is more than own") {
+        let is_valid = is_le(liquidity, position.liquidity);
         assert is_valid = TRUE;
     }
 
@@ -807,10 +810,10 @@ func decrease_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
         tick_upper=tick_upper,
         liquidity=liquidity,
     );
-    let (flag1) = uint256_le(amount0_min, amount0);
-    let (flag2) = uint256_le(amount1_min, amount1);
-    let flag = flag1 + flag2;
     with_attr error_message("DL: price slippage check") {
+        let (flag1) = uint256_le(amount0_min, amount0);
+        let (flag2) = uint256_le(amount1_min, amount1);
+        let flag = flag1 + flag2;
         assert flag = 2;
     }
 
@@ -934,10 +937,10 @@ func collect{
     Utils.assert_is_uint128(amount0_max);
     Utils.assert_is_uint128(amount1_max);
 
-    let (flag1) = Utils.is_lt_signed(0, amount0_max);
-    let (flag2) = Utils.is_lt_signed(0, amount1_max);
-    let (is_valid) = Utils.is_gt(flag1 + flag2, 0);
     with_attr error_message("user_position_mgr.collect: amount0 and amount1 can not be zero") {
+        let (flag1) = Utils.is_lt_signed(0, amount0_max);
+        let (flag2) = Utils.is_lt_signed(0, amount1_max);
+        let (is_valid) = Utils.is_gt(flag1 + flag2, 0);
         assert is_valid = TRUE;
     }
 

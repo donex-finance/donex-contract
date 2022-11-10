@@ -118,9 +118,7 @@ class UserPositionMgrTest(TestCase):
             self.token2_def, self.token2 = await init_contract(os.path.join("tests", "mocks/ERC20_mock.cairo"), [1, 1, 18, MAX_UINT128, MAX_UINT128, address], starknet=self.starknet)
             await self.token2.transfer(other_address, (MAX_UINT128, 2 ** 127)).execute(caller_address=address)
 
-            if self.token0.contract_address > self.token1.contract_address:
-                self.token0, self.token1 = self.token1, self.token0
-                self.token0_def, self.token1_def = self.token1_def, self.token0_def
+            self.mint_token0, self.mint_token1 =  [self.token0, self.token1] if self.token0.contract_address < self.token1.contract_address else [self.token1, self.token0]
 
 
     async def get_user_position_contract(self):
@@ -154,6 +152,13 @@ class UserPositionMgrTest(TestCase):
 
         return user_position
 
+    async def mint(self, user_position, recipient, token1, token2, fee, min_tick, max_tick, amount0, amount1, amount0_min=0, amount1_min=0):
+        if token1 < token2:
+            res = await user_position.mint(recipient, token1, token2, fee, min_tick, max_tick, amount0, amount1, amount0_min, amount1_min, DEADLINE).execute(caller_address=recipient)
+        else:
+            res = await user_position.mint(recipient, token2, token1, fee, min_tick, max_tick, amount1, amount0, amount1_min, amount0_min, DEADLINE).execute(caller_address=recipient)
+        return res
+
     @pytest.mark.asyncio
     async def test_upgrade(self):
         user_position = await self.get_user_position_contract()
@@ -170,7 +175,7 @@ class UserPositionMgrTest(TestCase):
 
         user_position = user_position.replace_abi(self.user_position_def.abi)
         await assert_revert(
-            user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address),
+            user_position.mint(other_address, self.mint_token0.contract_address, self.mint_token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address),
             ''
         )
 
@@ -179,7 +184,7 @@ class UserPositionMgrTest(TestCase):
         await user_position.upgrade(self.user_position_class.class_hash).execute(caller_address=address)
 
         user_position = user_position.replace_abi(self.user_position_def.abi)
-        await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
+        await self.mint(user_position, other_address, self.mint_token0.contract_address, self.mint_token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0))
 
     @pytest.mark.asyncio
     async def test_initializer(self):
@@ -195,11 +200,11 @@ class UserPositionMgrTest(TestCase):
         user_position = await self.get_user_position_contract()
 
         await assert_revert(
-            user_position.mint(other_address, self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address),
+            user_position.mint(other_address, self.mint_token1.contract_address, self.mint_token0.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address),
             "token0 address should be less than token1 address"
         )
 
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
+        res = await self.mint(user_position, other_address, self.mint_token0.contract_address, self.mint_token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(15), to_uint(15), to_uint(0), to_uint(0))
 
         # check nft
         res = await user_position.balanceOf(other_address).call()
@@ -220,7 +225,7 @@ class UserPositionMgrTest(TestCase):
     @pytest.mark.asyncio
     async def test_increase_liquidity(self):
         user_position = await self.get_user_position_contract()
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000), to_uint(1000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
+        res = await self.mint(user_position, other_address, self.mint_token0.contract_address, self.mint_token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000), to_uint(1000), to_uint(0), to_uint(0))
 
         token_id = to_uint(1)
 
@@ -233,11 +238,11 @@ class UserPositionMgrTest(TestCase):
     @pytest.mark.asyncio
     async def test_get_position_token(self):
         user_position = await self.get_user_position_contract()
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100000000), to_uint(100000000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
+        res = await self.mint(user_position, other_address, self.mint_token0.contract_address, self.mint_token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100000000), to_uint(100000000), to_uint(0), to_uint(0))
         amount0 = from_uint(res.call_info.result[0: 2])
         amount1 = from_uint(res.call_info.result[2: 4])
 
-        res = await user_position.mint(address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100000), to_uint(100000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
+        res = await self.mint(user_position, address, self.mint_token0.contract_address, self.mint_token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100000), to_uint(100000), to_uint(0), to_uint(0))
 
         token_id = to_uint(1)
 
@@ -259,10 +264,9 @@ class UserPositionMgrTest(TestCase):
         amount_in = 300000
         amount_out_min = 1
 
-        price = 4295128740
+        price = 0
         res = await user_position.exact_input(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min), DEADLINE).execute(caller_address=address)
 
-        price = 1461446703485210103287273052203988822378723970341
         res = await user_position.exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in * 2), to_uint(price), to_uint(amount_out_min), DEADLINE).execute(caller_address=address)
 
         res = await user_position.get_position_token_amounts(token_id).call()
@@ -286,7 +290,7 @@ class UserPositionMgrTest(TestCase):
     @pytest.mark.asyncio
     async def test_decrease_liquidity(self):
         user_position = await self.get_user_position_contract()
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
+        res = await self.mint(user_position, other_address, self.mint_token0.contract_address, self.mint_token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0))
 
         token_id = to_uint(1)
 
@@ -320,7 +324,7 @@ class UserPositionMgrTest(TestCase):
 
         # cannot decrease for more than the liquidity of the nft position
         new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
-        res = await new_user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(200), to_uint(100), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
+        res = await self.mint(new_user_position, other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(200), to_uint(100), to_uint(0), to_uint(0))
         await assert_revert(
             new_user_position.decrease_liquidity(token_id, 101, to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address),
             "DL: liquidity is more than own"
@@ -329,8 +333,8 @@ class UserPositionMgrTest(TestCase):
     @pytest.mark.asyncio
     async def test_collect(self):
         user_position = await self.get_user_position_contract()
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
-        res = await user_position.mint(address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
+        res = await self.mint(user_position, other_address, self.mint_token0.contract_address, self.mint_token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0))
+        res = await self.mint(user_position, address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(50), to_uint(50), to_uint(0), to_uint(0))
 
         token_id = to_uint(1)
 
@@ -375,7 +379,7 @@ class UserPositionMgrTest(TestCase):
     @pytest.mark.asyncio
     async def test_burn(self):
         user_position = await self.get_user_position_contract()
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=other_address)
+        res = await self.mint(user_position, other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100), to_uint(100), to_uint(0), to_uint(0))
 
         token_id = to_uint(1)
 
@@ -426,15 +430,12 @@ class UserPositionMgrTest(TestCase):
     async def test_exact_input(self):
         user_position = await self.get_user_position_contract()
 
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
+        res = await self.mint(user_position, other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0))
 
         amount_in = 3
         amount_out_min = 1
 
-        price = 4295128740
-        if self.token0.contract_address > self.token1.contract_address:
-            price = 1461446703485210103287273052203988822378723970341
-
+        price = 0
         # token0 -> token1
         new_user_position = cached_contract(user_position.state.copy(), self.user_position_def, user_position)
         token0 = cached_contract(new_user_position.state, self.token0_def, self.token0)
@@ -478,9 +479,7 @@ class UserPositionMgrTest(TestCase):
         trader_before = await self.get_balance(token0, token1, address)
         print('balance:', pool_before, trader_before)
 
-        price = 4295128740
-        if self.token1.contract_address > self.token0.contract_address:
-            price = 1461446703485210103287273052203988822378723970341
+        price = 0
 
         await assert_revert(
             new_user_position.exact_input(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_in), to_uint(price), to_uint(amount_out_min + 1), deadline).execute(caller_address=address),
@@ -513,12 +512,9 @@ class UserPositionMgrTest(TestCase):
 
         fee = FeeAmount.MEDIUM
 
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, fee, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
+        res = await self.mint(user_position, other_address, self.token0.contract_address, self.token1.contract_address, fee, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0))
 
-        if self.token1.contract_address < self.token2.contract_address:
-            res = await user_position.mint(other_address, self.token1.contract_address, self.token2.contract_address, fee, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
-        else:
-            res = await user_position.mint(other_address, self.token2.contract_address, self.token1.contract_address, fee, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
+        res = await self.mint(user_position, other_address, self.token1.contract_address, self.token2.contract_address, fee, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0))
 
         print('token address:', self.token0.contract_address, self.token1.contract_address, self.token2.contract_address)
 
@@ -646,7 +642,7 @@ class UserPositionMgrTest(TestCase):
     async def test_exact_output(self):
         user_position = await self.get_user_position_contract()
 
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
+        res = await self.mint(user_position, other_address, self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0))
 
         amount_out = 1
         amount_in_max = 3
@@ -696,9 +692,7 @@ class UserPositionMgrTest(TestCase):
         trader_before = await self.get_balance(token0, token1, address)
         print('balance:', pool_before, trader_before)
 
-        price = 4295128740
-        if self.token1.contract_address > self.token0.contract_address:
-            price = 1461446703485210103287273052203988822378723970341
+        price = 0
 
         await assert_revert(
             new_user_position.exact_output(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, address, to_uint(amount_out), to_uint(price), to_uint(amount_in_max - 1), deadline).execute(caller_address=address),
@@ -731,12 +725,9 @@ class UserPositionMgrTest(TestCase):
 
         fee = FeeAmount.MEDIUM
 
-        res = await user_position.mint(other_address, self.token0.contract_address, self.token1.contract_address, fee, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
+        res = await self.mint(user_position, other_address, self.token0.contract_address, self.token1.contract_address, fee, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0))
 
-        if self.token1.contract_address < self.token2.contract_address:
-            res = await user_position.mint(other_address, self.token1.contract_address, self.token2.contract_address, fee, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
-        else:
-            res = await user_position.mint(other_address, self.token2.contract_address, self.token1.contract_address, fee, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0), DEADLINE).execute(caller_address=address)
+        res = await self.mint(user_position, other_address, self.token2.contract_address, self.token1.contract_address, fee, min_tick, max_tick, to_uint(1000000), to_uint(1000000), to_uint(0), to_uint(0))
 
         print('token address:', self.token0.contract_address, self.token1.contract_address, self.token2.contract_address)
 
