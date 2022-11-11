@@ -287,8 +287,6 @@ class Account:
 
 def compute_contract_address(salt, class_hash, deployer_address, constructor_calldata):
     from starkware.starknet.core.os.contract_address.contract_address import calculate_contract_address_from_hash
-    from starkware.cairo.lang.vm.crypto import pedersen_hash
-    #salt = pedersen_hash(ids.sorted_token_0_address, ids.sorted_token_1_address)
     address = calculate_contract_address_from_hash(salt=salt, class_hash=class_hash, deployer_address=deployer_address, constructor_calldata=constructor_calldata)
     print('address:', address)
     return address

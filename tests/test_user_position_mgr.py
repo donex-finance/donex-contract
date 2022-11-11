@@ -12,7 +12,7 @@ from utils import (
     MAX_UINT128, assert_revert, to_uint,
     felt_to_int, from_uint, cached_contract, encode_price_sqrt,
     get_max_tick, get_min_tick, TICK_SPACINGS, FeeAmount, init_contract,
-    assert_event_emitted, Account
+    assert_event_emitted, Account, compute_contract_address
 )
 
 from test_tickmath import (MIN_SQRT_RATIO, MAX_SQRT_RATIO)
@@ -857,5 +857,19 @@ class UserPositionMgrTest(TestCase):
             ""
         )
         await user_position.update_swap_pool(self.swap_pool_class.class_hash, self.swap_pool_proxy_class.class_hash).execute(caller_address=address)
+
+    @pytest.mark.asyncio
+    async def test_get_compute(self):
+        from starkware.cairo.lang.vm.crypto import pedersen_hash
+        token0 = int('0x48109f9d55af0ad4a4961d9ebbfdc0f55e3335c2b10247c3eb186ab963051eb', base=16)
+        token1 = int('0x6d1af6d2da3ab173d57bcd6d362d676f4bff73cdcaa46ae9e35a4f53b4f980e', base=16)
+        class_hash = int('0x59e254bc53bfa38270e06ed6c39f576ab9df8c59d04c2ee28c3bda1f4599d9b', base=16)
+        address = int('0x59b12dfeb4350cd811da70308a245bb8fb479cceccc9186d1f0c6d31bca1343', base=16)
+        swap_pool_hash = int('0x700d166be36a6e386cdba754ee582c5e8fabb415732fa30349292036e10ca4a', base=16)
+        salt = pedersen_hash(token0, token1)
+        print('salt:', hex(salt))
+        #class_hash = int('', base=16)
+        res = compute_contract_address(salt, class_hash, address, [swap_pool_hash, 60, 3000, token0, token1, address])
+        print('res:', hex(res))
 
     #TODO: test fees accounting
