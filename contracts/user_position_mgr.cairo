@@ -59,6 +59,11 @@ func _swap_pools(token0: felt, token1: felt, fee: felt) -> (address: felt) {
 func _pool_infos(pool_address: felt) -> (info: PoolInfo) {
 }
 
+// init_swap_pool_hash is used to compute a fixed contract hash
+@storage_var
+func _init_swap_pool_hash() -> (hash: felt) {
+}
+
 @storage_var
 func _swap_pool_hash() -> (hash: felt) {
 }
@@ -108,6 +113,7 @@ func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
         assert old = 0;
     }
     Ownable.initializer(owner);
+    _init_swap_pool_hash.write(swap_pool_hash);
     _swap_pool_hash.write(swap_pool_hash);
     _swap_pool_proxy_hash.write(swap_pool_proxy_hash);
 
@@ -419,19 +425,6 @@ func get_exact_input_router{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
 //  external
 //
 
-func _write_pool_address{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    token0: felt,
-    token1: felt,
-    fee: felt,
-    address: felt
-) {
-    let token_a = Utils.min(token0, token1);
-    let token_b = Utils.max(token0, token1);
-    _swap_pools.write(token_a, token_b, fee, address);
-    _pool_infos.write(address, PoolInfo(token_a, token_b, fee));
-    return ();
-}
-
 func _get_tickSpacing{range_check_ptr}(
     fee: felt
 ) -> felt {
@@ -453,6 +446,18 @@ func _get_tickSpacing{range_check_ptr}(
         assert 0 = 1;
     }
     return 0;
+}
+
+func _upgrade_swap_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(init_swap_pool_hash: felt, pool_address: felt) {
+    let (swap_pool_hash) = _swap_pool_hash.read();
+
+    let (flag) = Utils.is_eq(init_swap_pool_hash, swap_pool_hash);
+    if (flag == FALSE) {
+        // update swap pool hash
+        ISwapPool.upgrade(contract_address=pool_address, new_implementation=swap_pool_hash);
+        return ();
+    }
+    return ();
 }
 
 @external
@@ -480,16 +485,20 @@ func create_and_initialize_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
     let (this_address) = get_contract_address();
 
     let tick_spacing = _get_tickSpacing(fee);
-    let (swap_pool_hash) = _swap_pool_hash.read();
+    let (init_swap_pool_hash) = _init_swap_pool_hash.read();
     let (swap_pool_proxy_hash) = _swap_pool_proxy_hash.read();
     let (owner) = Ownable.owner();
 
+    let sorted_token0 = Utils.min(token0, token1); 
+    let sorted_token1 = Utils.max(token0, token1);
+
     let (local calldata: felt*) = alloc();
-    assert calldata[0] = swap_pool_hash;
+    // use init_swap_pool_hash for computing pool address
+    assert calldata[0] = init_swap_pool_hash;
     assert calldata[1] = tick_spacing;
     assert calldata[2] = fee;
-    assert calldata[3] = token0;
-    assert calldata[4] = token1;
+    assert calldata[3] = sorted_token0;
+    assert calldata[4] = sorted_token1;
     assert calldata[5] = this_address;
 
     // deploy contract
@@ -501,13 +510,18 @@ func create_and_initialize_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
         deploy_from_zero=1,
     );
 
+    // if init_swap_pool_hash !== swap_pool_hash then upgrade
+    _upgrade_swap_pool(init_swap_pool_hash, pool_address);
+
     ISwapPool.initialize_price(contract_address=pool_address, sqrt_price_x96=sqrt_price_x96);
 
     ISwapPool.set_fee_protocol(contract_address=pool_address, fee_protocol0=Config.DEFAULT_FEE, fee_protocol1=Config.DEFAULT_FEE);
 
-    _write_pool_address(token0, token1, fee, pool_address);
+    // write pool address
+    _swap_pools.write(sorted_token0, sorted_token1, fee, pool_address);
+    _pool_infos.write(pool_address, PoolInfo(sorted_token0, sorted_token1, fee));
 
-    CreateNewPool.emit(token0, token1, fee, pool_address);
+    CreateNewPool.emit(sorted_token0, sorted_token1, fee, pool_address);
     return (pool_address,);
 }
 
