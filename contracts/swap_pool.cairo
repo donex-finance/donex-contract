@@ -1215,8 +1215,8 @@ func remove_liquidity{
 
 func _check_fee_protocol{range_check_ptr}(fee_protocol) {
     if (fee_protocol != 0) {
-        // 4 <= fee_protocol <= 10
-        assert_in_range(fee_protocol, 4, 11);
+        // 2 <= fee_protocol <= 10
+        assert_in_range(fee_protocol, 2, 11);
         return ();
     }
     return ();

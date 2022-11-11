@@ -71,7 +71,7 @@ func swap{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     data: felt*
 ) -> (amount0: Uint256, amount1: Uint256) {
     let (caller) = get_caller_address(); 
-    let (amount0: Uint256, amount1: Uint256) = ISwapPool.swap(contract_address=pool_address, recipient=recipient, zero_for_one=zero_for_one, amount_specified=amount_specified, sqrt_price_limit_x96=sqrt_price_limit_x96, payer=caller, data_len=data_len, data=data);
+    let (amount0: Uint256, amount1: Uint256) = ISwapPool.swap(contract_address=pool_address, recipient=recipient, zero_for_one=zero_for_one, amount_specified=amount_specified, sqrt_price_limit_x96=sqrt_price_limit_x96, sender=caller, data_len=data_len, data=data);
     return (amount0, amount1);
 }
 

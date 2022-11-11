@@ -22,6 +22,7 @@ from contracts.math_utils import Utils
 from contracts.fullmath import FullMath
 from contracts.position_mgr import PositionInfo
 from contracts.sqrt_price_math import SqrtPriceMath
+from contracts.default_config import Config
 
 struct UserPosition {
     pool_address: felt,
@@ -501,6 +502,8 @@ func create_and_initialize_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
     );
 
     ISwapPool.initialize_price(contract_address=pool_address, sqrt_price_x96=sqrt_price_x96);
+
+    ISwapPool.set_fee_protocol(contract_address=pool_address, fee_protocol0=Config.DEFAULT_FEE, fee_protocol1=Config.DEFAULT_FEE);
 
     _write_pool_address(token0, token1, fee, pool_address);
 

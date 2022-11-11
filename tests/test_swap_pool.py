@@ -1247,7 +1247,7 @@ class SwapPoolTest(TestCase):
         # can be changed by the owner
         new_contract = cached_contract(contract.state.copy(), self.contract_def, contract)
         await assert_revert(
-            new_contract.set_fee_protocol(3, 3).execute(caller_address=address),
+            new_contract.set_fee_protocol(1, 1).execute(caller_address=address),
             ''
         )
         await assert_revert(
@@ -1529,15 +1529,15 @@ class SwapPoolTest(TestCase):
 
         # fails if fee is lt 4 or gt 10
         await assert_revert(
-            contract.set_fee_protocol(3, 3).execute(caller_address=address),
+            contract.set_fee_protocol(1, 1).execute(caller_address=address),
             ""
         )
         await assert_revert(
-            contract.set_fee_protocol(6, 3).execute(caller_address=address),
+            contract.set_fee_protocol(11, 3).execute(caller_address=address),
             ""
         )
         await assert_revert(
-            contract.set_fee_protocol(3, 6).execute(caller_address=address),
+            contract.set_fee_protocol(3, 11).execute(caller_address=address),
             ""
         )
         await assert_revert(
@@ -1553,6 +1553,7 @@ class SwapPoolTest(TestCase):
             ""
         )
 
+        # not owner
         await assert_revert(
             contract.set_fee_protocol(6, 6).execute(caller_address=other_address),
             ""
