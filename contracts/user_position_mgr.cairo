@@ -8,6 +8,7 @@ from starkware.cairo.common.math_cmp import is_le, is_le_felt
 from starkware.cairo.common.math import unsigned_div_rem
 from starkware.cairo.common.bool import TRUE, FALSE
 from starkware.cairo.common.bitwise import bitwise_or
+from starkware.cairo.common.hash import hash2
 
 from openzeppelin.token.erc20.IERC20 import IERC20
 from openzeppelin.access.ownable.library import Ownable
@@ -492,6 +493,8 @@ func create_and_initialize_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
     let sorted_token0 = Utils.min(token0, token1); 
     let sorted_token1 = Utils.max(token0, token1);
 
+    let (salt) = hash2{hash_ptr=pedersen_ptr}(sorted_token0, sorted_token1);
+
     let (local calldata: felt*) = alloc();
     // use init_swap_pool_hash for computing pool address
     assert calldata[0] = init_swap_pool_hash;
@@ -504,10 +507,10 @@ func create_and_initialize_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
     // deploy contract
     let (pool_address) = deploy(
         class_hash=swap_pool_proxy_hash,
-        contract_address_salt=tick_spacing,
+        contract_address_salt=salt,
         constructor_calldata_size=6,
         constructor_calldata=calldata,
-        deploy_from_zero=1,
+        deploy_from_zero=0,
     );
 
     // if init_swap_pool_hash !== swap_pool_hash then upgrade
