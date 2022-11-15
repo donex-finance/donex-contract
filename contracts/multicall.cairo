@@ -40,14 +40,15 @@ func call_loop{syscall_ptr: felt*, range_check_ptr}(
         calldata=&[calls + 3],
     );
 
-    memcpy(result, response.retdata, response.retdata_size);
+    assert result[0] = response.retdata_size;
+    memcpy(result + 1, response.retdata, response.retdata_size);
 
     let (len) = call_loop(
         calls_len=calls_len - (3 + [calls + 2]),
         calls=calls + (3 + [calls + 2]),
-        result=result + response.retdata_size,
+        result=result + response.retdata_size + 1,
     );
-    return (len + response.retdata_size,);
+    return (len + response.retdata_size + 1,);
 }
 
 @view

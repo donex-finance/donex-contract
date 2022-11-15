@@ -16,10 +16,10 @@ from utils import (
 )
 
 from test_tickmath import (MIN_SQRT_RATIO, MAX_SQRT_RATIO)
-from signers import MockSigner
-
-signer = MockSigner(123456789987654321)
-other_signer = MockSigner(2343424234234)
+#from signers import MockSigner
+#
+#signer = MockSigner(123456789987654321)
+#other_signer = MockSigner(2343424234234)
 
 Q128 = to_uint(2 ** 128)
 MaxUint256 = to_uint(2 ** 256 - 1)
@@ -158,6 +158,20 @@ class UserPositionMgrTest(TestCase):
         else:
             res = await user_position.mint(recipient, token2, token1, fee, min_tick, max_tick, amount1, amount0, amount1_min, amount0_min, DEADLINE).execute(caller_address=recipient)
         return res
+
+    @pytest.mark.asyncio
+    async def test_create_pool(self):
+        user_position = await self.get_user_position_contract()
+
+        await assert_revert(
+            user_position.create_and_initialize_pool(self.token0.contract_address, self.token1.contract_address, FeeAmount.MEDIUM, encode_price_sqrt(1, 1)).execute(),
+            'pool already exists'
+        )
+
+        await assert_revert(
+            user_position.create_and_initialize_pool(self.token1.contract_address, self.token0.contract_address, FeeAmount.MEDIUM, encode_price_sqrt(1, 1)).execute(),
+            'pool already exists'
+        )
 
     @pytest.mark.asyncio
     async def test_upgrade(self):
