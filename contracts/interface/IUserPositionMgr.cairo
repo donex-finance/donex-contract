@@ -14,4 +14,7 @@ namespace IUserPositionMgr {
         symbol: felt
     ) {
     }
+
+    func get_pool_address(token0: felt, token1: felt, fee: felt) -> (pool_address: felt) {
+    }
 }
