@@ -5,6 +5,7 @@ from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
 from starkware.cairo.common.uint256 import Uint256, uint256_le, uint256_add, uint256_lt, uint256_sub, uint256_neg, uint256_eq, uint256_signed_lt, uint256_check
 from starkware.cairo.common.math_cmp import is_le_felt
 from starkware.cairo.common.math import unsigned_div_rem
+from starkware.cairo.common.bool import TRUE, FALSE
 
 from contracts.interface.ISwapPool import ISwapPool
 from contracts.math_utils import Utils
