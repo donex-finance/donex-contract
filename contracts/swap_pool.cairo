@@ -237,6 +237,15 @@ func get_cur_slot{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
 }
 
 @view
+func get_cur_state{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
+    sqrt_price_x96: Uint256, tick: felt, liquidity: felt
+) {
+    let (slot: SlotState) = _slot0.read();
+    let (liquidity) = _liquidity.read();
+    return (slot.sqrt_price_x96, slot.tick, liquidity);
+}
+
+@view
 func get_max_liquidity_per_tick{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     ) -> (liquidity: felt) {
     let (liquidity: felt) = _max_liquidity_per_tick.read();
@@ -1008,6 +1017,7 @@ func _modify_position{
         let (sqrt_ratio0: Uint256) = TickMath.get_sqrt_ratio_at_tick(params.tick_lower);
         let (sqrt_ratio1: Uint256) = TickMath.get_sqrt_ratio_at_tick(params.tick_upper);
 
+        // slot0.tick < params.tick_lower
         let (is_valid) = Utils.is_lt_signed(slot0.tick, params.tick_lower);
         if (is_valid == TRUE) {
             let (amount0: Uint256) = SqrtPriceMath.get_amount0_delta2(
@@ -1016,6 +1026,7 @@ func _modify_position{
             return (position, amount0, Uint256(0, 0));
         }
 
+        // slot0.tick < params.tick_upper
         let (is_valid) = Utils.is_lt_signed(slot0.tick, params.tick_upper);
         if (is_valid == TRUE) {
             let (amount0: Uint256) = SqrtPriceMath.get_amount0_delta2(
@@ -1033,6 +1044,7 @@ func _modify_position{
             return (position, amount0, amount1);
         }
 
+        // slot0.tick > params.tick_upper
         let (amount1: Uint256) = SqrtPriceMath.get_amount1_delta2(
             sqrt_ratio0, sqrt_ratio1, params.liquidity_delta
         );
