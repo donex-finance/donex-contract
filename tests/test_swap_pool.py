@@ -2,7 +2,7 @@
 import os
 import time
 import pytest
-import math
+import json
 from functools import reduce
 from asynctest import TestCase
 from starkware.starknet.compiler.compile import compile_starknet_files
@@ -1584,3 +1584,65 @@ class SwapPoolTest(TestCase):
                 133
             ]
         )
+
+    @pytest.mark.asyncio
+    async def test_json_data(self):
+        calls = []
+        with open('./tests/test_data/test1.json') as f:
+            calls = json.load(f)
+
+        await self.check_starknet()
+
+        self.assertEqual(calls[0]['funcName'], 'constructor')
+
+        args = list(map(lambda arg: int(arg, 0), calls[0]['args']))
+
+        token_map = {}
+        if args[0] < args[1]:
+            token_map[args[3]] = self.token0
+            token_map[args[4]] = self.token1
+        else:
+            token_map[args[3]] = self.token1 
+            token_map[args[4]] = self.token0
+
+        kwargs = {
+            "contract_class": self.proxy_def,
+            "constructor_calldata": [self.declare_class.class_hash, args[1], args[2], token_map[args[3]].contract_address, token_map[args[4]].contract_address, address],
+        }
+        print('deploying contract:', kwargs)
+        contract = await self.starknet.deploy(**kwargs)
+        # replace api
+        contract = contract.replace_abi(self.contract_def.abi)
+        swap_target = self.swap_target
+
+        for i in range(1, len(calls)):
+            call = calls[i]
+            args = list(map(lambda arg: int(arg, 0), call['args']))
+            print('call:', call['funcName'], args)
+            if call['funcName'] == 'initialize_price':
+                await contract.initialize_price((args[0], args[1])).execute()
+            elif call['funcName'] == 'set_fee_protocol':
+                await contract.set_fee_protocol(args[0], args[1]).execute(caller_address=address)
+            elif call['funcName'] == 'add_liquidity':
+                await swap_target.add_liquidity(address, args[1], args[2], args[3], contract.contract_address).execute(caller_address=address)
+            elif call['funcName'] == 'remove_liquidity':
+                await contract.remove_liquidity(args[0], args[1], args[2]).execute(caller_address=address)
+            elif call['funcName'] == 'swap':
+                data_len = args[7]
+                data = args[8:8+data_len]
+                data[0] = token_map[data[0]].contract_address
+                data[2] = token_map[data[2]].contract_address
+                await swap_target.swap(address, args[1], (args[2], args[3]), (args[4], args[5]), contract.contract_address, data).execute(caller_address=address)
+            elif call['funcName'] == 'collect':
+                await contract.collect(address, args[1], args[2], args[3], args[4]).execute(caller_address=address)
+            elif call['funcName'] == 'collect_protocol':
+                await contract.collect_protocol(address, args[1], args[2]).execute(caller_address=address)
+
+        res = await contract.get_swap_results(0, to_uint(1000000000000000000), (2 * 128 -1, 2 *128 - 1)).execute() 
+        amount0 = from_uint((res.call_info.result[0], res.call_info.result[1]))
+        if amount0 >= 2 ** 255:
+            amount0 = 2 ** 256 - amount0
+        amount1 = from_uint((res.call_info.result[2], res.call_info.result[3]))
+        if amount1 >= 2 ** 255:
+            amount1 = 2 ** 256 - amount1
+        print(amount0, amount1)
