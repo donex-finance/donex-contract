@@ -68,20 +68,8 @@ namespace TickBitmap {
     }(tick: felt, tick_spacing: felt, lte: felt) -> (tick_next: felt, initialized: felt) {
         alloc_locals;
 
-        let (compressed_0, rem) = signed_div_rem(tick, tick_spacing, bound);
-
-        let (is_valid) = Utils.is_lt_signed(tick, 0);
-
-        local compressed;
-        if (is_valid == TRUE) {
-            if (rem != 0) {
-                compressed = compressed_0 - 1;
-            } else {
-                compressed = compressed_0;
-            }
-        } else {
-            compressed = compressed_0;
-        }
+        // if tick is minus, it will return math.floor(tick / tick_spacing), for example signed_div_rem(-13, 10) = (-2, 7)
+        let (compressed, _) = signed_div_rem(tick, tick_spacing, bound);
 
         if (lte == TRUE) {
             let (word_pos, bit_pos) = position(compressed);

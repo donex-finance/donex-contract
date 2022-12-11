@@ -3,6 +3,7 @@ import os
 import time
 import pytest
 import math
+import json
 from functools import reduce
 from asynctest import TestCase
 from starkware.starknet.compiler.compile import compile_starknet_files
@@ -153,6 +154,8 @@ class UserPositionMgrTest(TestCase):
             # token2
             self.token2_def, self.token2 = await init_contract(os.path.join("tests", "mocks/ERC20_mock.cairo"), [1, 1, 18, MAX_UINT128, MAX_UINT128, address], starknet=self.starknet)
             await self.token2.transfer(other_address, (MAX_UINT128, 2 ** 127)).execute(caller_address=address)
+
+            print('token0:', self.token0.contract_address, 'token1:', self.token1.contract_address, 'token2:', self.token2.contract_address)
 
             self.mint_token0, self.mint_token1 =  [self.token0, self.token1] if self.token0.contract_address < self.token1.contract_address else [self.token1, self.token0]
 
@@ -970,3 +973,56 @@ class UserPositionMgrTest(TestCase):
         print('res:', hex(res))
 
     #TODO: test fees accounting
+
+    '''
+    @pytest.mark.asyncio
+    async def test_json_data(self):
+        calls = []
+        with open('./tests/test_data/test1.json') as f:
+            calls = json.load(f)
+
+        user_position = await self.get_user_position_contract()
+        state = user_position.state
+        swap_router = cached_contract(state, self.swap_router_def, self.swap_router)
+        swap_quoter = cached_contract(state, self.swap_quoter_def, self.swap_quoter)
+
+        tokenAddressMap = {}
+
+        if self.token0.contract_address < self.token2.contract_address:
+            min_token = self.token0
+            max_token = self.token2
+        else:
+            min_token = self.token2
+            max_token = self.token0
+
+        fee = 0
+        for call in calls:
+            print('call:', call['funcName'], call['txid'])
+            args = list(map(lambda arg: int(arg, 0), call['args']))
+            print('args:', args)
+            if call['funcName'] == 'create_and_initialize_pool':
+                if args[0] < args[1]:
+                    tokenAddressMap[args[0]] = min_token 
+                    tokenAddressMap[args[1]] = max_token
+                else:
+                    tokenAddressMap[args[1]] = min_token 
+                    tokenAddressMap[args[0]] = max_token
+                fee = args[2]
+                await user_position.create_and_initialize_pool(tokenAddressMap[args[0]].contract_address, tokenAddressMap[args[1]].contract_address, args[2], (args[3], args[4])).execute(caller_address=address)
+            elif call['funcName'] == 'mint':
+                await user_position.mint(args[0], tokenAddressMap[args[1]].contract_address, tokenAddressMap[args[2]].contract_address, args[3], args[4], args[5], (args[6], args[7]), (args[8], args[9]), (args[10], args[11]), (args[12], args[13]), args[14]).execute(caller_address=address)
+            elif call['funcName'] == 'increase_liquidity':
+                await user_position.increase_liquidity((args[0], args[1]), (args[2], args[3]), (args[4], args[5]), (args[6], args[7]), (args[8], args[9]), args[10]).execute(caller_address=address)
+            elif call['funcName'] == 'decrease_liquidity':
+                await user_position.decrease_liquidity((args[0], args[1]), args[2], (args[3], args[4]), (args[5], args[6]), args[10]).execute(caller_address=address)
+            elif call['funcName'] == 'exact_input':
+                await swap_router.exact_output(tokenAddressMap[args[0]].contract_address, tokenAddressMap[args[1]].contract_address, args[2], args[3], (args[4], args[5]), (args[6], args[7]), (args[8], args[9]), args[10]).execute(caller_address=address)
+            elif call['funcName'] == 'exact_output':
+                await swap_router.exact_output(tokenAddressMap[args[0]].contract_address, tokenAddressMap[args[1]].contract_address, args[2], args[3], (args[4], args[5]), (args[6], args[7]), (args[8], args[9]), args[10]).execute(caller_address=address)
+            else:
+                raise Exception('unsupport func: ' + call['funcName'])
+
+        res = await swap_quoter.get_exact_input(min_token.contract_address, max_token.contract_address, fee, to_uint(1000000000000000000)).execute(caller_address=address)
+        expect_amount_out = from_uint(res.call_info.result[0: 2])
+        print('expect_amount_out:', expect_amount_out)
+    '''

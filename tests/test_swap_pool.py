@@ -1605,9 +1605,10 @@ class SwapPoolTest(TestCase):
             token_map[args[3]] = self.token1 
             token_map[args[4]] = self.token0
 
+        fee = args[2]
         kwargs = {
             "contract_class": self.proxy_def,
-            "constructor_calldata": [self.declare_class.class_hash, args[1], args[2], token_map[args[3]].contract_address, token_map[args[4]].contract_address, address],
+            "constructor_calldata": [self.declare_class.class_hash, args[1], fee, token_map[args[3]].contract_address, token_map[args[4]].contract_address, address],
         }
         print('deploying contract:', kwargs)
         contract = await self.starknet.deploy(**kwargs)
@@ -1618,7 +1619,7 @@ class SwapPoolTest(TestCase):
         for i in range(1, len(calls)):
             call = calls[i]
             args = list(map(lambda arg: int(arg, 0), call['args']))
-            print('call:', call['funcName'], args)
+            print('call:', i, call['funcName'])
             if call['funcName'] == 'initialize_price':
                 await contract.initialize_price((args[0], args[1])).execute()
             elif call['funcName'] == 'set_fee_protocol':
@@ -1638,11 +1639,26 @@ class SwapPoolTest(TestCase):
             elif call['funcName'] == 'collect_protocol':
                 await contract.collect_protocol(address, args[1], args[2]).execute(caller_address=address)
 
-        res = await contract.get_swap_results(0, to_uint(1000000000000000000), (2 * 128 -1, 2 *128 - 1)).execute() 
+            if i == 22:
+                break
+
+            res = await contract.get_cur_state().call()
+            sqrt_price = from_uint((res.call_info.result[0], res.call_info.result[1]))
+            tick = felt_to_int(res.call_info.result[2])
+            liquidity = res.call_info.result[3]
+            res = await self.token0.balanceOf(contract.contract_address).call()
+            balance0 = from_uint((res.call_info.result[0], res.call_info.result[1]))
+            res = await self.token1.balanceOf(contract.contract_address).call()
+            balance1 = from_uint((res.call_info.result[0], res.call_info.result[1]))
+            print('contract state :', sqrt_price, tick, liquidity, balance0, balance1)
+
+        res = await swap_target.swap(address, 0, to_uint(100000000000000000), to_uint(MAX_SQRT_RATIO - 1), contract.contract_address, [self.token1.contract_address, fee, self.token0.contract_address]).execute(caller_address=address)
         amount0 = from_uint((res.call_info.result[0], res.call_info.result[1]))
         if amount0 >= 2 ** 255:
-            amount0 = 2 ** 256 - amount0
+            amount0 = amount0 - 2 ** 256
         amount1 = from_uint((res.call_info.result[2], res.call_info.result[3]))
         if amount1 >= 2 ** 255:
-            amount1 = 2 ** 256 - amount1
+            amount1 = amount1 - 2 ** 256
         print(amount0, amount1)
+        self.assertEqual(amount0, -292678894059646219)
+        self.assertEqual(amount1, 100000000000000000)

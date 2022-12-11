@@ -1,0 +1,1111 @@
+[
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194",
+        "funcName": "constructor",
+        "args": [
+            "0x700d166be36a6e386cdba754ee582c5e8fabb415732fa30349292036e10ca4a",
+            "0xa",
+            "0x1f4",
+            "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+            "0x4d60442a382305c214e79620bc5c695abe32678963e9ce6fa1eabf376048863",
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57"
+        ],
+        "result": [],
+        "txid": "0x48c0a8735a9c893a00b0e5239244eea4038c9e347742c4fbc80ea645681e587"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0xe5969378ecde604acbb496326b49f589f7bccfbf92d00703e0b3c3d3e7d48f",
+        "funcName": "initialize_price",
+        "args": [
+            "0x5b96aabfac7cdc4b3b58fc2",
+            "0x0"
+        ],
+        "result": [],
+        "txid": "0x48c0a8735a9c893a00b0e5239244eea4038c9e347742c4fbc80ea645681e587"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2a77091eeb3dfb86b264930d28533f0e4c857df7bef322f22f6c3c21990076d",
+        "funcName": "set_fee_protocol",
+        "args": [
+            "0x5",
+            "0x5"
+        ],
+        "result": [],
+        "txid": "0x48c0a8735a9c893a00b0e5239244eea4038c9e347742c4fbc80ea645681e587"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x0",
+            "0x1b12",
+            "0x25e9e8b3877138e",
+            "0x51b80f0816796dca92959779ccbd8d13c28b59895146d5e6fde5160b740f3fd"
+        ],
+        "result": [
+            "0xb1a2bc2ec50000",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x48c0a8735a9c893a00b0e5239244eea4038c9e347742c4fbc80ea645681e587"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffff2761b",
+            "0xd89e6",
+            "0xcb5e0f1fdb26",
+            "0x18d40b7f847953eb627b901ded85f156fe7518a4e334e4f2b5e43417e19f892"
+        ],
+        "result": [
+            "0x2386f26fc0fdc5",
+            "0x0",
+            "0x48c22021e9d",
+            "0x0"
+        ],
+        "txid": "0x53d1d8c1aa9c243f70174237cd6f0e373b85540f37b922370f6c2c64c57ce72"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed721",
+            "0xd89e6",
+            "0x145997436cc8",
+            "0x6cdc2d88fdcb7af793f84c3db5bd657ffe2c6a5ee7bf19284bf0aac2ee4cfd4"
+        ],
+        "result": [
+            "0x38d7ea4c67fe7",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x247255ed8c8dba2cd0cfff6adcef82e8f9047c7e52e4f5f8306de814dbb7805"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffff2761b",
+            "0xd89e6",
+            "0xcb5e0f1fdb26",
+            "0x21a2bf04515e83d3f753fef8ef983accbd0b1356fa769012c0c3ae86872c4c3"
+        ],
+        "result": [
+            "0x2386f26fc0fdc5",
+            "0x0",
+            "0x48c22021e9d",
+            "0x0"
+        ],
+        "txid": "0x25100291aa7244342de72432d70cd220f63481b63103bec466ff10fe7136be0"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed721",
+            "0xd89e6",
+            "0x65bff4511fea",
+            "0x5a38f0c8587e723edf4ba6c7c1b3de2ec4d7178cc0b0ca8b4b0933c5a49853c"
+        ],
+        "result": [
+            "0x11c37937e07fd9",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x195003edb3411f7ebcb9e9604e28000123b7e50872a658ce62816b4e37e5d5e"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x15543c3708653cda9d418b4ccd3be11368e40636c10c44b18cfe756b6d88b29",
+        "funcName": "swap",
+        "args": [
+            "0x3bb1c03c9ae3d5d50c89c1a16722da19b89f421dbd61c5966d884b16c9730b4",
+            "0x0",
+            "0xffffffffffffffffffffa50cef85c000",
+            "0xffffffffffffffffffffffffffffffff",
+            "0xefd1fc6a506488495d951d5263988d25",
+            "0xfffd8963",
+            "0x3bb1c03c9ae3d5d50c89c1a16722da19b89f421dbd61c5966d884b16c9730b4",
+            "0x3",
+            "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+            "0x1f4",
+            "0x4d60442a382305c214e79620bc5c695abe32678963e9ce6fa1eabf376048863"
+        ],
+        "result": [
+            "0xffffffffffffffffffffa50cef85c000",
+            "0xffffffffffffffffffffffffffffffff",
+            "0xbb205f41c",
+            "0x0"
+        ],
+        "txid": "0x2e58402968472e464060014af3a50a81e33619f1febe9f705802dd9cd8ffdfa"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed767",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffede79",
+            "0xec06981da60a",
+            "0x50f9e5a0c6297aa7f7fd668f77dc7f03ebc1eb2be0717d0be9f5fb5a11ca0f8"
+        ],
+        "result": [
+            "0x38d7ea4c67fff",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x885d0cf76c1b24348d3a03aa27340c3f88b90af74d5f68f8f884a9ccddc3a1"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x0",
+            "0xb3e2",
+            "0x3f292788804af",
+            "0xec20e2d82c832f3a1accfa1e7cb31b230ff50ab9c0edb39817e678d24ca6bb"
+        ],
+        "result": [
+            "0x38d7ea4c68000",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0xf4c4a624cec3ed53eea0cf5f2ebb3a4d7c7e83b8be920eb3103a6140304210"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffff2761b",
+            "0x10dd8",
+            "0x146ece1338a7",
+            "0xec20e2d82c832f3a1accfa1e7cb31b230ff50ab9c0edb39817e678d24ca6bb"
+        ],
+        "result": [
+            "0x38d7ea4c67ad8",
+            "0x0",
+            "0x756ebb3e82",
+            "0x0"
+        ],
+        "txid": "0x5dd6edd1bdbc6294d78caf69b45ed82346238a26d92aa72b2738daea179612f"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffff2761b",
+            "0xd89e6",
+            "0x5d9c3429e060",
+            "0x48356f7c23c98888c90cd0f78f14afdc08f8e619af2b16b897a1d40da9031dd"
+        ],
+        "result": [
+            "0x1049aefc8a9fd1",
+            "0x0",
+            "0x21a00367a15",
+            "0x0"
+        ],
+        "txid": "0x51c17f0d426ffa7068fc436f47b1b8204bd97d909ad3dec8cadd2b5b3489f69"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffff2761b",
+            "0xd89e6",
+            "0xcc2ee99a1bce",
+            "0x37ad50e26905e971ada00c657e6b4c66a7cb42d02fb68e1c79ded03484adf"
+        ],
+        "result": [
+            "0x2386f26fc0fc7e",
+            "0x0",
+            "0x4957de080d4",
+            "0x0"
+        ],
+        "txid": "0x39b9cd1145c89080a0c559b5b1e8621528a527d67af626ba7f79955eff801cd"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x59f6",
+            "0x7508",
+            "0x17fb79d8c403a2f",
+            "0x6726649b09b5b551f933ec7c9da4b820a52ba97eda78c8516dfe829bcdeb162"
+        ],
+        "result": [
+            "0x2386f26fc10000",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x1b3ac051b22d6e3c88c9a892b2b99ff6b90ba02ecca14b68c71bb75d37b15c9"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffe9833",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffef229",
+            "0x2bfd7514d85f3",
+            "0x6726649b09b5b551f933ec7c9da4b820a52ba97eda78c8516dfe829bcdeb162"
+        ],
+        "result": [
+            "0x2386f26fc0ff4a",
+            "0x0",
+            "0x8c37ec4729f",
+            "0x0"
+        ],
+        "txid": "0x10ac5129b48f391f521d3355880ee6821c3e2c454ec24063676194543f918d4"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffe9833",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffef229",
+            "0x2bfd7514d85f3",
+            "0x6726649b09b5b551f933ec7c9da4b820a52ba97eda78c8516dfe829bcdeb162"
+        ],
+        "result": [
+            "0x2386f26fc0ff4a",
+            "0x0",
+            "0x8c37ec4729f",
+            "0x0"
+        ],
+        "txid": "0x1f56e657465ee1b784c82034c9e85e947613eb4d8bc35287e91e01d8c957022"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2e875d1c86df033547c5c7839d8b6e3641de29ee1f708bbce99743b34272ada",
+        "funcName": "remove_liquidity",
+        "args": [
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffe9833",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffef229",
+            "0xaff5d453617c"
+        ],
+        "result": [
+            "0x8e1bc9bf03fc8",
+            "0x0",
+            "0x230dfb11ca7",
+            "0x0"
+        ],
+        "txid": "0x77741942b1feaab358d2ea479525304afa76ebb5c618a93111d218e088785ef"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2e875d1c86df033547c5c7839d8b6e3641de29ee1f708bbce99743b34272ada",
+        "funcName": "remove_liquidity",
+        "args": [
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffe9833",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffef229",
+            "0x0"
+        ],
+        "result": [
+            "0x0",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x77741942b1feaab358d2ea479525304afa76ebb5c618a93111d218e088785ef"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x284134db6f39215e1d0a0a3dbd382fd7d28af6b3e3d5b77bba35c3a1d0da316",
+        "funcName": "collect",
+        "args": [
+            "0x6726649b09b5b551f933ec7c9da4b820a52ba97eda78c8516dfe829bcdeb162",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffe9833",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffef229",
+            "0x8e1bc9bf03fc8",
+            "0x230dfb11ca7"
+        ],
+        "result": [
+            "0x8e1bc9bf03fc8",
+            "0x230dfb11ca7"
+        ],
+        "txid": "0x77741942b1feaab358d2ea479525304afa76ebb5c618a93111d218e088785ef"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed767",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed771",
+            "0x1f2b77b94d0eb8fd",
+            "0x395ed14204b7998468463a2467885d394fdddd895746b4d7f3eb4b6258191b2"
+        ],
+        "result": [
+            "0xb1a2bc2ec50000",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x3c668445827947cc4bf37b70e01fdc2f6c8ce1ef5293206ef8123fb73429132"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed7ad",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed82f",
+            "0x172af1a0ebacae3",
+            "0x2da9683f5ef0f378c2d024b57276dd7cd8736a817f41d3daaa6b3734f016616"
+        ],
+        "result": [
+            "0x6a94d74f430000",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x4034727a6b4a78cf0beeac469fac939dbf17b346ab0d0435191cb8640bf8c79"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed75d",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed771",
+            "0x303b61bd1df713b3",
+            "0x1f651ccc68df740900fec932a0b108e839566918a2b8651571f3bf666b458a1"
+        ],
+        "result": [
+            "0x16345785d89faaf",
+            "0x0",
+            "0x1919e45b930a",
+            "0x0"
+        ],
+        "txid": "0x514e71b5b8cea1d35b032cd979ee4cb5fd5298d800426fff2af0dde63dda2ea"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffef229",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffff01fb",
+            "0xfb0dd1af440",
+            "0xe14ba881f3d3cafa918ea10cafee6948ff497a7b72d7bdecf9bc071ae18fde"
+        ],
+        "result": [
+            "0x5af3107a3ffe",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x19d6a38f912f424c5e2b70c4a50a0a33dfc2b13ba6287acb9e08a35c0fcace5"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffef229",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffff01fb",
+            "0xfb0dd1af440",
+            "0xe14ba881f3d3cafa918ea10cafee6948ff497a7b72d7bdecf9bc071ae18fde"
+        ],
+        "result": [
+            "0x5af3107a3ffe",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x3d9dc54167079a734ec59569e112e20d5ed09136deeb167f4ce6aef1f945bc3"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0xfe06",
+            "0x10dce",
+            "0x1f5a3c80a06e39b",
+            "0x6aa13163fe3079e9ae639fd66303e32b2eb19881f09fc6453ec0f3855cc051"
+        ],
+        "result": [
+            "0x38d7ea4c68000",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x22c1444deea7a7966d90b308e709529ceb426a586895ef33659640dcb87ed61"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed75d",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed771",
+            "0x4d2bcf94fcac13a",
+            "0x1f651ccc68df740900fec932a0b108e839566918a2b8651571f3bf666b458a1"
+        ],
+        "result": [
+            "0x2386f26fc0f6fa",
+            "0x0",
+            "0x28296d5f51a",
+            "0x0"
+        ],
+        "txid": "0x863dd9a0d260f00bcf12178a66d838025f045b9f37958cecd835841d4ab770"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffef229",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffff01fb",
+            "0x9ce8a30d8a83",
+            "0xe14ba881f3d3cafa918ea10cafee6948ff497a7b72d7bdecf9bc071ae18fde"
+        ],
+        "result": [
+            "0x38d7ea4c67ffe",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x68f46a858e8e655c267ecacb8b12eb68e5f204905f3b31cdb5a136a3aadb67"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffef229",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffff01fb",
+            "0x9ce8a30d8a83",
+            "0xe14ba881f3d3cafa918ea10cafee6948ff497a7b72d7bdecf9bc071ae18fde"
+        ],
+        "result": [
+            "0x38d7ea4c67ffe",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x367233ba89c5f0c0fe3409ff094c10da338359397d27947475b4d4f369755d6"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffef229",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffff01fb",
+            "0x9ce8a30d8a83",
+            "0x6aa13163fe3079e9ae639fd66303e32b2eb19881f09fc6453ec0f3855cc051"
+        ],
+        "result": [
+            "0x38d7ea4c67ffe",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x6bbe740df57c1aa0ad70b88a8cd8ccf9fd1aadd5cf3dbbae89f0576f431c5c1"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2e875d1c86df033547c5c7839d8b6e3641de29ee1f708bbce99743b34272ada",
+        "funcName": "remove_liquidity",
+        "args": [
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed75d",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed771",
+            "0xd4387ad9b70753b"
+        ],
+        "result": [
+            "0x61b31ab352bc6a",
+            "0x0",
+            "0x6e71ecc6208",
+            "0x0"
+        ],
+        "txid": "0x7817fdc62a9a487b6c74942ea3c411dca44d0df319d8bf8dd5fb58bab897309"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2e875d1c86df033547c5c7839d8b6e3641de29ee1f708bbce99743b34272ada",
+        "funcName": "remove_liquidity",
+        "args": [
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed75d",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed771",
+            "0x0"
+        ],
+        "result": [
+            "0x0",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x7817fdc62a9a487b6c74942ea3c411dca44d0df319d8bf8dd5fb58bab897309"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x284134db6f39215e1d0a0a3dbd382fd7d28af6b3e3d5b77bba35c3a1d0da316",
+        "funcName": "collect",
+        "args": [
+            "0x1f651ccc68df740900fec932a0b108e839566918a2b8651571f3bf666b458a1",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed75d",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed771",
+            "0x61b31ab352bc6a",
+            "0x6e71ecc6208"
+        ],
+        "result": [
+            "0x61b31ab352bc6a",
+            "0x6e71ecc6208"
+        ],
+        "txid": "0x7817fdc62a9a487b6c74942ea3c411dca44d0df319d8bf8dd5fb58bab897309"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x0",
+            "0x2aee",
+            "0x5409fc80be9ec9",
+            "0x7bd19ad0c988198c7ac88a5045be48aad26b1508c3944263444f66b025b385d"
+        ],
+        "result": [
+            "0x2386f26fc10000",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x7f8f1cd29edddb195d3289d2b106fa6e6c65fd7f8ddb4bb6fc0fc650a30d080"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffff2761b",
+            "0xd89e6",
+            "0xcc2ee99a1bce",
+            "0xd303835b9405f42947d7e5529a367b1b6d957257c8841fcd8cfce5eb327f65"
+        ],
+        "result": [
+            "0x2386f26fc0fc7e",
+            "0x0",
+            "0x4957de080d4",
+            "0x0"
+        ],
+        "txid": "0x3d83acde5593f67994637752af1a6a0cb28a3f53fe3e310ef3622848c6417c0"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed717",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffff31cb",
+            "0x1317480654dee",
+            "0x64ecf8633f153858c134e43781695f7c7db33088053aa7c9acd4e26b9f084d2"
+        ],
+        "result": [
+            "0x2470344ef5605c",
+            "0x0",
+            "0x6c088e200",
+            "0x0"
+        ],
+        "txid": "0x65ce4747c8ad371a82ee5c1b4556e06f0e32645ca770bd62e59a6672b5ccc26"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed75d",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed767",
+            "0x1550215b84519955",
+            "0x64ecf8633f153858c134e43781695f7c7db33088053aa7c9acd4e26b9f084d2"
+        ],
+        "result": [
+            "0x2386f26fc0fd5b",
+            "0x0",
+            "0xb17825ae19b",
+            "0x0"
+        ],
+        "txid": "0x75e2240aceb97d5904903fdff61fd79344ca6e451938c1493bba412a2bc105f"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed717",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed7df",
+            "0x822ce8fc2575ca",
+            "0x64ecf8633f153858c134e43781695f7c7db33088053aa7c9acd4e26b9f084d2"
+        ],
+        "result": [
+            "0x2386f26fc0fc5a",
+            "0x0",
+            "0x2e0a5c7a275",
+            "0x0"
+        ],
+        "txid": "0x3cf606b1743b665a39bf8400652bb7168c7c9ca2da0143c0d19e0c96388e4d9"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2e875d1c86df033547c5c7839d8b6e3641de29ee1f708bbce99743b34272ada",
+        "funcName": "remove_liquidity",
+        "args": [
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed75d",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed767",
+            "0x5540856e1146655"
+        ],
+        "result": [
+            "0x8e1bc9bf03f56",
+            "0x0",
+            "0x2c5e096b866",
+            "0x0"
+        ],
+        "txid": "0x67a7572114828a327b1363f41f47f5398d46353c4b755e564c48ce83d216cf1"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2e875d1c86df033547c5c7839d8b6e3641de29ee1f708bbce99743b34272ada",
+        "funcName": "remove_liquidity",
+        "args": [
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed75d",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed767",
+            "0x0"
+        ],
+        "result": [
+            "0x0",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x67a7572114828a327b1363f41f47f5398d46353c4b755e564c48ce83d216cf1"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x284134db6f39215e1d0a0a3dbd382fd7d28af6b3e3d5b77bba35c3a1d0da316",
+        "funcName": "collect",
+        "args": [
+            "0x64ecf8633f153858c134e43781695f7c7db33088053aa7c9acd4e26b9f084d2",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed75d",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed767",
+            "0x8e1bc9bf03f56",
+            "0x2c5e096b866"
+        ],
+        "result": [
+            "0x8e1bc9bf03f56",
+            "0x2c5e096b866"
+        ],
+        "txid": "0x67a7572114828a327b1363f41f47f5398d46353c4b755e564c48ce83d216cf1"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2e875d1c86df033547c5c7839d8b6e3641de29ee1f708bbce99743b34272ada",
+        "funcName": "remove_liquidity",
+        "args": [
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed75d",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed767",
+            "0x5540856e1146655"
+        ],
+        "result": [
+            "0x8e1bc9bf03f56",
+            "0x0",
+            "0x2c5e096b866",
+            "0x0"
+        ],
+        "txid": "0x64f07e09514efe2ea9c05f827f5b1866f28f2e8dff4aa83365960913c96e6be"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2e875d1c86df033547c5c7839d8b6e3641de29ee1f708bbce99743b34272ada",
+        "funcName": "remove_liquidity",
+        "args": [
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed75d",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed767",
+            "0x0"
+        ],
+        "result": [
+            "0x0",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x64f07e09514efe2ea9c05f827f5b1866f28f2e8dff4aa83365960913c96e6be"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x284134db6f39215e1d0a0a3dbd382fd7d28af6b3e3d5b77bba35c3a1d0da316",
+        "funcName": "collect",
+        "args": [
+            "0x64ecf8633f153858c134e43781695f7c7db33088053aa7c9acd4e26b9f084d2",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed75d",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed767",
+            "0x8e1bc9bf03f56",
+            "0x2c5e096b866"
+        ],
+        "result": [
+            "0x8e1bc9bf03f56",
+            "0x2c5e096b866"
+        ],
+        "txid": "0x64f07e09514efe2ea9c05f827f5b1866f28f2e8dff4aa83365960913c96e6be"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffff4c1f",
+            "0x800000000000010ffffffffffffffffffffffffffffffffffffffffffff8af9",
+            "0x66df74a721a2c",
+            "0x52c66196ca52ce004f05d4e6d02f328d3fcb9653b7ee369379c01bbe350f01a"
+        ],
+        "result": [
+            "0x2386f26fc0fffe",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x6066149750c6f615eafe9f22c114cee66feee06dae87b967ae0680a9b92ec99"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffff2761b",
+            "0xd89e6",
+            "0xcc2ee99a1bce",
+            "0x572321e5679f5494e0c06e83f2112675001b8530c8d9e3d8cfd2f6ed38a55bc"
+        ],
+        "result": [
+            "0x2386f26fc0fc7e",
+            "0x0",
+            "0x4957de080d4",
+            "0x0"
+        ],
+        "txid": "0xc57169aa458fad8412218348469b7363cde2c719ac2689ba51175f462cf1da"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed717",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed7df",
+            "0x4116747e12a446",
+            "0x1bc3267df1ca6fe96b1169e9aa6a43643f96e3d0dd9c0ff06dd08abc3fa6d8f"
+        ],
+        "result": [
+            "0x11c37937e07801",
+            "0x0",
+            "0x17052e3d13a",
+            "0x0"
+        ],
+        "txid": "0x1d466a5d65a03be4a0ad5f902da51bbaf904a0c60ea7765af750c7174ac43d8"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed64f",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed7df",
+            "0x822ce8fc2576dc",
+            "0x1bc3267df1ca6fe96b1169e9aa6a43643f96e3d0dd9c0ff06dd08abc3fa6d8f"
+        ],
+        "result": [
+            "0x2386f26fc0fca5",
+            "0x0",
+            "0xa4af1a922b3",
+            "0x0"
+        ],
+        "txid": "0xcdf162b64236be6529e45c8ef9a8f024bc23d6ba8ef10a950da1adadfc8460"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2e875d1c86df033547c5c7839d8b6e3641de29ee1f708bbce99743b34272ada",
+        "funcName": "remove_liquidity",
+        "args": [
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed717",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed7df",
+            "0x10459d1f84a911"
+        ],
+        "result": [
+            "0x470de4df81dff",
+            "0x0",
+            "0x5c14b8f44e",
+            "0x0"
+        ],
+        "txid": "0x64c015c9414846afd8f92ac0f8c21d2d6ffe5349f6a6d481a05b3acf95fdfaa"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2e875d1c86df033547c5c7839d8b6e3641de29ee1f708bbce99743b34272ada",
+        "funcName": "remove_liquidity",
+        "args": [
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed717",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed7df",
+            "0x0"
+        ],
+        "result": [
+            "0x0",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x64c015c9414846afd8f92ac0f8c21d2d6ffe5349f6a6d481a05b3acf95fdfaa"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x284134db6f39215e1d0a0a3dbd382fd7d28af6b3e3d5b77bba35c3a1d0da316",
+        "funcName": "collect",
+        "args": [
+            "0x1bc3267df1ca6fe96b1169e9aa6a43643f96e3d0dd9c0ff06dd08abc3fa6d8f",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed717",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed7df",
+            "0x470de4df81dff",
+            "0x5c14b8f44e"
+        ],
+        "result": [
+            "0x470de4df81dff",
+            "0x5c14b8f44e"
+        ],
+        "txid": "0x64c015c9414846afd8f92ac0f8c21d2d6ffe5349f6a6d481a05b3acf95fdfaa"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed717",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed7df",
+            "0x822ce8fc2575ca",
+            "0x1bc3267df1ca6fe96b1169e9aa6a43643f96e3d0dd9c0ff06dd08abc3fa6d8f"
+        ],
+        "result": [
+            "0x2386f26fc0fc5a",
+            "0x0",
+            "0x2e0a5c7a275",
+            "0x0"
+        ],
+        "txid": "0x75893eaf04f739f9accbb299fc271e8f13f99cbfffc7e04371f22d537ed6d78"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed785",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed7a3",
+            "0x42a0f0e7b544441",
+            "0x13455cb77e6eda27472e0e8f1f2c6225d62fb91a71c6be052a603631fe6a00d"
+        ],
+        "result": [
+            "0x470de4df820000",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x11c76ba3853f929dcf96f1818cd37edf56bc147fb6f7975c67467f5c217aa7e"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2e875d1c86df033547c5c7839d8b6e3641de29ee1f708bbce99743b34272ada",
+        "funcName": "remove_liquidity",
+        "args": [
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed785",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed7a3",
+            "0x10a83c39ed51110"
+        ],
+        "result": [
+            "0x11c37937e07fff",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x6093a12fe935da3230ff47e5a517b86818f50b4d4a1bc1baa0af0bcdb8fbce9"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2e875d1c86df033547c5c7839d8b6e3641de29ee1f708bbce99743b34272ada",
+        "funcName": "remove_liquidity",
+        "args": [
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed785",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed7a3",
+            "0x0"
+        ],
+        "result": [
+            "0x0",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x6093a12fe935da3230ff47e5a517b86818f50b4d4a1bc1baa0af0bcdb8fbce9"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x284134db6f39215e1d0a0a3dbd382fd7d28af6b3e3d5b77bba35c3a1d0da316",
+        "funcName": "collect",
+        "args": [
+            "0x13455cb77e6eda27472e0e8f1f2c6225d62fb91a71c6be052a603631fe6a00d",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed785",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed7a3",
+            "0x11c37937e07fff",
+            "0x0"
+        ],
+        "result": [
+            "0x11c37937e07fff",
+            "0x0"
+        ],
+        "txid": "0x6093a12fe935da3230ff47e5a517b86818f50b4d4a1bc1baa0af0bcdb8fbce9"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed785",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed7a3",
+            "0xa6925a43452aaa2",
+            "0x13455cb77e6eda27472e0e8f1f2c6225d62fb91a71c6be052a603631fe6a00d"
+        ],
+        "result": [
+            "0xb1a2bc2ec50000",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x67e2b54ced96005ccfdccff673886e16fb5bb32e18607bc9864f0625b85b908"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed767",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed77b",
+            "0x46e5096e4b482f6",
+            "0x1a11e99f76f1ab7bca766948d516d1291fe98e8959103eddf487f77676482c7"
+        ],
+        "result": [
+            "0x327d9e123fb313",
+            "0x0",
+            "0x0",
+            "0x0"
+        ],
+        "txid": "0x28ef46cd48751234f7cf64b6155169f3ac3b5ca57f0353bdffe181dcd809ed3"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffec399",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed767",
+            "0x4acd7f75e8eeabc5",
+            "0x1a11e99f76f1ab7bca766948d516d1291fe98e8959103eddf487f77676482c7"
+        ],
+        "result": [
+            "0x7cb0bb2f89a933",
+            "0x0",
+            "0x6036666a2c5ff8",
+            "0x0"
+        ],
+        "txid": "0x102a6d77752f1f0b8f0f9c20c70c705928b9e833009d058fbb03d8383869261"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffed717",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffedd6b",
+            "0x5801fac7795",
+            "0x7c322fd2f8d5771ff5089d764a2da23f5a8f8d4cc1544737f2561a076b50b69"
+        ],
+        "result": [
+            "0x12309ce52958",
+            "0x0",
+            "0x1f20686f",
+            "0x0"
+        ],
+        "txid": "0x03c121fe60f4f78f9b9ad6f88a5bbc924693b7e1c04a3915b8f5cd27378fb060"
+    },
+    {
+        "contractAddress": "0x62cbbcb5e388158741491ba5b7df4af8f5d7a7aa59e540566a10c90cdd4eaa7",
+        "selector": "0x2cfb12ff9e08412ec5009c65ea06e727119ad948d25c8a8cc2c86fec4adee70",
+        "funcName": "add_liquidity",
+        "args": [
+            "0x37e72c3c1083e7e04e6173cd55b14414d236e091b26aba1f363add739052f57",
+            "0x800000000000010fffffffffffffffffffffffffffffffffffffffffff2761b",
+            "0xd89e6",
+            "0x2882fd51b6d2",
+            "0x4e966742afeeeb6b2dc50ecccf7be365669a005f8969ec82c28cf20c3c7cd03"
+        ],
+        "result": [
+            "0x70c839e1cf3f7",
+            "0x0",
+            "0xe8d4a51000",
+            "0x0"
+        ],
+        "txid": "0x01a5a2af71596acf5fba977cf31919cb4546b0c68c068bbf762beafb43f4e657"
+    }
+]
