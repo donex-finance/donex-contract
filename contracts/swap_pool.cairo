@@ -74,6 +74,11 @@ struct ModifyPositionParams {
 }
 
 @storage_var
+func _initialized() -> (res: felt) {
+}
+
+
+@storage_var
 func _fee_protocol() -> (fee_protocol: felt) {
 }
 
@@ -203,6 +208,12 @@ func initializer{
     owner: felt 
 ) {
     alloc_locals;
+
+    with_attr error_message("only can be initilized once") {
+        let (old) = _initialized.read();
+        assert old = FALSE;
+    }
+    _initialized.write(TRUE);
 
     _tick_spacing.write(tick_spacing);
     _fee.write(fee);

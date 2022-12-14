@@ -15,6 +15,7 @@ from utils import (
     get_max_tick, get_min_tick, TICK_SPACINGS, FeeAmount, init_contract,
     assert_event_emitted, Account, compute_contract_address
 )
+from starkware.starknet.public.abi import get_selector_from_name
 
 from test_tickmath import (MIN_SQRT_RATIO, MAX_SQRT_RATIO)
 #from signers import MockSigner
@@ -39,6 +40,9 @@ other_address = 222222222222222
 
 DEADLINE = int(time.time() + 1000)
 
+SELECTOR = get_selector_from_name('initializer')
+print('selector:', SELECTOR)
+
 #TODO: check two diferent address with same position tick, burn and collect
 async def init_user_position_contract(starknet, swap_pool_hash, swap_pool_proxy_hash):
     begin = time.time()
@@ -55,13 +59,13 @@ async def init_user_position_contract(starknet, swap_pool_hash, swap_pool_proxy_
 
     begin = time.time()
     compiled_proxy = compile_starknet_files(
-        ['contracts/user_position_mgr_proxy.cairo'], debug_info=True, disable_hint_validation=True
+        ['contracts/common_proxy.cairo'], debug_info=True, disable_hint_validation=True
     )
     print('compile user_position time:', time.time() - begin)
 
     kwargs = {
         "contract_class": compiled_proxy,
-        "constructor_calldata": [declare_class.class_hash, address, swap_pool_hash, swap_pool_proxy_hash, NFT_NAME, NFT_SYMBOL]
+        "constructor_calldata": [declare_class.class_hash, get_selector_from_name('initializer'), 5, address, swap_pool_hash, swap_pool_proxy_hash, NFT_NAME, NFT_SYMBOL]
         }
 
     begin = time.time()
@@ -80,9 +84,23 @@ async def init_swap_router(starknet, user_position_address):
     )
     print('compile swap_router time:', time.time() - begin)
 
+    begin = time.time()
+    declare_class = await starknet.declare(
+        contract_class=compiled_contract,
+    )
+    print('declare swap_router time:', time.time() - begin)
+
+    begin = time.time()
+    compiled_proxy = compile_starknet_files(
+        ['contracts/common_proxy.cairo'], debug_info=True, disable_hint_validation=True
+    )
+    print('compile user_position time:', time.time() - begin)
+
+    begin = time.time()
+
     kwargs = {
-        "contract_class": compiled_contract,
-        "constructor_calldata": [user_position_address]
+        "contract_class": compiled_proxy,
+        "constructor_calldata": [declare_class.class_hash, get_selector_from_name('initializer'), 2, user_position_address, address]
         }
 
     begin = time.time()
@@ -125,7 +143,7 @@ async def init_swap_pool_class(starknet):
 
     begin = time.time()
     compiled_proxy = compile_starknet_files(
-        ['contracts/swap_pool_proxy.cairo'], debug_info=True, disable_hint_validation=True
+        ['contracts/common_proxy.cairo'], debug_info=True, disable_hint_validation=True
     )
     print('compile swap_pool_proxy time:', time.time() - begin)
 
@@ -1026,3 +1044,6 @@ class UserPositionMgrTest(TestCase):
         expect_amount_out = from_uint(res.call_info.result[0: 2])
         print('expect_amount_out:', expect_amount_out)
     '''
+
+    #TODO: test swap router initializer only once
+    #TODO: update user_position_mgr class_hash and swap_pool_proxy hash

@@ -15,6 +15,7 @@ from utils import (
     get_max_tick, get_min_tick, TICK_SPACINGS, FeeAmount, init_contract,
     expand_to_18decimals, assert_event_emitted
 )
+from starkware.starknet.public.abi import get_selector_from_name
 
 from test_tickmath import (MIN_SQRT_RATIO, MAX_SQRT_RATIO)
 from signers import MockSigner
@@ -27,6 +28,9 @@ MaxUint256 = to_uint(2 ** 256 - 1)
 
 # The path to the contract source code.
 CONTRACT_FILE = os.path.join("tests", "../contracts/swap_pool.cairo")
+
+SELECTOR = get_selector_from_name('initializer')
+print('selector:', SELECTOR)
 
 tick_spacing = TICK_SPACINGS[FeeAmount.MEDIUM]
 min_tick = get_min_tick(tick_spacing)
@@ -74,7 +78,7 @@ class SwapPoolTest(TestCase):
 
             begin = time.time()
             self.proxy_def = compile_starknet_files(
-                ['contracts/swap_pool_proxy.cairo'], debug_info=True, disable_hint_validation=True
+                ['contracts/common_proxy.cairo'], debug_info=True, disable_hint_validation=True
             )
             print('compile swap_pool time:', time.time() - begin)
 
@@ -94,7 +98,7 @@ class SwapPoolTest(TestCase):
             tick_spacing = TICK_SPACINGS[FEE]
             kwargs = {
                 "contract_class": self.proxy_def,
-                "constructor_calldata": [self.declare_class.class_hash, tick_spacing, FEE, self.token0.contract_address, self.token1.contract_address, address],
+                "constructor_calldata": [self.declare_class.class_hash, SELECTOR, 5, tick_spacing, FEE, self.token0.contract_address, self.token1.contract_address, address],
             }
             begin = time.time()
             self.contract = await self.starknet.deploy(**kwargs)
@@ -114,7 +118,7 @@ class SwapPoolTest(TestCase):
         if not hasattr(self, 'contract_low'):
             kwargs = {
                 "contract_class": self.proxy_def,
-                "constructor_calldata": [self.declare_class.class_hash, TICK_SPACINGS[FeeAmount.LOW], FeeAmount.LOW, self.token0.contract_address, self.token1.contract_address, address],
+                "constructor_calldata": [self.declare_class.class_hash, SELECTOR, 5, TICK_SPACINGS[FeeAmount.LOW], FeeAmount.LOW, self.token0.contract_address, self.token1.contract_address, address],
             }
             begin = time.time()
             self.contract_low = await self.starknet.deploy(**kwargs)
@@ -1422,7 +1426,7 @@ class SwapPoolTest(TestCase):
 
         kwargs = {
             "contract_class": self.proxy_def,
-            "constructor_calldata": [self.declare_class.class_hash, tick_spacing, FeeAmount.MEDIUM, self.token0.contract_address, self.token1.contract_address, address],
+            "constructor_calldata": [self.declare_class.class_hash, SELECTOR, 5, tick_spacing, FeeAmount.MEDIUM, self.token0.contract_address, self.token1.contract_address, address],
         }
         contract = await self.starknet.deploy(**kwargs)
         # replace api
@@ -1608,7 +1612,7 @@ class SwapPoolTest(TestCase):
         fee = args[2]
         kwargs = {
             "contract_class": self.proxy_def,
-            "constructor_calldata": [self.declare_class.class_hash, args[1], fee, token_map[args[3]].contract_address, token_map[args[4]].contract_address, address],
+            "constructor_calldata": [self.declare_class.class_hash, SELECTOR, 5, args[1], fee, token_map[args[3]].contract_address, token_map[args[4]].contract_address, address],
         }
         print('deploying contract:', kwargs)
         contract = await self.starknet.deploy(**kwargs)
@@ -1662,3 +1666,5 @@ class SwapPoolTest(TestCase):
         print(amount0, amount1)
         self.assertEqual(amount0, -292678894059646219)
         self.assertEqual(amount1, 100000000000000000)
+
+    #TODO: test_initializer, only can be called once

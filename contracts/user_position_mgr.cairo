@@ -43,7 +43,13 @@ struct PoolInfo {
     fee: felt,
 }
 
+// get_selector_from_name('initializer')
+const INITIALIZER_SELECTOR = 1295919550572838631247819983596733806859788957403169325509326258146877103642;
+
 // storage
+@storage_var
+func _initialized() -> (res: felt) {
+}
 
 @storage_var
 func _token_id() -> (res: Uint256) {
@@ -105,10 +111,12 @@ func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     name: felt,
     symbol: felt
 ) {
-    with_attr error_message("user_position_mgr: only can be initilize once") {
-        let (old) = _swap_pool_proxy_hash.read();
-        assert old = 0;
+    with_attr error_message("only can be initilized once") {
+        let (old) = _initialized.read();
+        assert old = FALSE;
     }
+    _initialized.write(TRUE);
+
     Ownable.initializer(owner);
     _init_swap_pool_hash.write(swap_pool_hash);
     _swap_pool_hash.write(swap_pool_hash);
@@ -323,19 +331,22 @@ func create_and_initialize_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, 
     let (salt) = hash2{hash_ptr=pedersen_ptr}(sorted_token0, sorted_token1);
 
     let (local calldata: felt*) = alloc();
-    // use init_swap_pool_hash for computing pool address
+    // always use init_swap_pool_hash for computing pool address
+    // INITIALIZER_SELECTOR should not be passed from calldata for security
     assert calldata[0] = init_swap_pool_hash;
-    assert calldata[1] = tick_spacing;
-    assert calldata[2] = fee;
-    assert calldata[3] = sorted_token0;
-    assert calldata[4] = sorted_token1;
-    assert calldata[5] = this_address;
+    assert calldata[1] = INITIALIZER_SELECTOR;
+    assert calldata[2] = 5; // calldata_len
+    assert calldata[3] = tick_spacing;
+    assert calldata[4] = fee;
+    assert calldata[5] = sorted_token0;
+    assert calldata[6] = sorted_token1;
+    assert calldata[7] = this_address;
 
     // deploy contract
     let (pool_address) = deploy(
         class_hash=swap_pool_proxy_hash,
         contract_address_salt=salt,
-        constructor_calldata_size=6,
+        constructor_calldata_size=8,
         constructor_calldata=calldata,
         deploy_from_zero=0,
     );
