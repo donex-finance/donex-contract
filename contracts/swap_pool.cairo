@@ -131,11 +131,28 @@ func _token1() -> (address: felt) {
 }
 
 @event
+func Initializer(
+    tick_spacing: felt, 
+    fee: felt, 
+    token_a: felt, 
+    token_b: felt, 
+    owner: felt 
+) {
+}
+
+@event
+func InitializePrice(
+    sqrt_price_x96: Uint256 
+) {
+}
+
+@event
 func AddLiquidity(
     recipient: felt,
     tick_lower: felt,
     tick_upper: felt,
     amount: felt,
+    data: felt,
     amount0: Uint256,
     amount1: Uint256,
 ) {
@@ -157,6 +174,8 @@ func Swap(
     recipient: felt,
     zero_for_one: felt,
     amount_specified: Uint256,
+    sqrt_price_limit_x96: Uint256, // uint160
+    sender: felt,
     amount0: Uint256,
     amount1: Uint256,
     sqrt_price_x96: Uint256,
@@ -227,6 +246,8 @@ func initializer{
     _max_liquidity_per_tick.write(max_liquidity_per_tick);
 
     Ownable.initializer(owner);
+
+    Initializer.emit(tick_spacing, fee, token_a, token_b, owner);
     
     return ();
 }
@@ -366,6 +387,8 @@ func initialize_price{
     _slot0.write(new_slot0);
 
     _unlock();
+
+    InitializePrice.emit(sqrt_price_x96);
 
     return ();
 }
@@ -872,6 +895,8 @@ func swap{
         recipient,
         zero_for_one,
         amount_specified,
+        sqrt_price_limit_x96,
+        sender,
         amount0,
         amount1,
         state.sqrt_price_x96,
@@ -1159,7 +1184,7 @@ func add_liquidity{
 
     _unlock();
 
-    AddLiquidity.emit(recipient, tick_lower, tick_upper, amount, amount0, amount1);
+    AddLiquidity.emit(recipient, tick_lower, tick_upper, amount, data, amount0, amount1);
 
     return (amount0, amount1);
 }
