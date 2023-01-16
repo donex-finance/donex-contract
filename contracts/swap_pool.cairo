@@ -37,6 +37,7 @@ from contracts.math_utils import Utils
 from contracts.fullmath import FullMath
 from contracts.sqrt_price_math import SqrtPriceMath
 from contracts.interface.ISwapPoolCallback import ISwapPoolCallback
+from contracts.default_config import Config
 
 struct SlotState {
     sqrt_price_x96: Uint256,
@@ -79,7 +80,11 @@ func _initialized() -> (res: felt) {
 
 
 @storage_var
-func _fee_protocol() -> (fee_protocol: felt) {
+func _fee_protocol0() -> (fee_protocol: felt) {
+}
+
+@storage_var
+func _fee_protocol1() -> (fee_protocol: felt) {
 }
 
 @storage_var
@@ -208,7 +213,7 @@ func TransferToken(token_contract: felt, to: felt, amount: Uint256) {
 }
 
 @event
-func SetFeeProtocol(fee_protocol0: felt, fee_protocol1: felt, fee_protocol: felt) {
+func SetFeeProtocol(fee_protocol0: felt, fee_protocol1: felt) {
 }
 
 @constructor
@@ -254,10 +259,12 @@ func initializer{
 
 @view
 func get_fee_protocol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (
-    slot: felt
+    fee_protocol0: felt,
+    fee_protocol1: felt
 ) {
-    let (res) = _fee_protocol.read();
-    return (res,);
+    let (res) = _fee_protocol0.read();
+    let (res2) = _fee_protocol1.read();
+    return (res, res2);
 }
 
 @view
@@ -457,12 +464,12 @@ func _compute_swap_step_1{range_check_ptr}(
     return (amount_specified_remaining, amount_caculated);
 }
 
-func _compute_swap_step_2{range_check_ptr}(
+func _compute_protocol_fee{range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
     fee_protocol: felt, protocol_fee: felt, fee_amount: Uint256
 ) -> (new_fee_amount: Uint256, new_protocol_fee: felt) {
     let (is_valid) = Utils.is_gt(fee_protocol, 0);
     if (is_valid == TRUE) {
-        let (delta: Uint256, _) = uint256_unsigned_div_rem(fee_amount, Uint256(fee_protocol, 0));
+        let (delta: Uint256, _) = FullMath.uint256_mul_div(fee_amount, Uint256(fee_protocol, 0), Uint256(Config.SWAP_FEE_FACTOR, 0));
         let (new_fee_amount: Uint256) = uint256_sub(fee_amount, delta);
 
         // TODO: overflow?
@@ -603,7 +610,7 @@ func _compute_swap_step{
         state_amount_specified_remaining: Uint256, state_amount_caculated: Uint256
     ) = _compute_swap_step_1(exact_input, state, amount_in, amount_out, fee_amount);
 
-    let (fee_amount: Uint256, state_protocol_fee) = _compute_swap_step_2(
+    let (fee_amount: Uint256, state_protocol_fee) = _compute_protocol_fee(
         fee_protocol, state.protocol_fee, fee_amount
     );
 
@@ -633,12 +640,12 @@ func _compute_swap_step{
     return _compute_swap_step(new_state, fee_protocol, exact_input, zero_for_one, sqrt_price_limit_x96);
 }
 
-func _swap_1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+// @notice: get the swap fee rate according to swap direction
+func _get_swap_fee_rate{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     slot0: SlotState, sqrt_price_limit_x96: Uint256, zero_for_one
-) -> (res: felt) {
+) -> felt {
     alloc_locals;
 
-    let (fee_protocol) = _fee_protocol.read();
     if (zero_for_one == TRUE) {
         let (is_valid) = uint256_lt(sqrt_price_limit_x96, slot0.sqrt_price_x96);
         with_attr error_message("ZO: price limit too high") {
@@ -650,9 +657,9 @@ func _swap_1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
             assert is_valid = TRUE;
         }
 
-        let (_, res) = unsigned_div_rem(fee_protocol, 16);
+        let (fee_protocol) = _fee_protocol0.read();
 
-        return (res,);
+        return fee_protocol;
     }
 
     let (is_valid) = uint256_lt(slot0.sqrt_price_x96, sqrt_price_limit_x96);
@@ -667,8 +674,8 @@ func _swap_1{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
         assert is_valid = TRUE;
     }
 
-    let (res, _) = unsigned_div_rem(fee_protocol, 16);
-    return (res,);
+    let (fee_protocol) = _fee_protocol1.read();
+    return fee_protocol;
 }
 
 func _swap_2{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
@@ -787,7 +794,7 @@ func get_swap_results{
     }
 
     let (slot0: SlotState) = _slot0.read();
-    let (fee_protocol) = _swap_1(slot0, sqrt_price_limit_x96, zero_for_one);
+    let fee_protocol = _get_swap_fee_rate(slot0, sqrt_price_limit_x96, zero_for_one);
 
     let (liquidity_start) = _liquidity.read();
 
@@ -847,7 +854,7 @@ func swap{
     _lock();
 
     let (slot0: SlotState) = _slot0.read();
-    let (fee_protocol) = _swap_1(slot0, sqrt_price_limit_x96, zero_for_one);
+    let fee_protocol = _get_swap_fee_rate(slot0, sqrt_price_limit_x96, zero_for_one);
 
     let (liquidity_start) = _liquidity.read();
 
@@ -1263,8 +1270,8 @@ func remove_liquidity{
 
 func _check_fee_protocol{range_check_ptr}(fee_protocol) {
     if (fee_protocol != 0) {
-        // 2 <= fee_protocol <= 10
-        assert_in_range(fee_protocol, 2, 11);
+        // 0 <= fee_protocol < SWAP_FEE_FACTOR
+        assert_in_range(fee_protocol, 0, Config.SWAP_FEE_FACTOR);
         return ();
     }
     return ();
@@ -1280,15 +1287,16 @@ func set_fee_protocol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
 
     _lock();
 
+    // 0 <= fee < SWAP_FEE_FACTOR
     _check_fee_protocol(fee_protocol0);
     _check_fee_protocol(fee_protocol1);
 
-    let fee_protocol = fee_protocol0 + fee_protocol1 * 16;
-    _fee_protocol.write(fee_protocol);
+    _fee_protocol0.write(fee_protocol0);
+    _fee_protocol1.write(fee_protocol1);
 
     _unlock();
 
-    SetFeeProtocol.emit(fee_protocol0, fee_protocol1, fee_protocol);
+    SetFeeProtocol.emit(fee_protocol0, fee_protocol1);
     return ();
 }
 

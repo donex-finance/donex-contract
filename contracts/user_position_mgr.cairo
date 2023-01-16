@@ -216,6 +216,7 @@ func _get_position_liquidity_token{
     return (Uint256(0, 0), Uint256(0, 0));
 }
 
+//TODO: remove?
 @view
 func get_position_token_amounts{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
     token_id: Uint256
