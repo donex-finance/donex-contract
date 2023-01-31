@@ -1063,58 +1063,6 @@ class SwapPoolTest(TestCase):
         tick = felt_to_int(res.call_info.result[2])
         self.assertEqual(tick < -120, True)
 
-    '''
-    TODO:
-    describe('works across overflow boundaries', () => {
-      beforeEach(async () => {
-        await pool.setFeeGrowthGlobal0X128(constants.MaxUint256)
-        await pool.setFeeGrowthGlobal1X128(constants.MaxUint256)
-        await mint(wallet.address, minTick, maxTick, expandTo18Decimals(10))
-      })
-
-      it('token0', async () => {
-        await swapExact0For1(expandTo18Decimals(1), wallet.address)
-        await pool.burn(minTick, maxTick, 0)
-        const { amount0, amount1 } = await pool.callStatic.collect(
-          wallet.address,
-          minTick,
-          maxTick,
-          MaxUint128,
-          MaxUint128
-        )
-        expect(amount0).to.be.eq('499999999999999')
-        expect(amount1).to.be.eq(0)
-      })
-      it('token1', async () => {
-        await swapExact1For0(expandTo18Decimals(1), wallet.address)
-        await pool.burn(minTick, maxTick, 0)
-        const { amount0, amount1 } = await pool.callStatic.collect(
-          wallet.address,
-          minTick,
-          maxTick,
-          MaxUint128,
-          MaxUint128
-        )
-        expect(amount0).to.be.eq(0)
-        expect(amount1).to.be.eq('499999999999999')
-      })
-      it('token0 and token1', async () => {
-        await swapExact0For1(expandTo18Decimals(1), wallet.address)
-        await swapExact1For0(expandTo18Decimals(1), wallet.address)
-        await pool.burn(minTick, maxTick, 0)
-        const { amount0, amount1 } = await pool.callStatic.collect(
-          wallet.address,
-          minTick,
-          maxTick,
-          MaxUint128,
-          MaxUint128
-        )
-        expect(amount0).to.be.eq('499999999999999')
-        expect(amount1).to.be.eq('500000000000000')
-      })
-    })
-    '''
-
     @pytest.mark.asyncio
     async def test_collect(self):
         await self.check_starknet()
@@ -1676,5 +1624,4 @@ class SwapPoolTest(TestCase):
         print(amount0, amount1)
         self.assertEqual(amount0, -292678894059646219)
         self.assertEqual(amount1, 100000000000000000)
-
-    #TODO: test_initializer, only can be called once
+        

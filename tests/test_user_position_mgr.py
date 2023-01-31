@@ -990,8 +990,6 @@ class UserPositionMgrTest(TestCase):
         res = compute_contract_address(salt, class_hash, address, [swap_pool_hash, 60, 3000, token0, token1, address])
         print('res:', hex(res))
 
-    #TODO: test fees accounting
-
     '''
     @pytest.mark.asyncio
     async def test_json_data(self):
