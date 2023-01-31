@@ -15,14 +15,14 @@ pip3 install pytest asynctest pytest-xdist[psutil] openzeppelin-cairo-contracts
 
 ## Compile contract
 
-```starknet-compile contracts/swap_pool.cairo --output artifacts/swap_pool.json --abi artifacts/abi/swap_pool.json```
+```starknet-compile contracts/user_position_mgr.cairo --output artifacts/user_position_mgr.json --abi artifacts/abi/user_position_mgr.json```
 
 ## Run test
 
 Run single test
 
-```pytest -s -W ignore::DeprecationWarning tests/test_swap_pool.py```
+```pytest -s -W ignore::DeprecationWarning tests/test_user_position_mgr.py```
 
 or you can run it in parallel
 
-```pytest -n auto -s -W ignore::DeprecationWarning tests/test_swap_pool.py```
+```pytest -n auto -s -W ignore::DeprecationWarning tests/test_user_position_mgr.py```
