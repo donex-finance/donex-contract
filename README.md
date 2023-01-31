@@ -4,12 +4,14 @@
 
 See our [medium aticle](https://medium.com/@donexfinance/introducing-donex-finance-4818e4fa3a99).
 
+## Install Cairo lang
+
+[Install cairo-lang 0.10.3](https://www.cairo-lang.org/docs/quickstart.html#quickstart).
 ## Install depedency
 
-> * [Install cairo-lang 0.10.3](https://www.cairo-lang.org/docs/quickstart.html#quickstart).
-> * Install python depedency:
-
-```pip3 install pytest asynctest pytest-xdist[psutil] openzeppelin-cairo-contracts```
+```
+pip3 install pytest asynctest pytest-xdist[psutil] openzeppelin-cairo-contracts
+```
 
 ## Compile contract
 
