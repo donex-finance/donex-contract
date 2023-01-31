@@ -9,7 +9,6 @@ from starkware.cairo.common.math import unsigned_div_rem
 from starkware.cairo.common.bool import TRUE, FALSE
 
 from openzeppelin.token.erc20.IERC20 import IERC20
-from openzeppelin.access.ownable.library import Ownable
 
 from contracts.interface.ISwapPool import ISwapPool
 from contracts.tickmath import TickMath
@@ -30,11 +29,6 @@ func _user_position_mgr_address() -> (res: felt) {
 func _amount_in_cached() -> (res: Uint256) {
 }
 
-@view
-func owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() -> (owner: felt) {
-    return Ownable.owner();
-}
-
 @constructor
 func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
     return ();
@@ -42,8 +36,7 @@ func constructor{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
 
 @external
 func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    user_position_mgr_address: felt,
-    owner: felt 
+    user_position_mgr_address: felt
 ) {
     with_attr error_message("only can be initilized once") {
         let (old) = _initialized.read();
@@ -54,7 +47,6 @@ func initializer{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr
     _user_position_mgr_address.write(user_position_mgr_address);
     _amount_in_cached.write(Uint256(Utils.MAX_UINT128, Utils.MAX_UINT128));
 
-    Ownable.initializer(owner);
     return (); 
 }
 
@@ -405,19 +397,5 @@ func swap_callback{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_p
     _amount_in_cached.write(amount_pay);
     // token_out is token_in when exact output
     _pay(token_out, sender, caller_address, amount_pay);
-    return ();
-}
-
-@external
-func transferOwnership{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    newOwner: felt
-) {
-    Ownable.transfer_ownership(newOwner);
-    return ();
-}
-
-@external
-func renounceOwnership{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}() {
-    Ownable.renounce_ownership();
     return ();
 }

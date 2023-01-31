@@ -100,7 +100,7 @@ async def init_swap_router(starknet, user_position_address):
 
     kwargs = {
         "contract_class": compiled_proxy,
-        "constructor_calldata": [declare_class.class_hash, get_selector_from_name('initializer'), 2, user_position_address, address]
+        "constructor_calldata": [declare_class.class_hash, get_selector_from_name('initializer'), 1, user_position_address]
         }
 
     begin = time.time()
