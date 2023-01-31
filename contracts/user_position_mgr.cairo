@@ -297,6 +297,7 @@ func _upgrade_swap_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_ch
     return ();
 }
 
+// @notice Create a new swap pool
 @external
 func create_and_initialize_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     token0: felt,
@@ -413,6 +414,22 @@ func _check_token_order{range_check_ptr} (
     return ();
 }
 
+// @notice Creates a new position wrapped in a NFT
+// @param recipient The address that will receive the position NFT
+// @param token0 The address of the token0 contract
+// @param token1 The address of the token1 contract
+// @param fee The fee tier of the pool
+// @param tick_lower The lower tick of the position
+// @param tick_upper The upper tick of the position
+// @param amount0_desired The amount of token0 desired to deposit
+// @param amount1_desired The amount of token1 desired to deposit
+// @param amount0_min The minimum amount of token0 to deposit
+// @param amount1_min The minimum amount of token1 to deposit
+// @param deadline The time by which the transaction must be included to effect the change
+// @return token_id The ID of the token that represents the minted position
+// @return liquidity The amount of liquidity for this position
+// @return amount0 The amount of token0
+// @return amount1 The amount of token1
 @external
 func mint{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
@@ -428,7 +445,7 @@ func mint{
     amount0_min: Uint256,
     amount1_min: Uint256,
     deadline: felt
-) -> (amount0: Uint256, amount1: Uint256) {
+) -> (token_id: Uint256, liquidity: felt, amount0: Uint256, amount1: Uint256) {
     alloc_locals;
 
     SwapUtils.check_deadline(deadline);
@@ -491,9 +508,19 @@ func mint{
 
     IncreaseLiquidity.emit(new_token_id, liquidity, amount0, amount1);
 
-    return (amount0, amount1);
+    return (new_token_id, liquidity, amount0, amount1);
 }
 
+// @notice Increases the amount of liquidity in a position, with tokens paid by the caller
+// @param token_id The token id of the position
+// @param amount0_desired The amount of token0 desired to deposit
+// @param amount1_desired The amount of token1 desired to deposit
+// @param amount0_min The minimum amount of token0 to deposit
+// @param amount1_min The minimum amount of token1 to deposit
+// @param deadline The time by which the transaction must be included to effect the change
+// @return liquidity The new liquidity amount as a result of the increase
+// @return amount0 The amount of token0 to acheive resulting liquidity
+// @return amount1 The amount of token1 to acheive resulting liquidity
 @external
 func increase_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
     token_id: Uint256,
@@ -619,12 +646,14 @@ func _check_approverd_or_owner{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, r
     return ();
 }
 
-// @function remove liquidity from position
-// @param {Uint256} token_id nft ID of position
-// @param {uint128} liquidity amount of liquidity to remove
-// @param {uint256} amount0_min minimum amount of token0 to remove from liquidity 
-// @param {uint256} amount1_min minimum amount of token1 to remove from liquidity
-// @param {felt} deadline deadline for transaction
+// @notice Decreases the amount of liquidity in a position and accounts it to the position
+// @param token_id The token id of the position
+// @param liquidity The amount of liquidity to decrease
+// @param amount0_min The minimum amount of token0 to receive
+// @param amount1_min The minimum amount of token1 to receive
+// @param deadline The time before which the transaction must be included to effect the change 
+// @return amount0 The amount of token0 accounted to the position's tokens owed
+// @return amount1 The amount of token1 accounted to the position's tokens owed
 @external
 func decrease_liquidity{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*}(
     token_id: Uint256,
@@ -776,6 +805,13 @@ func _update_fees{
     );
 }
 
+// @notice Collects up to a maximum amount of fees owed to a specific position to the recipient
+// @param token_id The token id of the position
+// @param recipient The address to recive the fees
+// @param amount0_max The maximum amount of token0 to collect
+// @param amount1_max The maximum amount of token1 to collect
+// @return amount0 The amount of fees collected in token0
+// @return amount1 The amount of fees collected in token1
 @external
 func collect{
     syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr, bitwise_ptr: BitwiseBuiltin*
@@ -843,6 +879,9 @@ func collect{
     return (Uint256(amount0, 0), Uint256(amount1, 0));
 }
 
+/// @notice Burns a token ID, which deletes it from the NFT contract. The token must have 0 liquidity and all tokens
+/// must be collected first.
+/// @param token_id The ID of the token that is being burned
 @external
 func burn{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(token_id: Uint256) {
     alloc_locals;
@@ -879,6 +918,9 @@ func renounceOwnership{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_che
     return ();
 }
 
+// @notice update swap pool proxy class hash and swap pool class hash stored in the contract
+// @param swap_pool_hash The class hash of swap pool
+// @param swap_pool_proxy_hash The class hash of swap pool proxy
 @external
 func update_swap_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     swap_pool_hash: felt,
@@ -890,6 +932,34 @@ func update_swap_pool{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     return ();
 }
 
+// @notice upgrade class hash of swap pool instance
+// @param token0 The contract address of the token0
+// @param token1 The contract address of the token1
+// @param fee The fee tier of the pool
+// @param swap_pool_hash The new class hash of swap pool
+@external
+func upgrade_swap_pool_class_hash{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
+    token0: felt,
+    token1: felt,
+    fee: felt,
+    swap_pool_hash: felt
+) {
+    Ownable.assert_only_owner();
+    let pool_address = _check_pool_address(token0, token1, fee);
+    ISwapPool.upgrade(contract_address=pool_address, new_implementation=swap_pool_hash);
+    return ();
+}
+
+// @notice Collects up to a maximum amount of fees owed to protocol
+// @dev Only callable by the owner
+// @param token0 The contract address of the token0
+// @param token1 The contract address of the token1
+// @param fee The fee tier of the pool
+// @param recipient The address to recive the fees
+// @param amount0_requested The maximum amount of token0 to collect
+// @param amount1_requested The maximum amount of token1 to collect
+// @return amount0 The amount of fees collected in token0
+// @return amount1 The amount of fees collected in token1
 @external
 func collect_protocol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     token0: felt,
@@ -910,6 +980,13 @@ func collect_protocol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
     return (amount0, amount1);
 }
 
+// @notice Set the fee protocol of the pool
+// @dev Only callable by the owner
+// @param token0 The contract address of the token0
+// @param token1 The contract address of the token1
+// @param fee The fee tier of the pool
+// @param fee_protocol0 The fee tier of token0 collected by protocol
+// @param fee_protocol1 The fee tier of token1 collected by protocol
 @external
 func set_fee_protocol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     token0: felt,
@@ -927,19 +1004,6 @@ func set_fee_protocol{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_chec
 
     ISwapPool.set_fee_protocol(contract_address=pool_address, fee_protocol0=fee_protocol0, fee_protocol1=fee_protocol1);
 
-    return ();
-}
-
-@external
-func upgrade_swap_pool_class_hash{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
-    token0: felt,
-    token1: felt,
-    fee: felt,
-    swap_pool_hash: felt
-) {
-    Ownable.assert_only_owner();
-    let pool_address = _check_pool_address(token0, token1, fee);
-    ISwapPool.upgrade(contract_address=pool_address, new_implementation=swap_pool_hash);
     return ();
 }
 

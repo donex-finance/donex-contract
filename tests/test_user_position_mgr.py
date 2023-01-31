@@ -323,8 +323,8 @@ class UserPositionMgrTest(TestCase):
         swap_router = cached_contract(state, self.swap_router_def, self.swap_router)
 
         res = await self.mint(user_position, other_address, self.mint_token0.contract_address, self.mint_token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100000000), to_uint(100000000), to_uint(0), to_uint(0))
-        amount0 = from_uint(res.call_info.result[0: 2])
-        amount1 = from_uint(res.call_info.result[2: 4])
+        amount0 = from_uint(res.call_info.result[3: 5])
+        amount1 = from_uint(res.call_info.result[5: 7])
 
         res = await self.mint(user_position, address, self.mint_token0.contract_address, self.mint_token1.contract_address, FeeAmount.MEDIUM, min_tick, max_tick, to_uint(100000), to_uint(100000), to_uint(0), to_uint(0))
 

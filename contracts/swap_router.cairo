@@ -101,6 +101,16 @@ func _exact_input_internal{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range
     return (neg_amount0,);
 }
 
+// @notice Swaps `amount_in` of `token_in` for as much as possible of `token_out`
+// @param token_in The contract address of the sent token sent
+// @param token_out The contract address of the recieved token
+// @param fee The fee tier of the pool
+// @param recipient The address to receive the token
+// @param amount_in The amount of the sent token
+// @param sqrt_price_limit The price limit of the pool
+// @param amount_out_min The minimum amount of the received token
+// @param deadline The time at which this transaction must be included to effect the swap
+// @return amount_out The amount of the received token
 @external
 func exact_input{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     token_in: felt,
@@ -161,6 +171,13 @@ func _exact_input_router{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_c
     return (amount_out,);
 }
 
+// @notice Swaps `amount_in` of one token for as much as possible of another along the specified path
+// @param path_len The length of the path
+// @param path The path of the swap
+// @param recipient The address to receive the token
+// @param amount_in The amount of the sent token
+// @param amount_out_min The minimum amount of the received token
+// @return amount_out The amount of the received token
 @external
 func exact_input_router{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     path_len: felt,
@@ -251,6 +268,16 @@ func _exact_output_internal{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, rang
     return (amount1,);
 }
 
+// @notice Swaps as little as possible of one token for `amount_out` of another token
+// @param token_in The contract address of the sent token
+// @param token_out The contract address of the received token
+// @param fee The fee of the pool
+// @param recipient The address to receive the token
+// @param amount_out The amount of the received token
+// @param sqrt_price_limit The limit price of the pool
+// @param amount_in_max The maximum amount of the sent token
+// @param deadline The deadline of the swap
+// @return amount_in The amount of the input token
 @external
 func exact_output{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     token_in: felt,
@@ -287,6 +314,14 @@ func exact_output{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_pt
     return (amount_in,);
 }
 
+// @notice Swaps as little as possible one token for `amount_out` of another token along the specified path
+// @param path_len The length of the path
+// @param path The path of the swap
+// @param recipient The address to receive the token
+// @param amount_out The amount of the received token
+// @param amount_in_max The maximum amount of the sent token
+// @param deadline The deadline of the swap
+// @return amount_out The amount of the received token
 @external
 func exact_output_router{syscall_ptr: felt*, pedersen_ptr: HashBuiltin*, range_check_ptr}(
     path_len: felt,
